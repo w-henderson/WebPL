@@ -6,13 +6,13 @@ pub struct VarArena(Vec<HeapTerm>);
 pub struct Checkpoint(usize);
 
 impl VarArena {
-    pub fn new(query: Query) -> (Self, Vec<HeapTermPtr>, Vec<(VarName, HeapTermPtr)>) {
+    pub fn new(query: &Query) -> (Self, Vec<HeapTermPtr>, Vec<(VarName, HeapTermPtr)>) {
         let mut arena = Self::default();
         let mut var_map = Vec::new();
         let mut heap_query = Vec::new();
 
         for term in query {
-            heap_query.push(arena.alloc(&term, &mut var_map));
+            heap_query.push(arena.alloc(term, &mut var_map));
         }
 
         (arena, heap_query, var_map)

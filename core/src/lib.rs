@@ -26,56 +26,24 @@ pub type Clause = (CodeTerm, Vec<CodeTerm>);
 pub type Query = Vec<CodeTerm>;
 pub type Program = Vec<Clause>;
 
-pub fn solve(program: Program, query: Query) {
-    let (vars, heap_query, var_map) = VarArena::new(query);
-
-    let mut solver = Solver {
-        goals: heap_query.clone().into(),
-        vars,
-        var_map,
-        trail: Trail::new(),
-    };
-
-    solver.solve(&program)
-}
-
-pub struct Solver {
+pub struct Solver<'a> {
+    program: &'a Program,
     goals: VecDeque<HeapTermPtr>,
     vars: VarArena,
     var_map: Vec<(VarName, HeapTermPtr)>,
     trail: Trail,
 }
 
-impl Solver {
-    fn solve(&mut self, program: &Program) {
-        let goal = self.goals.pop_front().unwrap();
+impl<'a> Solver<'a> {
+    pub fn solve(program: &'a Program, query: &Query) -> Self {
+        let (vars, heap_query, var_map) = VarArena::new(query);
 
-        for clause in program {
-            let trail_checkpoint = self.trail.checkpoint();
-            let arena_checkpoint = self.vars.checkpoint();
-
-            let (head, body) = self.vars.alloc_clause(clause);
-
-            if self.unify(goal, head) {
-                body.iter()
-                    .rev()
-                    .for_each(|goal| self.goals.push_front(*goal));
-
-                if self.goals.is_empty() {
-                    print!("yay: ");
-                    for (name, var) in &self.var_map {
-                        print!("{}={:?} ", name, self.vars.serialize(*var));
-                    }
-                    println!();
-                } else {
-                    self.solve(program);
-                }
-            } else {
-                println!("no");
-            }
-
-            self.trail.undo(trail_checkpoint, &mut self.vars);
-            self.vars.undo(arena_checkpoint)
+        Solver {
+            program,
+            goals: heap_query.clone().into(),
+            vars,
+            var_map,
+            trail: Trail::new(),
         }
     }
 
@@ -105,5 +73,47 @@ impl Solver {
             }
             _ => false,
         }
+    }
+}
+
+impl Iterator for Solver<'_> {
+    type Item = Vec<(VarName, String)>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let goal = self.goals.pop_front()?;
+
+        for clause in self.program {
+            let trail_checkpoint = self.trail.checkpoint();
+            let arena_checkpoint = self.vars.checkpoint();
+
+            let (head, body) = self.vars.alloc_clause(clause);
+
+            if self.unify(goal, head) {
+                body.iter()
+                    .rev()
+                    .for_each(|goal| self.goals.push_front(*goal));
+
+                if self.goals.is_empty() {
+                    // Found a solution, return it.
+
+                    let solution = self
+                        .var_map
+                        .iter()
+                        .map(|(name, var)| (name.clone(), self.vars.serialize(*var)))
+                        .collect::<Vec<_>>();
+
+                    return Some(solution);
+                } else if let Some(solution) = self.next() {
+                    // More goals to solve, recurse.
+
+                    return Some(solution);
+                }
+            }
+
+            self.trail.undo(trail_checkpoint, &mut self.vars);
+            self.vars.undo(arena_checkpoint)
+        }
+
+        None
     }
 }

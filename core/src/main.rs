@@ -20,7 +20,11 @@ fn unify() {
         vec![CodeTerm::Var("X".into())],
     )];
 
-    solve(program, query);
+    let solver = Solver::solve(&program, &query);
+
+    for solution in solver {
+        println!("{:?}", solution);
+    }
 }
 
 fn main() {
