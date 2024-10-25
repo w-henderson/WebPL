@@ -3,41 +3,22 @@ use webpl::*;
 fn unify() {
     let program: Program = vec![
         (
-            CodeTerm::Compound((
-                "college".into(),
-                vec![
-                    CodeTerm::Atom("william".into()),
-                    CodeTerm::Atom("churchill".into()),
-                ],
-            )),
-            vec![],
+            CodeTerm::Compound("a".into(), vec![CodeTerm::Var("X".into())]),
+            vec![CodeTerm::Compound(
+                "b".into(),
+                vec![CodeTerm::Var("X".into())],
+            )],
         ),
         (
-            CodeTerm::Compound((
-                "college".into(),
-                vec![
-                    CodeTerm::Atom("john".into()),
-                    CodeTerm::Atom("churchill".into()),
-                ],
-            )),
-            vec![],
-        ),
-        (
-            CodeTerm::Compound((
-                "college".into(),
-                vec![
-                    CodeTerm::Atom("elizabeth".into()),
-                    CodeTerm::Atom("trinity".into()),
-                ],
-            )),
+            CodeTerm::Compound("b".into(), vec![CodeTerm::Var("X".into())]),
             vec![],
         ),
     ];
 
-    let query: Query = vec![CodeTerm::Compound((
-        "college".into(),
-        vec![CodeTerm::Var(0), CodeTerm::Atom("churchill".into())],
-    ))];
+    let query: Query = vec![CodeTerm::Compound(
+        "a".into(),
+        vec![CodeTerm::Var("X".into())],
+    )];
 
     solve(program, query);
 }

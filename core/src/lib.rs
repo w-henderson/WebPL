@@ -7,20 +7,19 @@ use trail::Trail;
 use vararena::VarArena;
 
 type Atom = String;
+type VarName = String;
 type HeapTermPtr = usize;
-type CodeCompound = (Atom, Vec<CodeTerm>); // (functor, args)
-type HeapCompound = (Atom, usize); // (functor, arity)
 
 pub enum HeapTerm {
     Atom(Atom),
     Var(HeapTermPtr),
-    Compound(HeapCompound),
+    Compound(Atom, usize), // (functor, arity)
 }
 
 pub enum CodeTerm {
     Atom(Atom),
-    Var(usize),
-    Compound(CodeCompound),
+    Var(VarName),
+    Compound(Atom, Vec<CodeTerm>), // (functor, args)
 }
 
 pub type Clause = (CodeTerm, Vec<CodeTerm>);
@@ -28,7 +27,7 @@ pub type Query = Vec<CodeTerm>;
 pub type Program = Vec<Clause>;
 
 pub fn solve(program: Program, query: Query) {
-    let (vars, heap_query, query_vars) = VarArena::new(query);
+    let (vars, heap_query, var_map) = VarArena::new(query);
 
     let mut context = Context {
         goals: heap_query.clone().into(),
@@ -36,7 +35,7 @@ pub fn solve(program: Program, query: Query) {
         trail: Trail::new(),
     };
 
-    context.solve(&program, &query_vars)
+    context.solve(&program, &var_map)
 }
 
 pub struct Context {
@@ -46,7 +45,7 @@ pub struct Context {
 }
 
 impl Context {
-    fn solve(&mut self, program: &Program, query_vars: &Vec<HeapTermPtr>) {
+    fn solve(&mut self, program: &Program, var_map: &Vec<(VarName, HeapTermPtr)>) {
         let goal = self.goals.pop_front().unwrap();
 
         for clause in program {
@@ -62,12 +61,12 @@ impl Context {
 
                 if self.goals.is_empty() {
                     print!("yay: ");
-                    for var in query_vars {
-                        print!("_{}={:?} ", var, self.vars.serialize(*var));
+                    for (name, var) in var_map {
+                        print!("{}={:?} ", name, self.vars.serialize(*var));
                     }
                     println!();
                 } else {
-                    self.solve(program, query_vars);
+                    self.solve(program, var_map);
                 }
             } else {
                 println!("no");
@@ -86,7 +85,7 @@ impl Context {
                 self.vars.unify(*a, b_ptr);
                 true
             }
-            (HeapTerm::Compound((f, a_arity)), HeapTerm::Compound((g, b_arity))) => {
+            (HeapTerm::Compound(f, a_arity), HeapTerm::Compound(g, b_arity)) => {
                 if f != g || a_arity != b_arity {
                     return false;
                 }

@@ -1,4 +1,4 @@
-use crate::{Clause, CodeTerm, HeapTerm, HeapTermPtr, Query};
+use crate::{Clause, CodeTerm, HeapTerm, HeapTermPtr, Query, VarName};
 
 #[derive(Default)]
 pub struct VarArena(Vec<HeapTerm>);
@@ -6,7 +6,7 @@ pub struct VarArena(Vec<HeapTerm>);
 pub struct Checkpoint(usize);
 
 impl VarArena {
-    pub fn new(query: Query) -> (Self, Vec<HeapTermPtr>, Vec<HeapTermPtr>) {
+    pub fn new(query: Query) -> (Self, Vec<HeapTermPtr>, Vec<(VarName, HeapTermPtr)>) {
         let mut arena = Self::default();
         let mut var_map = Vec::new();
         let mut heap_query = Vec::new();
@@ -15,11 +15,7 @@ impl VarArena {
             heap_query.push(arena.alloc(&term, &mut var_map));
         }
 
-        (
-            arena,
-            heap_query,
-            var_map.into_iter().map(|(_, x)| x).collect(),
-        )
+        (arena, heap_query, var_map)
     }
 
     pub fn checkpoint(&self) -> Checkpoint {
@@ -30,7 +26,7 @@ impl VarArena {
         self.0.truncate(checkpoint.0);
     }
 
-    pub fn alloc(&mut self, term: &CodeTerm, var_map: &mut Vec<(usize, usize)>) -> HeapTermPtr {
+    pub fn alloc(&mut self, term: &CodeTerm, var_map: &mut Vec<(VarName, usize)>) -> HeapTermPtr {
         let result = self.0.len();
 
         match term {
@@ -40,13 +36,12 @@ impl VarArena {
                     self.0.push(HeapTerm::Var(*unified));
                 } else {
                     self.0.push(HeapTerm::Var(result));
-                    var_map.push((*id, result));
+                    var_map.push((id.clone(), result));
                 }
             }
-            CodeTerm::Compound((functor, args)) => {
+            CodeTerm::Compound(functor, args) => {
                 let arity = args.len();
-                let compound = (functor.clone(), arity);
-                self.0.push(HeapTerm::Compound(compound));
+                self.0.push(HeapTerm::Compound(functor.clone(), arity));
 
                 for arg in args {
                     self.alloc(arg, var_map);
@@ -98,9 +93,9 @@ impl VarArena {
     pub fn serialize(&self, term: HeapTermPtr) -> String {
         match &self.0[term] {
             HeapTerm::Atom(atom) => atom.clone(),
-            HeapTerm::Var(x) if *x == term => x.to_string(),
+            HeapTerm::Var(x) if *x == term => format!("_{}", x),
             HeapTerm::Var(x) => self.serialize(*x),
-            HeapTerm::Compound((functor, arity)) => {
+            HeapTerm::Compound(functor, arity) => {
                 let args = (0..*arity)
                     .map(|i| self.serialize(term + 1 + i))
                     .collect::<Vec<_>>()
