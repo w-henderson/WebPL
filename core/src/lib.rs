@@ -29,23 +29,25 @@ pub type Program = Vec<Clause>;
 pub fn solve(program: Program, query: Query) {
     let (vars, heap_query, var_map) = VarArena::new(query);
 
-    let mut context = Context {
+    let mut solver = Solver {
         goals: heap_query.clone().into(),
         vars,
+        var_map,
         trail: Trail::new(),
     };
 
-    context.solve(&program, &var_map)
+    solver.solve(&program)
 }
 
-pub struct Context {
+pub struct Solver {
     goals: VecDeque<HeapTermPtr>,
     vars: VarArena,
+    var_map: Vec<(VarName, HeapTermPtr)>,
     trail: Trail,
 }
 
-impl Context {
-    fn solve(&mut self, program: &Program, var_map: &Vec<(VarName, HeapTermPtr)>) {
+impl Solver {
+    fn solve(&mut self, program: &Program) {
         let goal = self.goals.pop_front().unwrap();
 
         for clause in program {
@@ -61,12 +63,12 @@ impl Context {
 
                 if self.goals.is_empty() {
                     print!("yay: ");
-                    for (name, var) in var_map {
+                    for (name, var) in &self.var_map {
                         print!("{}={:?} ", name, self.vars.serialize(*var));
                     }
                     println!();
                 } else {
-                    self.solve(program, var_map);
+                    self.solve(program);
                 }
             } else {
                 println!("no");
