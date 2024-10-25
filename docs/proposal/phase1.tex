@@ -1,0 +1,41 @@
+\documentclass{article}
+\usepackage[a4paper, margin=1in]{geometry}
+
+\setlength\parskip{1em}
+\setlength\parindent{0pt}
+
+\title{Phase 1 Project Selection Status Report}
+\author{William Henderson \\
+University of Cambridge}
+\date{September 2024}
+
+\begin{document}
+
+\maketitle
+
+Subject: Phase 1 - Henderson: A Browser-Optimised Prolog Interpreter
+
+{\bf Name:} William Henderson \\
+{\bf College:} Churchill College \\
+{\bf CRSID:} wh364 \\
+{\bf Director of Studies:} Dr John Fawcett
+
+\begin{enumerate}
+
+\item {\bf Please write 100 words on your current project ideas.}
+
+The project plan is to build an interpreter for pure Prolog, optimised for browser execution, in Rust, and compile it to the browser-compatible binary format WebAssembly. As an extension, I will build a browser-based IDE to demonstrate the interpreter’s functionality, which will also facilitate comparison with other Prolog implementations by allowing the user to choose the underlying interpreter. Existing browser-based Prolog IDEs tend to either use JavaScript, a standard Prolog interpreter like SWI-Prolog compiled to WebAssembly, or a client-server model where code is sent to a server for execution, whereas my approach optimises from first principles specifically for this use-case.
+
+\item {\bf Please list names of potential project supervisors, indicating any interactions you have had with them, for example: not contacted, awaiting reply, in discussion, agreed to supervise.}
+
+Alan Mycroft has agreed to supervise.
+
+\item {\bf Is there any chance that your project will involve any computing resources other than the Computing Service's MCS and software that is already installed there, for example: your own machine, machines in College, special peripherals, imported software packages, special hardware, network access, substantial extra disc space on the MCS.
+
+If so indicate below what, and what it is needed for.}
+
+I will be using my own machine for development. Necessary software packages will include the Rust toolchain, LALRPOP (for parsing Prolog code (for compiling to WebAssembly), and possibly others.
+
+\end{enumerate}
+
+\end{document}

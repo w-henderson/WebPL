@@ -1,0 +1,131 @@
+\documentclass{article}
+
+\usepackage[a4paper, margin=1in]{geometry}
+
+\setlength\parskip{1em}
+
+\title{Part II Project Proposal:\\
+{\bf A Prolog interpreter for the browser}}
+\author{William Henderson \\
+University of Cambridge}
+\date{October 2024}
+
+\begin{document}
+
+\maketitle
+
+\section*{Introduction}
+
+Accessing an efficient Prolog interpreter from the browser is convenient for both education and experimentation. However, at the time of writing, only limited work has been done in this space. The existing solutions fall broadly into three categories: interpreters written in JavaScript, client-server systems where Prolog code is sent to a server for execution, and standard Prolog interpreters like SWI-Prolog \cite{swiprolog} compiled to the browser-compatible binary format WebAssembly (WASM).
+
+Interpreters written in JavaScript suffer from performance issues due to the interpreted nature of the JavaScript language, and client-server systems require a server as host. Using a Prolog interpreter compiled to WebAssembly is therefore the most promising solution, but not one that has been explored in great depth.
+
+General-purpose Prolog interpreters, like SWI-Prolog, are relatively heavyweight, and the resource requirements in the browser differ greatly from those when running directly on the operating system, particularly in terms of memory. I hypothesise that a more lightweight interpreter, specifically optimised for the browser use-case and built from first principles, may be able to achieve superior performance. The aim of this project is to test this hypothesis by building such an interpreter in Rust, compiling it to WebAssembly, and evaluating its performance compared to existing solutions.
+
+The project will also involve building a lexer and parser alongside the core interpreter. As an extension, I will build a browser-based IDE to demonstrate the interpreter’s functionality, which will also facilitate comparison with other Prolog implementations by allowing the user to choose the underlying interpreter. Unlike existing solutions, my approach will optimise from first principles specifically for the browser use-case.
+
+\section*{Starting Point}
+
+The project will be implemented in Rust, a language with which I have some experience through a number of personal projects over the last four years, including those targeting WebAssembly. I plan to use Rust's LALRPOP \cite{lalrpop} parser generator as part of the project, which I have not used before, but I expect knowledge from the Part IB Compiler Construction course to be relevant.
+
+The browser-based IDE will be implemented using TypeScript with the React framework, with which I have a similar level of experience to Rust, although I have not used WebAssembly with TypeScript to this extent.
+
+I have limited familiarity with Prolog from the Part IB Prolog course.
+
+I have experimented with building a Prolog interpreter in Rust in the past, but do not intend to use any of this code in my project.
+
+\section*{Project Substance and Structure}
+
+The core part of the project will be the implementation of an interpreter for a pure Prolog AST in Rust, which will be compiled to WebAssembly for use in the browser.
+
+\begin{enumerate}
+
+\item \emph{Pure Prolog AST interpreter}: Initially, I will build an interpreter in Rust for a pure Prolog AST, represented as a Rust \texttt{enum}.
+
+\item \emph{Lexer and parser}: I will complement the interpreter with a lexer and parser using LALRPOP.
+
+\end{enumerate}
+
+At this stage, I will have a standalone Prolog interpreter with similar functionality to SWI-Prolog. The next step will be compiling it to WebAssembly, which in theory should be as simple as changing the target in the Rust compiler. However, in practice, to interface with JavaScript and the browser for IO and other operations, some additional work will be required, and I intend to use the \texttt{wasm-bindgen} \cite{wasmbindgen} Rust library for this.
+
+\begin{enumerate}
+
+\setcounter{enumi}{2}
+
+\item \emph{Run in the browser}: I will compile the interpreter to WebAssembly, making the necessary changes to run it in the browser.
+
+\item \emph{Browser optimisation}: I will measure the performance of the interpreter in the browser, examining the generated WebAssembly code, and make optimisations. This will likely involve exploring the use of different data structures and possibly unification algorithms.
+
+\end{enumerate}
+
+\section*{Possible Extensions}
+
+A core extension to the project would be the implementation of a browser-based IDE for Prolog to demonstrate the interpreter's functionality, similar to SWI-Prolog's SWISH \cite{swish}, as well as to facilitate comparison with other Prolog implementations.
+
+Other potential extensions may include:
+
+\begin{itemize}
+\item Supporting extra-logical predicates such as cut
+\item Building a JavaScript library to interface with the WASM Prolog interpreter
+\item Building a Prolog AST to WASM compiler, using the Warren Abstract Machine \cite{wam} (or similar), whose generated code can then run in a browser (more difficult)
+\end{itemize}
+
+\section*{Success Criteria}
+
+The project will be deemed a success if I have written a Prolog interpreter in Rust, compiled it to WebAssembly, and executed it in the browser, as well as having compared its performance with existing solutions, including SWI-Prolog compiled to WASM and Tau Prolog \cite{tauprolog} (a JavaScript Prolog interpreter).
+
+Evaluation will, at least, measure performance in terms of execution time and memory usage when running different Prolog programs, including solving the N-queens problem and other problems from the Part IB Prolog notes \cite{prolognotes}. The interpreter will include a \texttt{time/1} predicate (as in SWI-Prolog) to measure execution time, and the browser's performance tools will be used to measure memory usage. Each program will be run multiple times and the results (discounting the first for cache warm-up) summarised.
+
+\section*{Work Packages}
+
+\begin{itemize}
+
+\item \emph{17th - 30th October (Michaelmas weeks 2 and 3)}: Research existing Prolog interpreters that work in the browser, and explore how they are implemented. Write a draft report about this to form part of the introduction/preparation section of the dissertation. \\
+{\bf Milestone (30th October): complete draft report.}
+
+\item \emph{31st October - 13th November (Michaelmas weeks 4 and 5)}: Begin to implement the core interpreter for a pure Prolog AST in Rust.
+
+\item \emph{14th - 27th November (Michaelmas weeks 6 and 7)}: Continue work on the core interpreter. \\
+{\bf Milestone (27th November): core interpreter complete.}
+
+\item \emph{28th November - 12th December (Michaelmas week 8 and Christmas vacation)}: Extend the interpreter to include a lexer and parser using LALRPOP. \\
+{\bf Milestone (12th December): lexer and parser complete.}
+
+\item \emph{13th December - 25th December (Christmas vacation)}: Revise for exams and catch up on any work that has fallen behind.
+
+\item \emph{26th December - 8th January (Christmas vacation)}: Evaluate the performance of the interpreter in the browser, make optimisations, and compare to existing solutions. \\
+{\bf Milestone (8th January): meet success criterion.}
+
+\item \emph{9th January - 22nd January (Christmas vacation)}: If on track, begin work on the browser-based IDE extension, otherwise catch up on any work that has fallen behind.
+
+\item \emph{23rd January - 5th February (Lent weeks 1 and 2)}: Write the progress report, due on 7th February. \\
+{\bf Milestone (5th February): complete progress report.}
+
+\item \emph{6th February - 19th February (Lent weeks 3 and 4)}: Catch up on any work that has fallen behind or work on an extension.
+
+\item \emph{20th February - 5th March (Lent weeks 5 and 6)}: Write the introduction and preparation sections of the dissertation and get feedback from supervisor. \\
+{\bf Milestone (5th March): complete draft introduction/preparation sections.}
+
+\item \emph{6th March - 19th March (Lent weeks 7 and 8)}: Write the implementation section of the dissertation and get feedback from my supervisor. \\
+{\bf Milestone (19th March): complete draft implementation section.}
+
+\item \emph{20th March - 2nd April (Easter vacation)}: Write the evaluation and conclusion sections of the dissertation, get feedback from my supervisor, and spend time away from the project revising for exams. \\
+{\bf Milestone (2nd April): complete draft dissertation.}
+
+\item \emph{3rd April - 16th April (Easter vacation)}: Revise for exams and respond to feedback.
+
+\item \emph{17th April - 30th April (Easter vacation)}: Revise for exams and respond to feedback.
+
+\item \emph{1st May - 14th May (Easter weeks 1 and 2)}: Respond to feedback and make final changes to the dissertation if necessary, due on 16th May. \\
+{\bf Milestone (14th May): dissertation submitted.}
+
+\end{itemize}
+
+\section*{Resources Declaration}
+
+I will be using my own laptop (2023 MacBook Pro, Apple M3 Pro (11-core CPU, 14-core GPU), 18GB RAM, MacOS Sequoia). If this fails, I will use my old laptop (2018 Surface Pro 6, Intel i5-8250U, 8GB RAM, Windows 11) until I am able to replace it. I accept full responsibility for this machine and I have made contingency plans to protect myself against hardware and/or software failure. I will make frequent commits to a private GitHub repository alongside regular backups to Google Drive.
+
+\bibliographystyle{unsrt}
+\bibliography{../refs}
+
+\end{document}
