@@ -13,13 +13,13 @@ type HeapTermPtr = usize;
 pub enum HeapTerm {
     Atom(Atom),
     Var(HeapTermPtr),
-    Compound(Atom, usize), // (functor, arity)
+    Compound(Atom, Vec<HeapTermPtr>),
 }
 
 pub enum CodeTerm {
     Atom(Atom),
     Var(VarName),
-    Compound(Atom, Vec<CodeTerm>), // (functor, args)
+    Compound(Atom, Vec<CodeTerm>),
 }
 
 pub type Clause = (CodeTerm, Vec<CodeTerm>);
@@ -55,14 +55,19 @@ impl<'a> Solver<'a> {
                 self.vars.unify(*a, b_ptr);
                 true
             }
-            (HeapTerm::Compound(f, a_arity), HeapTerm::Compound(g, b_arity)) => {
-                if f != g || a_arity != b_arity {
+            (_, HeapTerm::Var(b)) => {
+                self.trail.push(*b);
+                self.vars.unify(*b, a_ptr);
+                true
+            }
+            (HeapTerm::Compound(f, a_args), HeapTerm::Compound(g, b_args)) => {
+                if f != g || a_args.len() != b_args.len() {
                     return false;
                 }
 
                 let checkpoint = self.trail.checkpoint();
 
-                for (a, b) in (a_ptr + 1..a_ptr + 1 + a_arity).zip(b_ptr + 1..b_ptr + 1 + b_arity) {
+                for (a, b) in a_args.clone().into_iter().zip(b_args.clone().into_iter()) {
                     if !self.unify(a, b) {
                         self.trail.undo(checkpoint, &mut self.vars);
                         return false;

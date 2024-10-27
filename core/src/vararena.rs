@@ -41,11 +41,18 @@ impl VarArena {
             }
             CodeTerm::Compound(functor, args) => {
                 let arity = args.len();
-                self.0.push(HeapTerm::Compound(functor.clone(), arity));
+                self.0.push(HeapTerm::Compound(functor.clone(), Vec::new()));
 
+                let mut heap_args = Vec::with_capacity(arity);
                 for arg in args {
-                    self.alloc(arg, var_map);
+                    heap_args.push(self.alloc(arg, var_map));
                 }
+
+                if let HeapTerm::Compound(_, ref mut args) = self.0[result] {
+                    *args = heap_args;
+                }
+
+                return result;
             }
         }
 
@@ -95,12 +102,15 @@ impl VarArena {
             HeapTerm::Atom(atom) => atom.clone(),
             HeapTerm::Var(x) if *x == term => format!("_{}", x),
             HeapTerm::Var(x) => self.serialize(*x),
-            HeapTerm::Compound(functor, arity) => {
-                let args = (0..*arity)
-                    .map(|i| self.serialize(term + 1 + i))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                format!("{}({})", functor, args)
+            HeapTerm::Compound(functor, args) => {
+                format!(
+                    "{}({})",
+                    functor,
+                    args.iter()
+                        .map(|arg| self.serialize(*arg))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
             }
         }
     }
