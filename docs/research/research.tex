@@ -1,0 +1,41 @@
+\documentclass{article}
+
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage{hyperref}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1em}
+
+\title{Prolog Interpreters for the Browser}
+\author{William Henderson \\
+University of Cambridge}
+\date{October 2024}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Existing Prolog interpreters that run in the browser fall broadly into three categories: interpreters written in JavaScript, client-server systems where Prolog code is sent to a server for execution, and standard general-purpose Prolog interpreters compiled to WebAssembly.
+
+\section{JavaScript Prolog Interpreters}
+
+Tau Prolog \cite{tauprolog} is an ISO-compliant Prolog interpreter written in JavaScript. It takes an asynchronous callback-based approach so as not to block the main thread. Unification is implemented using the algorithm described by Martelli and Montanari \cite{mm}, returning a substitution object mapping variables to terms. These substitutions are then pushed onto a stack, along with updated goals according to the unification, and the stack is used to backtrack when a clause fails.
+
+Tau Prolog has a concept of \emph{modules}, which consist of a name, a list of predicates, and a list of exports. Modules may be defined as Prolog programs or written in JavaScript to provide functionality not available in Prolog, such as interacting with the browser.
+
+There exist other JavaScript Prolog interpreters, such as jsProlog \cite{jsprolog} and hitchhiker Prolog \cite{hitchhiker} (an implementation of Tarau's virtual machine \cite{tarau}), but these are relatively unmaintained personal projects and not as widely used as Tau Prolog. jsProlog implements unification in the same way as Tau Prolog, while hitchhiker Prolog takes a lower-level approach using a WAM-like virtual machine.
+
+\section{Client-Server Systems}
+
+Pengines \cite{pengines} is a client-server system for Prolog that provides an HTTP API for executing Prolog code on a server. SWISH \cite{swish}, a web-based Prolog IDE that uses Pengines, is a widely-used example of this approach.
+
+\section{WebAssembly Prolog Interpreters}
+
+SWI-Prolog provides a WASM port \cite{swiprologwasm} using Emscripten (a C/C++ to WASM compiler based on LLVM) to run the standard SWI-Prolog interpreter in the browser. It provides a high-level JavaScript interface to Prolog, optionally asynchronous, and supports all of core Prolog as well as many libraries, which can be loaded from URLs even inside the Prolog code. In addition, it introduces the new syntax \texttt{:=} to define JavaScript predicates, e.g. \texttt{Rand := 'Math'.random()}.
+
+\bibliographystyle{unsrt}
+\bibliography{../refs}
+
+\end{document}
