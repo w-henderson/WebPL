@@ -115,3 +115,38 @@ fn recursive_solution() {
 
     assert_eq!(solver.next(), None);
 }
+
+fn backtracking() {
+    let program: Program = vec![
+        (
+            CodeTerm::Compound("generate".into(), vec![CodeTerm::Atom("1".into())]),
+            vec![],
+        ),
+        (
+            CodeTerm::Compound("generate".into(), vec![CodeTerm::Atom("2".into())]),
+            vec![],
+        ),
+        (
+            CodeTerm::Compound("test".into(), vec![CodeTerm::Atom("2".into())]),
+            vec![],
+        ),
+        (
+            CodeTerm::Compound("solve".into(), vec![CodeTerm::Var("X".into())]),
+            vec![
+                CodeTerm::Compound("generate".into(), vec![CodeTerm::Var("X".into())]),
+                CodeTerm::Compound("test".into(), vec![CodeTerm::Var("X".into())]),
+            ],
+        ),
+    ];
+
+    let query = vec![CodeTerm::Compound(
+        "solve".into(),
+        vec![CodeTerm::Var("X".into())],
+    )];
+
+    let mut solver = Solver::solve(&program, &query);
+
+    assert_eq!(solver.next(), Some(vec![("X".into(), "2".into())]));
+
+    assert_eq!(solver.next(), None);
+}

@@ -145,7 +145,9 @@ impl Iterator for Solver<'_> {
                     .rev()
                     .for_each(|goal| self.goals.push_front(*goal));
 
-                return self.succeed();
+                if let Some(solution) = self.succeed() {
+                    return Some(solution);
+                }
             }
 
             self.undo(trail_checkpoint, arena_checkpoint);
