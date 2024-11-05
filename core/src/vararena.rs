@@ -97,17 +97,51 @@ impl VarArena {
         }
     }
 
-    pub fn serialize(&self, term: HeapTermPtr) -> String {
+    pub fn serialize(&self, term: HeapTermPtr, name: &str) -> String {
+        self.serialize_inner(term, name, &mut Vec::new(), None)
+    }
+
+    fn serialize_inner(
+        &self,
+        term: HeapTermPtr,
+        name: &str,
+        stack: &mut Vec<HeapTermPtr>,
+        equal_limit: Option<usize>,
+    ) -> String {
         match &self.0[term] {
             HeapTerm::Atom(atom) => atom.clone(),
-            HeapTerm::Var(x) if *x == term => format!("_{}", x),
-            HeapTerm::Var(x) => self.serialize(*x),
+            HeapTerm::Var(x) => {
+                let position = stack.iter().position(|y| y == x);
+
+                if *x == term
+                    || (equal_limit.is_some()
+                        && position.map(|p| p >= equal_limit.unwrap()).unwrap_or(false))
+                {
+                    return format!("_{}", x);
+                }
+
+                if position.is_some() {
+                    return name.to_string();
+                }
+
+                stack.push(term);
+                self.serialize_inner(*x, name, stack, equal_limit)
+            }
             HeapTerm::Compound(functor, args) => {
+                stack.push(term);
+
+                let len = stack.len();
+
                 format!(
                     "{}({})",
                     functor,
                     args.iter()
-                        .map(|arg| self.serialize(*arg))
+                        .map(|arg| {
+                            let result =
+                                self.serialize_inner(*arg, name, stack, equal_limit.or(Some(len)));
+                            stack.truncate(len);
+                            result
+                        })
                         .collect::<Vec<_>>()
                         .join(", ")
                 )

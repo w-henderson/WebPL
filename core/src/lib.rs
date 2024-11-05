@@ -104,7 +104,7 @@ impl Iterator for Solver<'_> {
                     let solution = self
                         .var_map
                         .iter()
-                        .map(|(name, var)| (name.clone(), self.vars.serialize(*var)))
+                        .map(|(name, var)| (name.clone(), self.vars.serialize(*var, name)))
                         .collect::<Vec<_>>();
 
                     return Some(solution);
