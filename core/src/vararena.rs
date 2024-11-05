@@ -1,4 +1,4 @@
-use crate::{Clause, CodeTerm, HeapTerm, HeapTermPtr, Query, VarName};
+use crate::{Atom, Clause, CodeTerm, HeapTerm, HeapTermPtr, Query, VarName};
 
 #[derive(Default)]
 pub struct VarArena(Vec<HeapTerm>);
@@ -69,6 +69,12 @@ impl VarArena {
                 .map(|term| self.alloc(term, &mut var_map))
                 .collect(),
         )
+    }
+
+    pub fn alloc_atom(&mut self, atom: Atom) -> HeapTermPtr {
+        let result = self.0.len();
+        self.0.push(HeapTerm::Atom(atom));
+        result
     }
 
     pub fn get(&self, mut var: HeapTermPtr) -> &HeapTerm {

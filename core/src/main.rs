@@ -1,70 +1,30 @@
 use webpl::*;
 
 fn unify() {
-    let program: Program = vec![
-        (
-            CodeTerm::Compound(
-                "app".into(),
-                vec![
-                    CodeTerm::Atom("nil".into()),
-                    CodeTerm::Var("L2".into()),
-                    CodeTerm::Var("L2".into()),
-                ],
-            ),
-            vec![],
+    let program: Program = Program::default();
+
+    let query: Query = vec![
+        CodeTerm::Compound(
+            "=".into(),
+            vec![CodeTerm::Var("Y".into()), CodeTerm::Atom("3".into())],
         ),
-        (
-            CodeTerm::Compound(
-                "app".into(),
-                vec![
-                    CodeTerm::Compound(
-                        "cons".into(),
-                        vec![CodeTerm::Var("H".into()), CodeTerm::Var("T".into())],
-                    ),
-                    CodeTerm::Var("L2".into()),
-                    CodeTerm::Compound(
-                        "cons".into(),
-                        vec![CodeTerm::Var("H".into()), CodeTerm::Var("L3".into())],
-                    ),
-                ],
-            ),
-            vec![CodeTerm::Compound(
-                "app".into(),
-                vec![
-                    CodeTerm::Var("T".into()),
-                    CodeTerm::Var("L2".into()),
-                    CodeTerm::Var("L3".into()),
-                ],
-            )],
+        CodeTerm::Compound(
+            "is".into(),
+            vec![
+                CodeTerm::Var("X".into()),
+                CodeTerm::Compound(
+                    "+".into(),
+                    vec![
+                        CodeTerm::Var("Y".into()),
+                        CodeTerm::Compound(
+                            "*".into(),
+                            vec![CodeTerm::Atom("2".into()), CodeTerm::Atom("5.1".into())],
+                        ),
+                    ],
+                ),
+            ],
         ),
     ];
-
-    let query: Query = vec![CodeTerm::Compound(
-        "app".into(),
-        vec![
-            CodeTerm::Compound(
-                "cons".into(),
-                vec![
-                    CodeTerm::Atom("1".into()),
-                    CodeTerm::Compound(
-                        "cons".into(),
-                        vec![CodeTerm::Atom("2".into()), CodeTerm::Atom("nil".into())],
-                    ),
-                ],
-            ),
-            CodeTerm::Compound(
-                "cons".into(),
-                vec![
-                    CodeTerm::Atom("3".into()),
-                    CodeTerm::Compound(
-                        "cons".into(),
-                        vec![CodeTerm::Atom("4".into()), CodeTerm::Atom("nil".into())],
-                    ),
-                ],
-            ),
-            CodeTerm::Var("L".into()),
-        ],
-    )];
 
     let solver = Solver::solve(&program, &query);
 

@@ -1,3 +1,4 @@
+mod builtins;
 mod trail;
 mod vararena;
 
@@ -25,6 +26,7 @@ pub enum CodeTerm {
 pub type Clause = (CodeTerm, Vec<CodeTerm>);
 pub type Query = Vec<CodeTerm>;
 pub type Program = Vec<Clause>;
+pub type Solution = Vec<(VarName, String)>;
 
 pub struct Solver<'a> {
     program: &'a Program,
@@ -79,17 +81,53 @@ impl<'a> Solver<'a> {
             _ => false,
         }
     }
+
+    fn serialize_solution(&self) -> Solution {
+        self.var_map
+            .iter()
+            .map(|(name, var)| (name.clone(), self.vars.serialize(*var, name)))
+            .collect::<Vec<_>>()
+    }
+
+    #[inline]
+    fn enter(&mut self) -> (trail::Checkpoint, vararena::Checkpoint) {
+        (self.trail.checkpoint(), self.vars.checkpoint())
+    }
+
+    #[inline]
+    fn succeed(&mut self) -> Option<Solution> {
+        if self.goals.is_empty() {
+            Some(self.serialize_solution())
+        } else {
+            self.next()
+        }
+    }
+
+    #[inline]
+    fn fail(
+        &mut self,
+        trail_checkpoint: trail::Checkpoint,
+        arena_checkpoint: vararena::Checkpoint,
+    ) {
+        self.trail.undo(trail_checkpoint, &mut self.vars);
+        self.vars.undo(arena_checkpoint);
+    }
 }
 
 impl Iterator for Solver<'_> {
-    type Item = Vec<(VarName, String)>;
+    type Item = Solution;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let goal = self.goals.pop_front()?;
+        let goal: HeapTermPtr = self.goals.pop_front()?;
+
+        match builtins::eval(self, goal) {
+            Ok(true) => return self.succeed(), // Found and evaluated a built-in predicate
+            Ok(false) => {}                    // This goal is not a built-in predicate
+            Err(()) => panic!("Error evaluating goal"),
+        };
 
         for clause in self.program {
-            let trail_checkpoint = self.trail.checkpoint();
-            let arena_checkpoint = self.vars.checkpoint();
+            let (trail_checkpoint, arena_checkpoint) = self.enter();
 
             let (head, body) = self.vars.alloc_clause(clause);
 
@@ -98,25 +136,10 @@ impl Iterator for Solver<'_> {
                     .rev()
                     .for_each(|goal| self.goals.push_front(*goal));
 
-                if self.goals.is_empty() {
-                    // Found a solution, return it.
-
-                    let solution = self
-                        .var_map
-                        .iter()
-                        .map(|(name, var)| (name.clone(), self.vars.serialize(*var, name)))
-                        .collect::<Vec<_>>();
-
-                    return Some(solution);
-                } else if let Some(solution) = self.next() {
-                    // More goals to solve, recurse.
-
-                    return Some(solution);
-                }
+                return self.succeed();
             }
 
-            self.trail.undo(trail_checkpoint, &mut self.vars);
-            self.vars.undo(arena_checkpoint)
+            self.fail(trail_checkpoint, arena_checkpoint);
         }
 
         None
