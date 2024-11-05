@@ -107,13 +107,18 @@ impl<'a> Solver<'a> {
     }
 
     #[inline]
-    fn fail(
+    fn undo(
         &mut self,
         trail_checkpoint: trail::Checkpoint,
         arena_checkpoint: vararena::Checkpoint,
     ) {
         self.trail.undo(trail_checkpoint, &mut self.vars);
         self.vars.undo(arena_checkpoint);
+    }
+
+    #[inline]
+    fn fail(&mut self) -> Option<Solution> {
+        self.next()
     }
 }
 
@@ -124,9 +129,10 @@ impl Iterator for Solver<'_> {
         let goal: HeapTermPtr = self.goals.pop_front()?;
 
         match builtins::eval(self, goal) {
-            Ok(true) => return self.succeed(), // Found and evaluated a built-in predicate
-            Ok(false) => {}                    // This goal is not a built-in predicate
-            Err(()) => panic!("Error evaluating goal"),
+            Some(Ok(true)) => return self.succeed(), // Built-in predicate succeeded
+            Some(Ok(false)) => return self.fail(),   // Built-in predicate failed
+            Some(Err(())) => panic!("Error"),        // Built-in predicate had an error
+            None => {}                               // This goal is not a built-in predicate
         };
 
         for clause in self.program {
@@ -142,9 +148,9 @@ impl Iterator for Solver<'_> {
                 return self.succeed();
             }
 
-            self.fail(trail_checkpoint, arena_checkpoint);
+            self.undo(trail_checkpoint, arena_checkpoint);
         }
 
-        None
+        self.fail()
     }
 }

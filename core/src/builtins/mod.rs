@@ -7,14 +7,14 @@ pub trait Builtin<const ARITY: usize> {
     fn eval(solver: &mut Solver, args: [HeapTermPtr; ARITY]) -> Result<bool, ()>;
 }
 
-pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Result<bool, ()> {
+pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, ()>> {
     if let HeapTerm::Compound(functor, args) = solver.vars.get(goal) {
         match (functor.as_str(), args.len()) {
-            ("=", 2) => unify::UnifyBuiltin::eval(solver, [args[0], args[1]]),
-            ("is", 2) => is::IsBuiltin::eval(solver, [args[0], args[1]]),
-            _ => Ok(false),
+            ("=", 2) => Some(unify::UnifyBuiltin::eval(solver, [args[0], args[1]])),
+            ("is", 2) => Some(is::IsBuiltin::eval(solver, [args[0], args[1]])),
+            _ => None,
         }
     } else {
-        Ok(false)
+        None
     }
 }
