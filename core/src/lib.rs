@@ -2,6 +2,9 @@ mod builtins;
 mod trail;
 mod vararena;
 
+#[cfg(test)]
+mod tests;
+
 use std::collections::VecDeque;
 
 use trail::Trail;
