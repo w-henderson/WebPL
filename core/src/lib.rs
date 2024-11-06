@@ -52,6 +52,37 @@ impl<'a> Solver<'a> {
         }
     }
 
+    fn step(&mut self, depth: usize) -> Option<Solution> {
+        let goal: HeapTermPtr = self.goals.pop_front()?;
+
+        match builtins::eval(self, goal) {
+            Some(Ok(true)) => return self.succeed(depth), // Built-in predicate succeeded
+            Some(Ok(false)) => return self.fail(depth),   // Built-in predicate failed
+            Some(Err(())) => panic!("Error"),             // Built-in predicate had an error
+            None => {}                                    // This goal is not a built-in predicate
+        };
+
+        for clause in self.program {
+            let (trail_checkpoint, arena_checkpoint) = self.enter();
+
+            let (head, body) = self.vars.alloc_clause(clause);
+
+            if self.unify(goal, head) {
+                body.iter()
+                    .rev()
+                    .for_each(|goal| self.goals.push_front(*goal));
+
+                if let Some(solution) = self.succeed(depth) {
+                    return Some(solution);
+                }
+            }
+
+            self.undo(trail_checkpoint, arena_checkpoint);
+        }
+
+        self.fail(depth)
+    }
+
     fn unify(&mut self, a_ptr: HeapTermPtr, b_ptr: HeapTermPtr) -> bool {
         match (self.vars.get(a_ptr), self.vars.get(b_ptr)) {
             (HeapTerm::Atom(a), HeapTerm::Atom(b)) => a == b,
@@ -98,11 +129,11 @@ impl<'a> Solver<'a> {
     }
 
     #[inline]
-    fn succeed(&mut self) -> Option<Solution> {
+    fn succeed(&mut self, depth: usize) -> Option<Solution> {
         if self.goals.is_empty() {
             Some(self.serialize_solution())
         } else {
-            self.next()
+            self.step(depth + 1)
         }
     }
 
@@ -117,8 +148,8 @@ impl<'a> Solver<'a> {
     }
 
     #[inline]
-    fn fail(&mut self) -> Option<Solution> {
-        self.next()
+    fn fail(&mut self, depth: usize) -> Option<Solution> {
+        self.step(depth + 1)
     }
 }
 
@@ -126,33 +157,6 @@ impl Iterator for Solver<'_> {
     type Item = Solution;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let goal: HeapTermPtr = self.goals.pop_front()?;
-
-        match builtins::eval(self, goal) {
-            Some(Ok(true)) => return self.succeed(), // Built-in predicate succeeded
-            Some(Ok(false)) => return self.fail(),   // Built-in predicate failed
-            Some(Err(())) => panic!("Error"),        // Built-in predicate had an error
-            None => {}                               // This goal is not a built-in predicate
-        };
-
-        for clause in self.program {
-            let (trail_checkpoint, arena_checkpoint) = self.enter();
-
-            let (head, body) = self.vars.alloc_clause(clause);
-
-            if self.unify(goal, head) {
-                body.iter()
-                    .rev()
-                    .for_each(|goal| self.goals.push_front(*goal));
-
-                if let Some(solution) = self.succeed() {
-                    return Some(solution);
-                }
-            }
-
-            self.undo(trail_checkpoint, arena_checkpoint);
-        }
-
-        self.fail()
+        self.step(0)
     }
 }

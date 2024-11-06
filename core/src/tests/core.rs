@@ -116,6 +116,7 @@ fn recursive_solution() {
     assert_eq!(solver.next(), None);
 }
 
+#[test]
 fn backtracking() {
     let program: Program = vec![
         (
