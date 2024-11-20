@@ -6,6 +6,7 @@ pub struct Trail {
     vars: Vec<HeapTermPtr>,
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct Checkpoint(usize);
 
 impl Trail {

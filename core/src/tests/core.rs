@@ -151,3 +151,23 @@ fn backtracking() {
 
     assert_eq!(solver.next(), None);
 }
+
+#[test]
+fn multiple_goals() {
+    let program: Program = vec![
+        (CodeTerm::Atom("true".into()), vec![]),
+        (
+            CodeTerm::Atom("a".into()),
+            vec![
+                CodeTerm::Atom("false".into()),
+                CodeTerm::Atom("true".into()),
+            ],
+        ),
+    ];
+
+    let query = vec![CodeTerm::Atom("a".into())];
+
+    let mut solver = Solver::solve(&program, &query);
+    assert_eq!(solver.next(), None);
+    assert_eq!(solver.next(), None);
+}

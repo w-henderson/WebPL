@@ -3,6 +3,7 @@ use crate::{Atom, Clause, CodeTerm, HeapTerm, HeapTermPtr, Query, VarName};
 #[derive(Default)]
 pub struct VarArena(Vec<HeapTerm>);
 
+#[derive(Copy, Clone, Debug)]
 pub struct Checkpoint(usize);
 
 impl VarArena {

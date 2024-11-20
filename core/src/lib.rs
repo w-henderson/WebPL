@@ -68,6 +68,7 @@ impl<'a> Solver<'a> {
             let (head, body) = self.vars.alloc_clause(clause);
 
             if self.unify(goal, head) {
+                let goals = self.goals.clone();
                 body.iter()
                     .rev()
                     .for_each(|goal| self.goals.push_front(*goal));
@@ -75,6 +76,9 @@ impl<'a> Solver<'a> {
                 if let Some(solution) = self.succeed(depth) {
                     return Some(solution);
                 }
+
+                self.undo(trail_checkpoint, arena_checkpoint);
+                self.goals = goals;
             }
 
             self.undo(trail_checkpoint, arena_checkpoint);
