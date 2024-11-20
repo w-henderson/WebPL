@@ -1,4 +1,4 @@
-use crate::builtins::Builtin;
+use crate::builtins::{Builtin, BuiltinError};
 use crate::{HeapTerm, HeapTermPtr, Solver};
 
 macro_rules! impl_arithmetic_cmp {
@@ -6,16 +6,16 @@ macro_rules! impl_arithmetic_cmp {
         pub struct $op;
 
         impl Builtin<2> for $op {
-            fn eval(solver: &mut Solver, args: [HeapTermPtr; 2]) -> Result<bool, ()> {
+            fn eval(solver: &mut Solver, args: [HeapTermPtr; 2]) -> Result<bool, BuiltinError> {
                 let a = solver.vars.get(args[0]);
                 let b = solver.vars.get(args[1]);
 
                 match (a, b) {
                     (HeapTerm::Atom(a), HeapTerm::Atom(b)) => Ok(a
                         .parse::<f64>()
-                        .map_err(|_| ())?
-                        .$method(&b.parse::<f64>().map_err(|_| ())?)),
-                    _ => Err(()), // insufficiently instantiated or unsupported operation
+                        .map_err(|_| BuiltinError::NotANumber)?
+                        .$method(&b.parse::<f64>().map_err(|_| BuiltinError::NotANumber)?)),
+                    _ => Err(BuiltinError::InsufficientlyInstantiated),
                 }
             }
         }

@@ -1,4 +1,4 @@
-use crate::builtins::Builtin;
+use crate::builtins::{Builtin, BuiltinError};
 use crate::{HeapTerm, HeapTermPtr, Solver};
 
 pub struct IsBuiltin;
@@ -9,7 +9,7 @@ pub enum Number {
 }
 
 impl Builtin<2> for IsBuiltin {
-    fn eval(solver: &mut Solver, args: [HeapTermPtr; 2]) -> Result<bool, ()> {
+    fn eval(solver: &mut Solver, args: [HeapTermPtr; 2]) -> Result<bool, BuiltinError> {
         let result = IsBuiltin::arithmetic_eval(solver, args[1]);
 
         result.map(|n| {
@@ -20,10 +20,10 @@ impl Builtin<2> for IsBuiltin {
 }
 
 impl IsBuiltin {
-    fn arithmetic_eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Number, ()> {
+    fn arithmetic_eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Number, BuiltinError> {
         match solver.vars.get(term) {
             HeapTerm::Atom(atom) => Self::arithmetic_eval_atom(atom),
-            HeapTerm::Var(_) => Err(()), // insufficiently instantiated
+            HeapTerm::Var(_) => Err(BuiltinError::InsufficientlyInstantiated),
             HeapTerm::Compound(f, args) if args.len() == 2 => {
                 let f = f.clone();
                 let args = [args[0], args[1]];
@@ -35,20 +35,20 @@ impl IsBuiltin {
                     "-" => Ok(a - b),
                     "*" => Ok(a * b),
                     "/" => Ok(a / b),
-                    _ => Err(()), // unsupported operation
+                    _ => Err(BuiltinError::UnsupportedOperation),
                 }
             }
-            _ => Err(()), // unsupported operation
+            _ => Err(BuiltinError::UnsupportedOperation),
         }
     }
 
-    fn arithmetic_eval_atom(atom: &str) -> Result<Number, ()> {
+    fn arithmetic_eval_atom(atom: &str) -> Result<Number, BuiltinError> {
         if let Ok(int) = atom.parse::<i64>() {
             Ok(Number::Integer(int))
         } else if let Ok(float) = atom.parse::<f64>() {
             Ok(Number::Float(float))
         } else {
-            Err(())
+            Err(BuiltinError::NotANumber)
         }
     }
 }

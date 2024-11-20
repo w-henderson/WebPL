@@ -57,8 +57,8 @@ impl<'a> Solver<'a> {
 
         match builtins::eval(self, goal) {
             Some(Ok(true)) => return self.succeed(depth), // Built-in predicate succeeded
-            Some(Ok(false)) => return self.fail(depth),   // Built-in predicate failed
-            Some(Err(())) => panic!("Error"),             // Built-in predicate had an error
+            Some(Ok(false)) => return self.fail(),        // Built-in predicate failed
+            Some(Err(e)) => panic!("Error: {:?}", e),     // Built-in predicate had an error
             None => {}                                    // This goal is not a built-in predicate
         };
 
@@ -80,7 +80,7 @@ impl<'a> Solver<'a> {
             self.undo(trail_checkpoint, arena_checkpoint);
         }
 
-        self.fail(depth)
+        self.fail()
     }
 
     fn unify(&mut self, a_ptr: HeapTermPtr, b_ptr: HeapTermPtr) -> bool {
@@ -148,8 +148,8 @@ impl<'a> Solver<'a> {
     }
 
     #[inline]
-    fn fail(&mut self, depth: usize) -> Option<Solution> {
-        self.step(depth + 1)
+    fn fail(&mut self) -> Option<Solution> {
+        None
     }
 }
 

@@ -4,11 +4,18 @@ mod unify;
 
 use crate::{HeapTerm, HeapTermPtr, Solver};
 
-pub trait Builtin<const ARITY: usize> {
-    fn eval(solver: &mut Solver, args: [HeapTermPtr; ARITY]) -> Result<bool, ()>;
+#[derive(Debug)]
+pub enum BuiltinError {
+    NotANumber,
+    InsufficientlyInstantiated,
+    UnsupportedOperation,
 }
 
-pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, ()>> {
+pub trait Builtin<const ARITY: usize> {
+    fn eval(solver: &mut Solver, args: [HeapTermPtr; ARITY]) -> Result<bool, BuiltinError>;
+}
+
+pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, BuiltinError>> {
     if let HeapTerm::Compound(functor, args) = solver.vars.get(goal) {
         match (functor.as_str(), args.len()) {
             ("=", 2) => Some(unify::UnifyBuiltin::eval(solver, [args[0], args[1]])),
