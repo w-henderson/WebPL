@@ -34,9 +34,18 @@ pub type Solution = Vec<(VarName, String)>;
 pub struct Solver<'a> {
     program: &'a Program,
     goals: VecDeque<HeapTermPtr>,
+    clause: usize,
+    choice_points: Vec<ChoicePoint>,
     vars: VarArena,
     var_map: Vec<(VarName, HeapTermPtr)>,
     trail: Trail,
+}
+
+struct ChoicePoint {
+    goals: VecDeque<HeapTermPtr>,
+    clause: usize,
+    trail_checkpoint: trail::Checkpoint,
+    arena_checkpoint: vararena::Checkpoint,
 }
 
 impl<'a> Solver<'a> {
@@ -46,45 +55,69 @@ impl<'a> Solver<'a> {
         Solver {
             program,
             goals: heap_query.clone().into(),
+            clause: 0,
+            choice_points: Vec::new(),
             vars,
             var_map,
             trail: Trail::new(),
         }
     }
 
-    fn step(&mut self, depth: usize) -> Option<Solution> {
-        let goal: HeapTermPtr = self.goals.pop_front()?;
+    fn step(&mut self) -> Option<Solution> {
+        'solve: loop {
+            let goal: HeapTermPtr = *self.goals.front()?;
 
-        match builtins::eval(self, goal) {
-            Some(Ok(true)) => return self.succeed(depth), // Built-in predicate succeeded
-            Some(Ok(false)) => return self.fail(),        // Built-in predicate failed
-            Some(Err(e)) => panic!("Error: {:?}", e),     // Built-in predicate had an error
-            None => {}                                    // This goal is not a built-in predicate
-        };
+            match builtins::eval(self, goal) {
+                Some(Ok(true)) => {
+                    // Built-in predicate succeeded
+                    if let Some(solution) = self.succeed() {
+                        self.pop_choice_point();
+                        return Some(solution);
+                    }
+                    self.goals.pop_front();
+                    continue;
+                }
+                Some(Ok(false)) => {
+                    // Built-in predicate failed
+                    self.pop_choice_point()?;
+                    continue;
+                }
+                Some(Err(e)) => panic!("Error: {:?}", e), // Built-in predicate had an error
+                None => {}                                // This goal is not a built-in predicate
+            };
 
-        for clause in self.program {
-            let (trail_checkpoint, arena_checkpoint) = self.enter();
+            while self.clause < self.program.len() {
+                let clause = &self.program[self.clause];
 
-            let (head, body) = self.vars.alloc_clause(clause);
+                let (trail_checkpoint, arena_checkpoint) = self.enter();
 
-            if self.unify(goal, head) {
-                let goals = self.goals.clone();
-                body.iter()
-                    .rev()
-                    .for_each(|goal| self.goals.push_front(*goal));
+                let (head, body) = self.vars.alloc_clause(clause);
 
-                if let Some(solution) = self.succeed(depth) {
-                    return Some(solution);
+                if self.unify(goal, head) {
+                    self.push_choice_point(trail_checkpoint, arena_checkpoint);
+
+                    self.clause = 0;
+                    self.goals.pop_front();
+
+                    body.iter()
+                        .rev()
+                        .for_each(|goal| self.goals.push_front(*goal));
+
+                    if let Some(solution) = self.succeed() {
+                        self.pop_choice_point();
+                        return Some(solution);
+                    }
+
+                    continue 'solve;
                 }
 
                 self.undo(trail_checkpoint, arena_checkpoint);
-                self.goals = goals;
+
+                self.clause += 1;
             }
 
-            self.undo(trail_checkpoint, arena_checkpoint);
+            self.pop_choice_point()?;
         }
-
-        self.fail()
     }
 
     fn unify(&mut self, a_ptr: HeapTermPtr, b_ptr: HeapTermPtr) -> bool {
@@ -120,6 +153,40 @@ impl<'a> Solver<'a> {
         }
     }
 
+    fn succeed(&self) -> Option<Solution> {
+        if self.goals.is_empty() {
+            return Some(self.serialize_solution());
+        }
+
+        None
+    }
+
+    #[inline]
+    fn push_choice_point(
+        &mut self,
+        trail_checkpoint: trail::Checkpoint,
+        arena_checkpoint: vararena::Checkpoint,
+    ) {
+        self.choice_points.push(ChoicePoint {
+            goals: self.goals.clone(),
+            clause: self.clause + 1,
+            trail_checkpoint,
+            arena_checkpoint,
+        });
+    }
+
+    #[inline]
+    fn pop_choice_point(&mut self) -> Option<()> {
+        if let Some(choice_point) = self.choice_points.pop() {
+            self.goals = choice_point.goals;
+            self.clause = choice_point.clause;
+            self.undo(choice_point.trail_checkpoint, choice_point.arena_checkpoint);
+            return Some(());
+        }
+
+        None
+    }
+
     fn serialize_solution(&self) -> Solution {
         self.var_map
             .iter()
@@ -133,15 +200,6 @@ impl<'a> Solver<'a> {
     }
 
     #[inline]
-    fn succeed(&mut self, depth: usize) -> Option<Solution> {
-        if self.goals.is_empty() {
-            Some(self.serialize_solution())
-        } else {
-            self.step(depth + 1)
-        }
-    }
-
-    #[inline]
     fn undo(
         &mut self,
         trail_checkpoint: trail::Checkpoint,
@@ -150,17 +208,12 @@ impl<'a> Solver<'a> {
         self.trail.undo(trail_checkpoint, &mut self.vars);
         self.vars.undo(arena_checkpoint);
     }
-
-    #[inline]
-    fn fail(&mut self) -> Option<Solution> {
-        None
-    }
 }
 
 impl Iterator for Solver<'_> {
     type Item = Solution;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.step(0)
+        self.step()
     }
 }
