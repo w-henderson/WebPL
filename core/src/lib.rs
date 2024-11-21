@@ -70,11 +70,11 @@ impl<'a> Solver<'a> {
             match builtins::eval(self, goal) {
                 Some(Ok(true)) => {
                     // Built-in predicate succeeded
+                    self.goals.pop_front();
                     if let Some(solution) = self.succeed() {
                         self.pop_choice_point();
                         return Some(solution);
                     }
-                    self.goals.pop_front();
                     continue;
                 }
                 Some(Ok(false)) => {
