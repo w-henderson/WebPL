@@ -65,6 +65,8 @@ impl<'a> Solver<'a> {
     }
 
     fn step(&mut self) -> Option<Solution> {
+        let mut var_map = Vec::new();
+
         'solve: loop {
             let goal: HeapTermPtr = *self.goals.front()?;
 
@@ -92,7 +94,9 @@ impl<'a> Solver<'a> {
 
                 let (trail_checkpoint, arena_checkpoint) = self.enter();
 
-                let (head, body) = self.vars.alloc_clause(clause);
+                var_map.clear();
+
+                let head = self.vars.alloc(&clause.0, &mut var_map);
 
                 if self.unify(goal, head) {
                     self.push_choice_point(trail_checkpoint, arena_checkpoint);
@@ -100,9 +104,9 @@ impl<'a> Solver<'a> {
                     self.clause = 0;
                     self.goals.pop_front();
 
-                    body.iter()
-                        .rev()
-                        .for_each(|goal| self.goals.push_front(*goal));
+                    clause.1.iter().rev().for_each(|goal| {
+                        self.goals.push_front(self.vars.alloc(goal, &mut var_map));
+                    });
 
                     if let Some(solution) = self.succeed() {
                         self.pop_choice_point();

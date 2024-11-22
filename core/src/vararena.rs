@@ -1,5 +1,5 @@
 use crate::atom::AtomMap;
-use crate::{Clause, CodeTerm, HeapAtomPtr, HeapTerm, HeapTermPtr, Query};
+use crate::{CodeTerm, HeapAtomPtr, HeapTerm, HeapTermPtr, Query};
 
 #[derive(Default)]
 pub struct VarArena {
@@ -67,18 +67,6 @@ impl VarArena {
         }
 
         result
-    }
-
-    pub fn alloc_clause(&mut self, clause: &Clause) -> (HeapTermPtr, Vec<HeapTermPtr>) {
-        let (head, body) = clause;
-        let mut var_map = Vec::new();
-
-        (
-            self.alloc(head, &mut var_map),
-            body.iter()
-                .map(|term| self.alloc(term, &mut var_map))
-                .collect(),
-        )
     }
 
     pub fn alloc_atom(&mut self, atom: String) -> HeapTermPtr {
