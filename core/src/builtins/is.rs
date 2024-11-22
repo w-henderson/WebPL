@@ -1,4 +1,4 @@
-use crate::builtins::{Builtin, BuiltinError};
+use crate::builtins::{args, Builtin, BuiltinError};
 use crate::{HeapTerm, HeapTermPtr, Solver};
 
 pub struct IsBuiltin;
@@ -24,9 +24,9 @@ impl IsBuiltin {
         match solver.vars.get(term) {
             HeapTerm::Atom(atom) => Self::arithmetic_eval_atom(atom),
             HeapTerm::Var(_) => Err(BuiltinError::InsufficientlyInstantiated),
-            HeapTerm::Compound(f, args) if args.len() == 2 => {
+            HeapTerm::Compound(f, arity, next) if *arity == 2 => {
                 let f = f.clone();
-                let args = [args[0], args[1]];
+                let args = args::<2>(solver, *next);
                 let a = Self::arithmetic_eval(solver, args[0])?;
                 let b = Self::arithmetic_eval(solver, args[1])?;
 

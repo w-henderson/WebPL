@@ -17,7 +17,8 @@ type HeapTermPtr = usize;
 pub enum HeapTerm {
     Atom(Atom),
     Var(HeapTermPtr),
-    Compound(Atom, Vec<HeapTermPtr>),
+    Compound(Atom, usize, Option<HeapTermPtr>),
+    CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
 }
 
 pub enum CodeTerm {
@@ -133,18 +134,30 @@ impl<'a> Solver<'a> {
                 self.vars.unify(*b, a_ptr);
                 true
             }
-            (HeapTerm::Compound(f, a_args), HeapTerm::Compound(g, b_args)) => {
-                if f != g || a_args.len() != b_args.len() {
+            (HeapTerm::Compound(f, a_arity, a_next), HeapTerm::Compound(g, b_arity, b_next)) => {
+                if f != g || a_arity != b_arity {
                     return false;
                 }
 
                 let checkpoint = self.trail.checkpoint();
 
-                for (a, b) in a_args.clone().into_iter().zip(b_args.clone().into_iter()) {
-                    if !self.unify(a, b) {
-                        self.trail.undo(checkpoint, &mut self.vars);
-                        return false;
-                    }
+                let mut a_arg = *a_next;
+                let mut b_arg = *b_next;
+
+                while let Some((a_ref, b_ref)) = a_arg.zip(b_arg) {
+                    if let (
+                        HeapTerm::CompoundCons(a_head, a_tail),
+                        HeapTerm::CompoundCons(b_head, b_tail),
+                    ) = (self.vars.get(a_ref), self.vars.get(b_ref))
+                    {
+                        a_arg = *a_tail;
+                        b_arg = *b_tail;
+
+                        if !self.unify(*a_head, *b_head) {
+                            self.trail.undo(checkpoint, &mut self.vars);
+                            return false;
+                        }
+                    };
                 }
 
                 true

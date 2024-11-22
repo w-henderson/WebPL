@@ -42,18 +42,20 @@ impl VarArena {
             }
             CodeTerm::Compound(functor, args) => {
                 let arity = args.len();
-                self.0.push(HeapTerm::Compound(functor.clone(), Vec::new()));
 
-                let mut heap_args = Vec::with_capacity(arity);
-                for arg in args {
-                    heap_args.push(self.alloc(arg, var_map));
+                self.0
+                    .push(HeapTerm::Compound(functor.clone(), arity, None));
+
+                let mut next = None;
+                for arg in args.iter().rev() {
+                    let head = self.alloc(arg, var_map);
+                    let tail = next.replace(self.0.len());
+                    self.0.push(HeapTerm::CompoundCons(head, tail));
                 }
 
-                if let HeapTerm::Compound(_, ref mut args) = self.0[result] {
-                    *args = heap_args;
+                if let HeapTerm::Compound(_, _, arg) = &mut self.0[result] {
+                    *arg = next;
                 }
-
-                return result;
             }
         }
 
@@ -134,25 +136,31 @@ impl VarArena {
                 stack.push(term);
                 self.serialize_inner(*x, name, stack, equal_limit)
             }
-            HeapTerm::Compound(functor, args) => {
+            HeapTerm::Compound(functor, _, next) => {
                 stack.push(term);
 
                 let len = stack.len();
 
-                format!(
-                    "{}({})",
-                    functor,
-                    args.iter()
-                        .map(|arg| {
-                            let result =
-                                self.serialize_inner(*arg, name, stack, equal_limit.or(Some(len)));
-                            stack.truncate(len);
-                            result
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
+                let mut result = format!("{}(", functor);
+                let mut next = *next;
+
+                while let Some(arg) = next {
+                    if let HeapTerm::CompoundCons(head, tail) = &self.0[arg] {
+                        result.push_str(&self.serialize_inner(*head, name, stack, equal_limit));
+                        stack.truncate(len);
+                        next = *tail;
+                    }
+
+                    if next.is_some() {
+                        result.push_str(", ");
+                    }
+                }
+
+                result.push(')');
+
+                result
             }
+            HeapTerm::CompoundCons(_, _) => unreachable!(),
         }
     }
 }
