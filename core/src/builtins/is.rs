@@ -22,15 +22,16 @@ impl Builtin<2> for IsBuiltin {
 impl IsBuiltin {
     fn arithmetic_eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Number, BuiltinError> {
         match solver.vars.get(term) {
-            HeapTerm::Atom(atom) => Self::arithmetic_eval_atom(atom),
+            HeapTerm::Atom(atom) => Self::arithmetic_eval_atom(solver.vars.get_atom(*atom)),
             HeapTerm::Var(_) => Err(BuiltinError::InsufficientlyInstantiated),
             HeapTerm::Compound(f, arity, next) if *arity == 2 => {
-                let f = f.clone();
+                let f = *f;
                 let args = args::<2>(solver, *next);
                 let a = Self::arithmetic_eval(solver, args[0])?;
                 let b = Self::arithmetic_eval(solver, args[1])?;
+                let f = solver.vars.get_atom(f);
 
-                match f.as_str() {
+                match f {
                     "+" => Ok(a + b),
                     "-" => Ok(a - b),
                     "*" => Ok(a * b),

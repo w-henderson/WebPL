@@ -17,7 +17,7 @@ pub trait Builtin<const ARITY: usize> {
 
 pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, BuiltinError>> {
     if let HeapTerm::Compound(functor, arity, next) = solver.vars.get(goal) {
-        match (functor.as_str(), arity) {
+        match (solver.vars.get_atom(*functor), arity) {
             ("=", 2) => Some(unify::UnifyBuiltin::eval(solver, args(solver, *next))),
             ("is", 2) => Some(is::IsBuiltin::eval(solver, args(solver, *next))),
             (">", 2) => Some(cmp::GtBuiltin::eval(solver, args(solver, *next))),

@@ -1,3 +1,4 @@
+mod atom;
 mod builtins;
 mod trail;
 mod vararena;
@@ -10,27 +11,26 @@ use std::collections::VecDeque;
 use trail::Trail;
 use vararena::VarArena;
 
-type Atom = String;
-type VarName = String;
+type HeapAtomPtr = usize;
 type HeapTermPtr = usize;
 
 pub enum HeapTerm {
-    Atom(Atom),
+    Atom(HeapAtomPtr),
     Var(HeapTermPtr),
-    Compound(Atom, usize, Option<HeapTermPtr>),
+    Compound(HeapAtomPtr, usize, Option<HeapTermPtr>),
     CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
 }
 
 pub enum CodeTerm {
-    Atom(Atom),
-    Var(VarName),
-    Compound(Atom, Vec<CodeTerm>),
+    Atom(String),
+    Var(String),
+    Compound(String, Vec<CodeTerm>),
 }
 
 pub type Clause = (CodeTerm, Vec<CodeTerm>);
 pub type Query = Vec<CodeTerm>;
 pub type Program = Vec<Clause>;
-pub type Solution = Vec<(VarName, String)>;
+pub type Solution = Vec<(String, String)>;
 
 pub struct Solver<'a> {
     program: &'a Program,
@@ -38,7 +38,7 @@ pub struct Solver<'a> {
     clause: usize,
     choice_points: Vec<ChoicePoint>,
     vars: VarArena,
-    var_map: Vec<(VarName, HeapTermPtr)>,
+    var_map: Vec<(String, HeapTermPtr)>,
     trail: Trail,
 }
 

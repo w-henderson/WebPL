@@ -11,10 +11,13 @@ macro_rules! impl_arithmetic_cmp {
                 let b = solver.vars.get(args[1]);
 
                 match (a, b) {
-                    (HeapTerm::Atom(a), HeapTerm::Atom(b)) => Ok(a
-                        .parse::<f64>()
-                        .map_err(|_| BuiltinError::NotANumber)?
-                        .$method(&b.parse::<f64>().map_err(|_| BuiltinError::NotANumber)?)),
+                    (HeapTerm::Atom(a), HeapTerm::Atom(b)) => {
+                        let a = solver.vars.get_atom(*a);
+                        let b = solver.vars.get_atom(*b);
+                        Ok(a.parse::<f64>()
+                            .map_err(|_| BuiltinError::NotANumber)?
+                            .$method(&b.parse::<f64>().map_err(|_| BuiltinError::NotANumber)?))
+                    }
                     _ => Err(BuiltinError::InsufficientlyInstantiated),
                 }
             }
