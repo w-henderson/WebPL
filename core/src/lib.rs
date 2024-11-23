@@ -1,4 +1,4 @@
-mod atom;
+pub mod ast;
 mod builtins;
 mod trail;
 mod vararena;
@@ -11,20 +11,22 @@ use std::collections::VecDeque;
 use trail::Trail;
 use vararena::VarArena;
 
-type HeapAtomPtr = usize;
 type HeapTermPtr = usize;
 
+type AtomId = usize;
+type VarId = usize;
+
 pub enum HeapTerm {
-    Atom(HeapAtomPtr),
+    Atom(AtomId),
     Var(HeapTermPtr),
-    Compound(HeapAtomPtr, usize, Option<HeapTermPtr>),
+    Compound(AtomId, usize, Option<HeapTermPtr>),
     CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
 }
 
 pub enum CodeTerm {
-    Atom(String),
-    Var(String),
-    Compound(String, Vec<CodeTerm>),
+    Atom(AtomId),
+    Var(VarId),
+    Compound(AtomId, Vec<CodeTerm>),
 }
 
 pub type Clause = (CodeTerm, Vec<CodeTerm>);
@@ -50,8 +52,8 @@ struct ChoicePoint {
 }
 
 impl<'a> Solver<'a> {
-    pub fn solve(program: &'a Program, query: &Query) -> Self {
-        let (vars, heap_query, var_map) = VarArena::new(query);
+    pub fn solve(program: &'a Program, string_map: ast::StringMap, query: &Query) -> Self {
+        let (vars, heap_query, var_map) = VarArena::new(string_map, query);
 
         Solver {
             program,
@@ -207,7 +209,7 @@ impl<'a> Solver<'a> {
     fn serialize_solution(&self) -> Solution {
         self.var_map
             .iter()
-            .map(|(name, var)| (name.clone(), self.vars.serialize(*var, name)))
+            .map(|(name, ptr)| (name.clone(), self.vars.serialize(*ptr, name)))
             .collect::<Vec<_>>()
     }
 

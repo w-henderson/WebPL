@@ -1,6 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use webpl::*;
+use webpl::ast::*;
+use webpl::Solver;
 
 /*
 take([H|T], H, T).
@@ -23,88 +24,88 @@ fn n_queens(n: usize) {
     let program: Program = vec![
         // take([H|T], H, T).
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "take".into(),
                 vec![
-                    CodeTerm::Compound(
+                    ASTTerm::Compound(
                         ".".into(),
-                        vec![CodeTerm::Var("H".into()), CodeTerm::Var("T".into())],
+                        vec![ASTTerm::Var("H".into()), ASTTerm::Var("T".into())],
                     ),
-                    CodeTerm::Var("H".into()),
-                    CodeTerm::Var("T".into()),
+                    ASTTerm::Var("H".into()),
+                    ASTTerm::Var("T".into()),
                 ],
             ),
             vec![],
         ),
         // take([H|T], R, [H|S]) :- take(T, R, S).
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "take".into(),
                 vec![
-                    CodeTerm::Compound(
+                    ASTTerm::Compound(
                         ".".into(),
-                        vec![CodeTerm::Var("H".into()), CodeTerm::Var("T".into())],
+                        vec![ASTTerm::Var("H".into()), ASTTerm::Var("T".into())],
                     ),
-                    CodeTerm::Var("R".into()),
-                    CodeTerm::Compound(
+                    ASTTerm::Var("R".into()),
+                    ASTTerm::Compound(
                         ".".into(),
-                        vec![CodeTerm::Var("H".into()), CodeTerm::Var("S".into())],
+                        vec![ASTTerm::Var("H".into()), ASTTerm::Var("S".into())],
                     ),
                 ],
             ),
-            vec![CodeTerm::Compound(
+            vec![ASTTerm::Compound(
                 "take".into(),
                 vec![
-                    CodeTerm::Var("T".into()),
-                    CodeTerm::Var("R".into()),
-                    CodeTerm::Var("S".into()),
+                    ASTTerm::Var("T".into()),
+                    ASTTerm::Var("R".into()),
+                    ASTTerm::Var("S".into()),
                 ],
             )],
         ),
         // perm([], []).
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "perm".into(),
-                vec![CodeTerm::Atom("[]".into()), CodeTerm::Atom("[]".into())],
+                vec![ASTTerm::Atom("[]".into()), ASTTerm::Atom("[]".into())],
             ),
             vec![],
         ),
         // perm(L, [H|R]) :- take(L, H, T), perm(T, R).
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "perm".into(),
                 vec![
-                    CodeTerm::Var("L".into()),
-                    CodeTerm::Compound(
+                    ASTTerm::Var("L".into()),
+                    ASTTerm::Compound(
                         ".".into(),
-                        vec![CodeTerm::Var("H".into()), CodeTerm::Var("R".into())],
+                        vec![ASTTerm::Var("H".into()), ASTTerm::Var("R".into())],
                     ),
                 ],
             ),
             vec![
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "take".into(),
                     vec![
-                        CodeTerm::Var("L".into()),
-                        CodeTerm::Var("H".into()),
-                        CodeTerm::Var("T".into()),
+                        ASTTerm::Var("L".into()),
+                        ASTTerm::Var("H".into()),
+                        ASTTerm::Var("T".into()),
                     ],
                 ),
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "perm".into(),
-                    vec![CodeTerm::Var("T".into()), CodeTerm::Var("R".into())],
+                    vec![ASTTerm::Var("T".into()), ASTTerm::Var("R".into())],
                 ),
             ],
         ),
         // generate_list(1, [1]).
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "generate_list".into(),
                 vec![
-                    CodeTerm::Atom("1".into()),
-                    CodeTerm::Compound(
+                    ASTTerm::Atom("1".into()),
+                    ASTTerm::Compound(
                         ".".into(),
-                        vec![CodeTerm::Atom("1".into()), CodeTerm::Atom("[]".into())],
+                        vec![ASTTerm::Atom("1".into()), ASTTerm::Atom("[]".into())],
                     ),
                 ],
             ),
@@ -112,74 +113,74 @@ fn n_queens(n: usize) {
         ),
         // generate_list(N, [N|T]) :- N > 1, M is N - 1, generate_list(M, T).
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "generate_list".into(),
                 vec![
-                    CodeTerm::Var("N".into()),
-                    CodeTerm::Compound(
+                    ASTTerm::Var("N".into()),
+                    ASTTerm::Compound(
                         ".".into(),
-                        vec![CodeTerm::Var("N".into()), CodeTerm::Var("T".into())],
+                        vec![ASTTerm::Var("N".into()), ASTTerm::Var("T".into())],
                     ),
                 ],
             ),
             vec![
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     ">".into(),
-                    vec![CodeTerm::Var("N".into()), CodeTerm::Atom("1".into())],
+                    vec![ASTTerm::Var("N".into()), ASTTerm::Atom("1".into())],
                 ),
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "is".into(),
                     vec![
-                        CodeTerm::Var("M".into()),
-                        CodeTerm::Compound(
+                        ASTTerm::Var("M".into()),
+                        ASTTerm::Compound(
                             "-".into(),
-                            vec![CodeTerm::Var("N".into()), CodeTerm::Atom("1".into())],
+                            vec![ASTTerm::Var("N".into()), ASTTerm::Atom("1".into())],
                         ),
                     ],
                 ),
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "generate_list".into(),
-                    vec![CodeTerm::Var("M".into()), CodeTerm::Var("T".into())],
+                    vec![ASTTerm::Var("M".into()), ASTTerm::Var("T".into())],
                 ),
             ],
         ),
         // abs(0, 0).
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "abs".into(),
-                vec![CodeTerm::Atom("0".into()), CodeTerm::Atom("0".into())],
+                vec![ASTTerm::Atom("0".into()), ASTTerm::Atom("0".into())],
             ),
             vec![],
         ),
         // abs(N, N) :- N > 0.
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "abs".into(),
-                vec![CodeTerm::Var("N".into()), CodeTerm::Var("N".into())],
+                vec![ASTTerm::Var("N".into()), ASTTerm::Var("N".into())],
             ),
-            vec![CodeTerm::Compound(
+            vec![ASTTerm::Compound(
                 ">".into(),
-                vec![CodeTerm::Var("N".into()), CodeTerm::Atom("0".into())],
+                vec![ASTTerm::Var("N".into()), ASTTerm::Atom("0".into())],
             )],
         ),
         // abs(N, M) :- N < 0, M is N * -1.
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "abs".into(),
-                vec![CodeTerm::Var("N".into()), CodeTerm::Var("M".into())],
+                vec![ASTTerm::Var("N".into()), ASTTerm::Var("M".into())],
             ),
             vec![
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "<".into(),
-                    vec![CodeTerm::Var("N".into()), CodeTerm::Atom("0".into())],
+                    vec![ASTTerm::Var("N".into()), ASTTerm::Atom("0".into())],
                 ),
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "is".into(),
                     vec![
-                        CodeTerm::Var("M".into()),
-                        CodeTerm::Compound(
+                        ASTTerm::Var("M".into()),
+                        ASTTerm::Compound(
                             "*".into(),
-                            vec![CodeTerm::Var("N".into()), CodeTerm::Atom("-1".into())],
+                            vec![ASTTerm::Var("N".into()), ASTTerm::Atom("-1".into())],
                         ),
                     ],
                 ),
@@ -187,127 +188,128 @@ fn n_queens(n: usize) {
         ),
         // n_queens(N, Qs) :- generate_list(N, Qs1), perm(Qs1, Qs), safe_queens(Qs).
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "n_queens".into(),
-                vec![CodeTerm::Var("N".into()), CodeTerm::Var("Qs".into())],
+                vec![ASTTerm::Var("N".into()), ASTTerm::Var("Qs".into())],
             ),
             vec![
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "generate_list".into(),
-                    vec![CodeTerm::Var("N".into()), CodeTerm::Var("Qs1".into())],
+                    vec![ASTTerm::Var("N".into()), ASTTerm::Var("Qs1".into())],
                 ),
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "perm".into(),
-                    vec![CodeTerm::Var("Qs1".into()), CodeTerm::Var("Qs".into())],
+                    vec![ASTTerm::Var("Qs1".into()), ASTTerm::Var("Qs".into())],
                 ),
-                CodeTerm::Compound("safe_queens".into(), vec![CodeTerm::Var("Qs".into())]),
+                ASTTerm::Compound("safe_queens".into(), vec![ASTTerm::Var("Qs".into())]),
             ],
         ),
         // safe_queens([]).
         (
-            CodeTerm::Compound("safe_queens".into(), vec![CodeTerm::Atom("[]".into())]),
+            ASTTerm::Compound("safe_queens".into(), vec![ASTTerm::Atom("[]".into())]),
             vec![],
         ),
         // safe_queens([Q|Qs]) :- safe_queens(Qs, Q, 1), safe_queens(Qs).
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "safe_queens".into(),
-                vec![CodeTerm::Compound(
+                vec![ASTTerm::Compound(
                     ".".into(),
-                    vec![CodeTerm::Var("Q".into()), CodeTerm::Var("Qs".into())],
+                    vec![ASTTerm::Var("Q".into()), ASTTerm::Var("Qs".into())],
                 )],
             ),
             vec![
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "safe_queens".into(),
                     vec![
-                        CodeTerm::Var("Qs".into()),
-                        CodeTerm::Var("Q".into()),
-                        CodeTerm::Atom("1".into()),
+                        ASTTerm::Var("Qs".into()),
+                        ASTTerm::Var("Q".into()),
+                        ASTTerm::Atom("1".into()),
                     ],
                 ),
-                CodeTerm::Compound("safe_queens".into(), vec![CodeTerm::Var("Qs".into())]),
+                ASTTerm::Compound("safe_queens".into(), vec![ASTTerm::Var("Qs".into())]),
             ],
         ),
         // safe_queens([], Y, X).
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "safe_queens".into(),
                 vec![
-                    CodeTerm::Atom("[]".into()),
-                    CodeTerm::Var("Y".into()),
-                    CodeTerm::Var("X".into()),
+                    ASTTerm::Atom("[]".into()),
+                    ASTTerm::Var("Y".into()),
+                    ASTTerm::Var("X".into()),
                 ],
             ),
             vec![],
         ),
         // safe_queens([Q|Qs], Q0, D0) :- Q0 =\= Q, Diff is Q0 - Q, abs(Diff, AbsDiff), AbsDiff =\= D0, D1 is D0 + 1, safe_queens(Qs, Q0, D1).
         (
-            CodeTerm::Compound(
+            ASTTerm::Compound(
                 "safe_queens".into(),
                 vec![
-                    CodeTerm::Compound(
+                    ASTTerm::Compound(
                         ".".into(),
-                        vec![CodeTerm::Var("Q".into()), CodeTerm::Var("Qs".into())],
+                        vec![ASTTerm::Var("Q".into()), ASTTerm::Var("Qs".into())],
                     ),
-                    CodeTerm::Var("Q0".into()),
-                    CodeTerm::Var("D0".into()),
+                    ASTTerm::Var("Q0".into()),
+                    ASTTerm::Var("D0".into()),
                 ],
             ),
             vec![
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "=\\=".into(),
-                    vec![CodeTerm::Var("Q0".into()), CodeTerm::Var("Q".into())],
+                    vec![ASTTerm::Var("Q0".into()), ASTTerm::Var("Q".into())],
                 ),
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "is".into(),
                     vec![
-                        CodeTerm::Var("Diff".into()),
-                        CodeTerm::Compound(
+                        ASTTerm::Var("Diff".into()),
+                        ASTTerm::Compound(
                             "-".into(),
-                            vec![CodeTerm::Var("Q0".into()), CodeTerm::Var("Q".into())],
+                            vec![ASTTerm::Var("Q0".into()), ASTTerm::Var("Q".into())],
                         ),
                     ],
                 ),
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "abs".into(),
-                    vec![
-                        CodeTerm::Var("Diff".into()),
-                        CodeTerm::Var("AbsDiff".into()),
-                    ],
+                    vec![ASTTerm::Var("Diff".into()), ASTTerm::Var("AbsDiff".into())],
                 ),
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "=\\=".into(),
-                    vec![CodeTerm::Var("AbsDiff".into()), CodeTerm::Var("D0".into())],
+                    vec![ASTTerm::Var("AbsDiff".into()), ASTTerm::Var("D0".into())],
                 ),
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "is".into(),
                     vec![
-                        CodeTerm::Var("D1".into()),
-                        CodeTerm::Compound(
+                        ASTTerm::Var("D1".into()),
+                        ASTTerm::Compound(
                             "+".into(),
-                            vec![CodeTerm::Var("D0".into()), CodeTerm::Atom("1".into())],
+                            vec![ASTTerm::Var("D0".into()), ASTTerm::Atom("1".into())],
                         ),
                     ],
                 ),
-                CodeTerm::Compound(
+                ASTTerm::Compound(
                     "safe_queens".into(),
                     vec![
-                        CodeTerm::Var("Qs".into()),
-                        CodeTerm::Var("Q0".into()),
-                        CodeTerm::Var("D1".into()),
+                        ASTTerm::Var("Qs".into()),
+                        ASTTerm::Var("Q0".into()),
+                        ASTTerm::Var("D1".into()),
                     ],
                 ),
             ],
         ),
     ];
 
-    let query: Query = vec![CodeTerm::Compound(
+    let query: Query = vec![ASTTerm::Compound(
         "n_queens".into(),
-        vec![CodeTerm::Atom(n.to_string()), CodeTerm::Var("Qs".into())],
+        vec![ASTTerm::Atom(n.to_string()), ASTTerm::Var("Qs".into())],
     )];
 
-    Solver::solve(&program, &query).take(2).for_each(drop);
+    let (program, query, string_map) = to_code_term(program, query);
+
+    Solver::solve(&program, string_map, &query)
+        .take(2)
+        .for_each(drop);
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

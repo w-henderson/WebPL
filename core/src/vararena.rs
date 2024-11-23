@@ -1,24 +1,41 @@
-use crate::atom::AtomMap;
-use crate::{CodeTerm, HeapAtomPtr, HeapTerm, HeapTermPtr, Query};
+use crate::ast::StringMap;
+use crate::{AtomId, CodeTerm, HeapTerm, HeapTermPtr, Query, VarId};
 
 #[derive(Default)]
 pub struct VarArena {
     arena: Vec<HeapTerm>,
-    atom_map: AtomMap,
+    string_map: StringMap,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Checkpoint(usize);
 
 impl VarArena {
-    pub fn new(query: &Query) -> (Self, Vec<HeapTermPtr>, Vec<(String, HeapTermPtr)>) {
-        let mut arena = Self::default();
+    pub fn new(
+        string_map: StringMap,
+        query: &Query,
+    ) -> (Self, Vec<HeapTermPtr>, Vec<(String, HeapTermPtr)>) {
+        let mut arena = Self {
+            arena: Vec::new(),
+            string_map,
+        };
+
         let mut var_map = Vec::new();
         let mut heap_query = Vec::new();
 
         for term in query {
             heap_query.push(arena.alloc(term, &mut var_map));
         }
+
+        let var_map = var_map
+            .into_iter()
+            .map(|(id, ptr)| {
+                (
+                    arena.string_map.variable_map.get(id).unwrap().to_string(),
+                    ptr,
+                )
+            })
+            .collect();
 
         (arena, heap_query, var_map)
     }
@@ -31,27 +48,27 @@ impl VarArena {
         self.arena.truncate(checkpoint.0);
     }
 
-    pub fn alloc(&mut self, term: &CodeTerm, var_map: &mut Vec<(String, usize)>) -> HeapTermPtr {
+    pub fn alloc(
+        &mut self,
+        term: &CodeTerm,
+        var_map: &mut Vec<(VarId, HeapTermPtr)>,
+    ) -> HeapTermPtr {
         let result = self.arena.len();
 
         match term {
-            CodeTerm::Atom(atom) => self.arena.push(HeapTerm::Atom(self.atom_map.alloc(atom))),
+            CodeTerm::Atom(atom) => self.arena.push(HeapTerm::Atom(*atom)),
             CodeTerm::Var(id) => {
                 if let Some((_, unified)) = var_map.iter().find(|(x, _)| x == id) {
                     self.arena.push(HeapTerm::Var(*unified));
                 } else {
                     self.arena.push(HeapTerm::Var(result));
-                    var_map.push((id.clone(), result));
+                    var_map.push((*id, result));
                 }
             }
             CodeTerm::Compound(functor, args) => {
                 let arity = args.len();
 
-                self.arena.push(HeapTerm::Compound(
-                    self.atom_map.alloc(functor),
-                    arity,
-                    None,
-                ));
+                self.arena.push(HeapTerm::Compound(*functor, arity, None));
 
                 let mut next = None;
                 for arg in args.iter().rev() {
@@ -71,7 +88,8 @@ impl VarArena {
 
     pub fn alloc_atom(&mut self, atom: String) -> HeapTermPtr {
         let result = self.arena.len();
-        self.arena.push(HeapTerm::Atom(self.atom_map.alloc(&atom)));
+        self.arena
+            .push(HeapTerm::Atom(self.string_map.atom_map.alloc(&atom)));
         result
     }
 
@@ -101,8 +119,8 @@ impl VarArena {
         }
     }
 
-    pub fn get_atom(&self, atom: HeapAtomPtr) -> &str {
-        self.atom_map.get(atom).unwrap()
+    pub fn get_atom(&self, atom: AtomId) -> &str {
+        self.string_map.atom_map.get(atom).unwrap()
     }
 
     pub fn serialize(&self, term: HeapTermPtr, name: &str) -> String {
@@ -117,7 +135,7 @@ impl VarArena {
         equal_limit: Option<usize>,
     ) -> String {
         match &self.arena[term] {
-            HeapTerm::Atom(atom) => self.atom_map.get(*atom).unwrap().to_string(),
+            HeapTerm::Atom(atom) => self.get_atom(*atom).to_string(),
             HeapTerm::Var(x) => {
                 let position = stack.iter().position(|y| y == x);
 
