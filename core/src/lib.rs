@@ -13,20 +13,19 @@ use vararena::VarArena;
 
 type HeapTermPtr = usize;
 
-type AtomId = usize;
-type VarId = usize;
+type StringId = usize;
 
 pub enum HeapTerm {
-    Atom(AtomId),
+    Atom(StringId),
     Var(HeapTermPtr),
-    Compound(AtomId, usize, Option<HeapTermPtr>),
+    Compound(StringId, usize, Option<HeapTermPtr>),
     CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
 }
 
 pub enum CodeTerm {
-    Atom(AtomId),
-    Var(VarId),
-    Compound(AtomId, Vec<CodeTerm>),
+    Atom(StringId),
+    Var(StringId),
+    Compound(StringId, Vec<CodeTerm>),
 }
 
 pub type Clause = (CodeTerm, Vec<CodeTerm>);

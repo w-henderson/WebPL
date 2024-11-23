@@ -1,5 +1,5 @@
 use crate::ast::StringMap;
-use crate::{AtomId, CodeTerm, HeapTerm, HeapTermPtr, Query, VarId};
+use crate::{CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
 
 #[derive(Default)]
 pub struct VarArena {
@@ -29,12 +29,7 @@ impl VarArena {
 
         let var_map = var_map
             .into_iter()
-            .map(|(id, ptr)| {
-                (
-                    arena.string_map.variable_map.get(id).unwrap().to_string(),
-                    ptr,
-                )
-            })
+            .map(|(id, ptr)| (arena.string_map.get(id).unwrap().to_string(), ptr))
             .collect();
 
         (arena, heap_query, var_map)
@@ -51,7 +46,7 @@ impl VarArena {
     pub fn alloc(
         &mut self,
         term: &CodeTerm,
-        var_map: &mut Vec<(VarId, HeapTermPtr)>,
+        var_map: &mut Vec<(StringId, HeapTermPtr)>,
     ) -> HeapTermPtr {
         let result = self.arena.len();
 
@@ -89,7 +84,7 @@ impl VarArena {
     pub fn alloc_atom(&mut self, atom: String) -> HeapTermPtr {
         let result = self.arena.len();
         self.arena
-            .push(HeapTerm::Atom(self.string_map.atom_map.alloc(&atom)));
+            .push(HeapTerm::Atom(self.string_map.alloc(&atom)));
         result
     }
 
@@ -119,8 +114,8 @@ impl VarArena {
         }
     }
 
-    pub fn get_atom(&self, atom: AtomId) -> &str {
-        self.string_map.atom_map.get(atom).unwrap()
+    pub fn get_atom(&self, atom: StringId) -> &str {
+        self.string_map.get(atom).unwrap()
     }
 
     pub fn serialize(&self, term: HeapTermPtr, name: &str) -> String {

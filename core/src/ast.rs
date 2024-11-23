@@ -1,4 +1,4 @@
-use crate::{AtomId, CodeTerm};
+use crate::{CodeTerm, StringId};
 
 use std::collections::HashMap;
 
@@ -14,18 +14,12 @@ pub type Program = Vec<Clause>;
 
 #[derive(Default)]
 pub struct StringMap {
-    pub atom_map: BiMap,
-    pub variable_map: BiMap,
-}
-
-#[derive(Default)]
-pub struct BiMap {
     map: HashMap<String, usize>,
     reverse: Vec<String>,
 }
 
-impl BiMap {
-    pub fn alloc(&mut self, atom: &str) -> AtomId {
+impl StringMap {
+    pub fn alloc(&mut self, atom: &str) -> StringId {
         if let Some(ptr) = self.map.get(atom) {
             *ptr
         } else {
@@ -36,7 +30,7 @@ impl BiMap {
         }
     }
 
-    pub fn get(&self, ptr: AtomId) -> Option<&str> {
+    pub fn get(&self, ptr: StringId) -> Option<&str> {
         self.reverse.get(ptr).map(|s| s.as_str())
     }
 }
@@ -44,10 +38,10 @@ impl BiMap {
 impl ASTTerm {
     pub fn to_code_term(&self, string_map: &mut StringMap) -> CodeTerm {
         match self {
-            ASTTerm::Atom(atom) => CodeTerm::Atom(string_map.atom_map.alloc(atom)),
-            ASTTerm::Var(var) => CodeTerm::Var(string_map.variable_map.alloc(var)),
+            ASTTerm::Atom(atom) => CodeTerm::Atom(string_map.alloc(atom)),
+            ASTTerm::Var(var) => CodeTerm::Var(string_map.alloc(var)),
             ASTTerm::Compound(functor, args) => CodeTerm::Compound(
-                string_map.atom_map.alloc(functor),
+                string_map.alloc(functor),
                 args.iter()
                     .map(|arg| arg.to_code_term(string_map))
                     .collect(),
