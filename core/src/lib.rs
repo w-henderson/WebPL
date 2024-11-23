@@ -7,8 +7,6 @@ mod vararena;
 #[cfg(test)]
 mod tests;
 
-use std::collections::VecDeque;
-
 use atom::Atom;
 use trail::Trail;
 use vararena::VarArena;
@@ -37,7 +35,7 @@ pub type Solution = Vec<(String, String)>;
 
 pub struct Solver<'a> {
     program: &'a Program,
-    goals: VecDeque<HeapTermPtr>,
+    goals: Vec<HeapTermPtr>,
     clause: usize,
     choice_points: Vec<ChoicePoint>,
     vars: VarArena,
@@ -46,7 +44,7 @@ pub struct Solver<'a> {
 }
 
 struct ChoicePoint {
-    goals: VecDeque<HeapTermPtr>,
+    goals: Vec<HeapTermPtr>,
     clause: usize,
     trail_checkpoint: trail::Checkpoint,
     arena_checkpoint: vararena::Checkpoint,
@@ -58,7 +56,7 @@ impl<'a> Solver<'a> {
 
         Solver {
             program,
-            goals: heap_query.clone().into(),
+            goals: heap_query.into_iter().rev().collect(),
             clause: 0,
             choice_points: Vec::new(),
             vars,
@@ -71,12 +69,12 @@ impl<'a> Solver<'a> {
         let mut var_map = Vec::new();
 
         'solve: loop {
-            let goal: HeapTermPtr = *self.goals.front()?;
+            let goal: HeapTermPtr = *self.goals.last()?;
 
             match builtins::eval(self, goal) {
                 Some(Ok(true)) => {
                     // Built-in predicate succeeded
-                    self.goals.pop_front();
+                    self.goals.pop();
                     if let Some(solution) = self.succeed() {
                         self.pop_choice_point();
                         return Some(solution);
@@ -105,10 +103,10 @@ impl<'a> Solver<'a> {
                     self.push_choice_point(trail_checkpoint, arena_checkpoint);
 
                     self.clause = 0;
-                    self.goals.pop_front();
+                    self.goals.pop();
 
                     clause.1.iter().rev().for_each(|goal| {
-                        self.goals.push_front(self.vars.alloc(goal, &mut var_map));
+                        self.goals.push(self.vars.alloc(goal, &mut var_map));
                     });
 
                     if let Some(solution) = self.succeed() {
