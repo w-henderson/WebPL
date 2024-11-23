@@ -1,3 +1,5 @@
+pub mod ast;
+mod atom;
 mod builtins;
 mod trail;
 mod vararena;
@@ -5,56 +7,56 @@ mod vararena;
 #[cfg(test)]
 mod tests;
 
-use std::collections::VecDeque;
-
+use atom::Atom;
 use trail::Trail;
 use vararena::VarArena;
 
-type Atom = String;
-type VarName = String;
 type HeapTermPtr = usize;
+
+type StringId = usize;
 
 pub enum HeapTerm {
     Atom(Atom),
     Var(HeapTermPtr),
-    Compound(Atom, Vec<HeapTermPtr>),
+    Compound(StringId, usize, Option<HeapTermPtr>),
+    CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
 }
 
 pub enum CodeTerm {
     Atom(Atom),
-    Var(VarName),
-    Compound(Atom, Vec<CodeTerm>),
+    Var(StringId),
+    Compound(StringId, Vec<CodeTerm>),
 }
 
 pub type Clause = (CodeTerm, Vec<CodeTerm>);
 pub type Query = Vec<CodeTerm>;
 pub type Program = Vec<Clause>;
-pub type Solution = Vec<(VarName, String)>;
+pub type Solution = Vec<(String, String)>;
 
 pub struct Solver<'a> {
     program: &'a Program,
-    goals: VecDeque<HeapTermPtr>,
+    goals: Vec<HeapTermPtr>,
     clause: usize,
     choice_points: Vec<ChoicePoint>,
     vars: VarArena,
-    var_map: Vec<(VarName, HeapTermPtr)>,
+    var_map: Vec<(String, HeapTermPtr)>,
     trail: Trail,
 }
 
 struct ChoicePoint {
-    goals: VecDeque<HeapTermPtr>,
+    goals: Vec<HeapTermPtr>,
     clause: usize,
     trail_checkpoint: trail::Checkpoint,
     arena_checkpoint: vararena::Checkpoint,
 }
 
 impl<'a> Solver<'a> {
-    pub fn solve(program: &'a Program, query: &Query) -> Self {
-        let (vars, heap_query, var_map) = VarArena::new(query);
+    pub fn solve(program: &'a Program, string_map: ast::StringMap, query: &Query) -> Self {
+        let (vars, heap_query, var_map) = VarArena::new(string_map, query);
 
         Solver {
             program,
-            goals: heap_query.clone().into(),
+            goals: heap_query.into_iter().rev().collect(),
             clause: 0,
             choice_points: Vec::new(),
             vars,
@@ -64,13 +66,15 @@ impl<'a> Solver<'a> {
     }
 
     fn step(&mut self) -> Option<Solution> {
+        let mut var_map = Vec::new();
+
         'solve: loop {
-            let goal: HeapTermPtr = *self.goals.front()?;
+            let goal: HeapTermPtr = *self.goals.last()?;
 
             match builtins::eval(self, goal) {
                 Some(Ok(true)) => {
                     // Built-in predicate succeeded
-                    self.goals.pop_front();
+                    self.goals.pop();
                     if let Some(solution) = self.succeed() {
                         self.pop_choice_point();
                         return Some(solution);
@@ -91,17 +95,19 @@ impl<'a> Solver<'a> {
 
                 let (trail_checkpoint, arena_checkpoint) = self.enter();
 
-                let (head, body) = self.vars.alloc_clause(clause);
+                var_map.clear();
+
+                let head = self.vars.alloc(&clause.0, &mut var_map);
 
                 if self.unify(goal, head) {
                     self.push_choice_point(trail_checkpoint, arena_checkpoint);
 
                     self.clause = 0;
-                    self.goals.pop_front();
+                    self.goals.pop();
 
-                    body.iter()
-                        .rev()
-                        .for_each(|goal| self.goals.push_front(*goal));
+                    clause.1.iter().rev().for_each(|goal| {
+                        self.goals.push(self.vars.alloc(goal, &mut var_map));
+                    });
 
                     if let Some(solution) = self.succeed() {
                         self.pop_choice_point();
@@ -133,18 +139,30 @@ impl<'a> Solver<'a> {
                 self.vars.unify(*b, a_ptr);
                 true
             }
-            (HeapTerm::Compound(f, a_args), HeapTerm::Compound(g, b_args)) => {
-                if f != g || a_args.len() != b_args.len() {
+            (HeapTerm::Compound(f, a_arity, a_next), HeapTerm::Compound(g, b_arity, b_next)) => {
+                if f != g || a_arity != b_arity {
                     return false;
                 }
 
                 let checkpoint = self.trail.checkpoint();
 
-                for (a, b) in a_args.clone().into_iter().zip(b_args.clone().into_iter()) {
-                    if !self.unify(a, b) {
-                        self.trail.undo(checkpoint, &mut self.vars);
-                        return false;
-                    }
+                let mut a_arg = *a_next;
+                let mut b_arg = *b_next;
+
+                while let Some((a_ref, b_ref)) = a_arg.zip(b_arg) {
+                    if let (
+                        HeapTerm::CompoundCons(a_head, a_tail),
+                        HeapTerm::CompoundCons(b_head, b_tail),
+                    ) = (self.vars.get(a_ref), self.vars.get(b_ref))
+                    {
+                        a_arg = *a_tail;
+                        b_arg = *b_tail;
+
+                        if !self.unify(*a_head, *b_head) {
+                            self.trail.undo(checkpoint, &mut self.vars);
+                            return false;
+                        }
+                    };
                 }
 
                 true
@@ -190,7 +208,7 @@ impl<'a> Solver<'a> {
     fn serialize_solution(&self) -> Solution {
         self.var_map
             .iter()
-            .map(|(name, var)| (name.clone(), self.vars.serialize(*var, name)))
+            .map(|(name, ptr)| (name.clone(), self.vars.serialize(*ptr, name)))
             .collect::<Vec<_>>()
     }
 

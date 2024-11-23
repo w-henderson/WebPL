@@ -1,4 +1,4 @@
-use std::vec;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use webpl::ast::*;
 use webpl::Solver;
@@ -20,7 +20,7 @@ safe_queens([], Y, X).
 safe_queens([Q|Qs], Q0, D0) :- Q0 =\= Q, Diff is Q0 - Q, abs(Diff, AbsDiff), AbsDiff =\= D0, D1 is D0 + 1, safe_queens(Qs, Q0, D1).
 */
 
-fn n_queens() {
+fn n_queens(n: usize) {
     let program: Program = vec![
         // take([H|T], H, T).
         (
@@ -302,18 +302,19 @@ fn n_queens() {
 
     let query: Query = vec![ASTTerm::Compound(
         "n_queens".into(),
-        vec![ASTTerm::Atom("8".into()), ASTTerm::Var("Qs".into())],
+        vec![ASTTerm::Atom(n.to_string()), ASTTerm::Var("Qs".into())],
     )];
 
     let (program, query, string_map) = to_code_term(program, query);
 
-    let solver = Solver::solve(&program, string_map, &query);
-
-    for solution in solver {
-        println!("{:?}", solution);
-    }
+    Solver::solve(&program, string_map, &query)
+        .take(2)
+        .for_each(drop);
 }
 
-fn main() {
-    n_queens();
+fn criterion_benchmark(c: &mut Criterion) {
+    c.bench_function("nqueens 8", |b| b.iter(|| n_queens(black_box(8))));
 }
+
+criterion_group!(benches, criterion_benchmark);
+criterion_main!(benches);

@@ -1,5 +1,5 @@
 use crate::builtins::{Builtin, BuiltinError};
-use crate::{HeapTerm, HeapTermPtr, Solver};
+use crate::{Atom, HeapTerm, HeapTermPtr, Solver};
 
 macro_rules! impl_arithmetic_cmp {
     ($op:ident, $method:ident) => {
@@ -11,11 +11,21 @@ macro_rules! impl_arithmetic_cmp {
                 let b = solver.vars.get(args[1]);
 
                 match (a, b) {
-                    (HeapTerm::Atom(a), HeapTerm::Atom(b)) => Ok(a
-                        .parse::<f64>()
-                        .map_err(|_| BuiltinError::NotANumber)?
-                        .$method(&b.parse::<f64>().map_err(|_| BuiltinError::NotANumber)?)),
-                    _ => Err(BuiltinError::InsufficientlyInstantiated),
+                    (HeapTerm::Atom(Atom::Integer(a)), HeapTerm::Atom(Atom::Integer(b))) => {
+                        Ok(a.$method(&b))
+                    }
+                    (HeapTerm::Atom(Atom::Float(a)), HeapTerm::Atom(Atom::Float(b))) => {
+                        Ok(a.$method(&b))
+                    }
+                    (HeapTerm::Atom(Atom::Integer(a)), HeapTerm::Atom(Atom::Float(b))) => {
+                        Ok((*a as f64).$method(&b))
+                    }
+                    (HeapTerm::Atom(Atom::Float(a)), HeapTerm::Atom(Atom::Integer(b))) => {
+                        Ok(a.$method(&(*b as f64)))
+                    }
+                    (HeapTerm::Var(_), _) => Err(BuiltinError::InsufficientlyInstantiated),
+                    (_, HeapTerm::Var(_)) => Err(BuiltinError::InsufficientlyInstantiated),
+                    _ => Err(BuiltinError::NotANumber),
                 }
             }
         }

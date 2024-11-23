@@ -1,25 +1,26 @@
-use crate::*;
+use crate::ast::*;
+use crate::Solver;
 
 #[test]
 fn is() {
     let program: Program = Program::default();
 
     let query: Query = vec![
-        CodeTerm::Compound(
+        ASTTerm::Compound(
             "=".into(),
-            vec![CodeTerm::Var("Y".into()), CodeTerm::Atom("3".into())],
+            vec![ASTTerm::Var("Y".into()), ASTTerm::Atom("3".into())],
         ),
-        CodeTerm::Compound(
+        ASTTerm::Compound(
             "is".into(),
             vec![
-                CodeTerm::Var("X".into()),
-                CodeTerm::Compound(
+                ASTTerm::Var("X".into()),
+                ASTTerm::Compound(
                     "+".into(),
                     vec![
-                        CodeTerm::Var("Y".into()),
-                        CodeTerm::Compound(
+                        ASTTerm::Var("Y".into()),
+                        ASTTerm::Compound(
                             "*".into(),
-                            vec![CodeTerm::Atom("2".into()), CodeTerm::Atom("5.1".into())],
+                            vec![ASTTerm::Atom("2".into()), ASTTerm::Atom("5.1".into())],
                         ),
                     ],
                 ),
@@ -27,7 +28,9 @@ fn is() {
         ),
     ];
 
-    let mut solver = Solver::solve(&program, &query);
+    let (program, query, string_map) = to_code_term(program, query);
+
+    let mut solver = Solver::solve(&program, string_map, &query);
 
     assert_eq!(
         solver.next(),
@@ -39,17 +42,20 @@ fn is() {
 
 #[test]
 fn cmp() {
-    let program: Program = Program::default();
-    let query_1: Query = vec![CodeTerm::Compound(
+    let query_1: Query = vec![ASTTerm::Compound(
         ">".into(),
-        vec![CodeTerm::Atom("4".into()), CodeTerm::Atom("3".into())],
+        vec![ASTTerm::Atom("4".into()), ASTTerm::Atom("3".into())],
     )];
-    let query_2: Query = vec![CodeTerm::Compound(
+    let query_2: Query = vec![ASTTerm::Compound(
         ">".into(),
-        vec![CodeTerm::Atom("3".into()), CodeTerm::Atom("4".into())],
+        vec![ASTTerm::Atom("3".into()), ASTTerm::Atom("4".into())],
     )];
-    let mut solver_1 = Solver::solve(&program, &query_1);
-    let mut solver_2 = Solver::solve(&program, &query_2);
+
+    let (program_1, query_1, string_map_1) = to_code_term(Program::default(), query_1);
+    let (program_2, query_2, string_map_2) = to_code_term(Program::default(), query_2);
+
+    let mut solver_1 = Solver::solve(&program_1, string_map_1, &query_1);
+    let mut solver_2 = Solver::solve(&program_2, string_map_2, &query_2);
 
     assert_eq!(solver_1.next(), Some(vec![]));
     assert_eq!(solver_1.next(), None);
