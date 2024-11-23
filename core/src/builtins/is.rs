@@ -1,28 +1,32 @@
+use crate::atom::Atom;
 use crate::builtins::{args, Builtin, BuiltinError};
 use crate::{HeapTerm, HeapTermPtr, Solver};
 
-pub struct IsBuiltin;
+use std::ops::{Add, Div, Mul, Sub};
 
-pub enum Number {
-    Integer(i64),
-    Float(f64),
-}
+pub struct IsBuiltin;
 
 impl Builtin<2> for IsBuiltin {
     fn eval(solver: &mut Solver, args: [HeapTermPtr; 2]) -> Result<bool, BuiltinError> {
         let result = IsBuiltin::arithmetic_eval(solver, args[1]);
 
         result.map(|n| {
-            let n: HeapTermPtr = solver.vars.alloc_atom(n.to_string());
+            let n: HeapTermPtr = solver.vars.alloc_atom(n);
             solver.unify(args[0], n)
         })
     }
 }
 
 impl IsBuiltin {
-    fn arithmetic_eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Number, BuiltinError> {
+    fn arithmetic_eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Atom, BuiltinError> {
         match solver.vars.get(term) {
-            HeapTerm::Atom(atom) => Self::arithmetic_eval_atom(solver.vars.get_atom(*atom)),
+            HeapTerm::Atom(atom) => {
+                if matches!(atom, Atom::Integer(_) | Atom::Float(_)) {
+                    Ok(*atom)
+                } else {
+                    Err(BuiltinError::UnsupportedOperation)
+                }
+            }
             HeapTerm::Var(_) => Err(BuiltinError::InsufficientlyInstantiated),
             HeapTerm::Compound(f, arity, next) if *arity == 2 => {
                 let f = *f;
@@ -32,55 +36,33 @@ impl IsBuiltin {
                 let f = solver.vars.get_atom(f);
 
                 match f {
-                    "+" => Ok(a + b),
-                    "-" => Ok(a - b),
-                    "*" => Ok(a * b),
-                    "/" => Ok(a / b),
+                    "+" => add(&a, &b),
+                    "-" => sub(&a, &b),
+                    "*" => mul(&a, &b),
+                    "/" => div(&a, &b),
                     _ => Err(BuiltinError::UnsupportedOperation),
                 }
             }
             _ => Err(BuiltinError::UnsupportedOperation),
         }
     }
-
-    fn arithmetic_eval_atom(atom: &str) -> Result<Number, BuiltinError> {
-        if let Ok(int) = atom.parse::<i64>() {
-            Ok(Number::Integer(int))
-        } else if let Ok(float) = atom.parse::<f64>() {
-            Ok(Number::Float(float))
-        } else {
-            Err(BuiltinError::NotANumber)
-        }
-    }
 }
 
 macro_rules! impl_arithmetic_op {
-    ($op:ident, $method:ident) => {
-        impl std::ops::$op for Number {
-            type Output = Number;
-
-            fn $method(self, rhs: Self) -> Self::Output {
-                match (self, rhs) {
-                    (Number::Integer(a), Number::Integer(b)) => Number::Integer(a.$method(b)),
-                    (Number::Float(a), Number::Float(b)) => Number::Float(a.$method(b)),
-                    (Number::Integer(a), Number::Float(b)) => Number::Float((a as f64).$method(b)),
-                    (Number::Float(a), Number::Integer(b)) => Number::Float(a.$method(b as f64)),
-                }
+    ($op:ident) => {
+        fn $op(a: &Atom, b: &Atom) -> Result<Atom, BuiltinError> {
+            match (a, b) {
+                (Atom::Integer(a), Atom::Integer(b)) => Ok(Atom::Integer(a.$op(b))),
+                (Atom::Float(a), Atom::Float(b)) => Ok(Atom::Float(a.$op(b))),
+                (Atom::Integer(a), Atom::Float(b)) => Ok(Atom::Float((*a as f64).$op(b))),
+                (Atom::Float(a), Atom::Integer(b)) => Ok(Atom::Float(a.$op(*b as f64))),
+                _ => Err(BuiltinError::UnsupportedOperation),
             }
         }
     };
 }
 
-impl_arithmetic_op!(Add, add);
-impl_arithmetic_op!(Sub, sub);
-impl_arithmetic_op!(Mul, mul);
-impl_arithmetic_op!(Div, div);
-
-impl std::fmt::Display for Number {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Number::Integer(n) => write!(f, "{}", n),
-            Number::Float(n) => write!(f, "{}", n),
-        }
-    }
-}
+impl_arithmetic_op!(add);
+impl_arithmetic_op!(sub);
+impl_arithmetic_op!(mul);
+impl_arithmetic_op!(div);

@@ -1,4 +1,5 @@
 pub mod ast;
+mod atom;
 mod builtins;
 mod trail;
 mod vararena;
@@ -8,6 +9,7 @@ mod tests;
 
 use std::collections::VecDeque;
 
+use atom::Atom;
 use trail::Trail;
 use vararena::VarArena;
 
@@ -16,14 +18,14 @@ type HeapTermPtr = usize;
 type StringId = usize;
 
 pub enum HeapTerm {
-    Atom(StringId),
+    Atom(Atom),
     Var(HeapTermPtr),
     Compound(StringId, usize, Option<HeapTermPtr>),
     CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
 }
 
 pub enum CodeTerm {
-    Atom(StringId),
+    Atom(Atom),
     Var(StringId),
     Compound(StringId, Vec<CodeTerm>),
 }

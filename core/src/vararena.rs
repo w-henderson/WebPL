@@ -1,4 +1,5 @@
 use crate::ast::StringMap;
+use crate::atom::Atom;
 use crate::{CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
 
 #[derive(Default)]
@@ -81,10 +82,9 @@ impl VarArena {
         result
     }
 
-    pub fn alloc_atom(&mut self, atom: String) -> HeapTermPtr {
+    pub fn alloc_atom(&mut self, atom: Atom) -> HeapTermPtr {
         let result = self.arena.len();
-        self.arena
-            .push(HeapTerm::Atom(self.string_map.alloc(&atom)));
+        self.arena.push(HeapTerm::Atom(atom));
         result
     }
 
@@ -130,7 +130,7 @@ impl VarArena {
         equal_limit: Option<usize>,
     ) -> String {
         match &self.arena[term] {
-            HeapTerm::Atom(atom) => self.get_atom(*atom).to_string(),
+            HeapTerm::Atom(atom) => atom.to_string(&self.string_map),
             HeapTerm::Var(x) => {
                 let position = stack.iter().position(|y| y == x);
 

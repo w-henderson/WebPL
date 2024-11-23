@@ -1,3 +1,4 @@
+use crate::atom::Atom;
 use crate::{CodeTerm, StringId};
 
 use std::collections::HashMap;
@@ -38,7 +39,7 @@ impl StringMap {
 impl ASTTerm {
     pub fn to_code_term(&self, string_map: &mut StringMap) -> CodeTerm {
         match self {
-            ASTTerm::Atom(atom) => CodeTerm::Atom(string_map.alloc(atom)),
+            ASTTerm::Atom(atom) => CodeTerm::Atom(Atom::new(string_map, atom)),
             ASTTerm::Var(var) => CodeTerm::Var(string_map.alloc(var)),
             ASTTerm::Compound(functor, args) => CodeTerm::Compound(
                 string_map.alloc(functor),
