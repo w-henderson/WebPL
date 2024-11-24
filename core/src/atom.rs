@@ -1,4 +1,4 @@
-use crate::ast::StringMap;
+use crate::stringmap::StringMap;
 use crate::StringId;
 
 #[derive(PartialEq, Copy, Clone)]

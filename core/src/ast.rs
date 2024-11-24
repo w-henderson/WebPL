@@ -1,7 +1,6 @@
 use crate::atom::Atom;
-use crate::{CodeTerm, StringId};
-
-use std::collections::HashMap;
+use crate::stringmap::StringMap;
+use crate::CodeTerm;
 
 pub enum ASTTerm {
     Atom(String),
@@ -12,29 +11,6 @@ pub enum ASTTerm {
 pub type Clause = (ASTTerm, Vec<ASTTerm>);
 pub type Query = Vec<ASTTerm>;
 pub type Program = Vec<Clause>;
-
-#[derive(Default)]
-pub struct StringMap {
-    map: HashMap<String, usize>,
-    reverse: Vec<String>,
-}
-
-impl StringMap {
-    pub fn alloc(&mut self, atom: &str) -> StringId {
-        if let Some(ptr) = self.map.get(atom) {
-            *ptr
-        } else {
-            let ptr = self.reverse.len();
-            self.map.insert(atom.to_string(), ptr);
-            self.reverse.push(atom.to_string());
-            ptr
-        }
-    }
-
-    pub fn get(&self, ptr: StringId) -> Option<&str> {
-        self.reverse.get(ptr).map(|s| s.as_str())
-    }
-}
 
 impl ASTTerm {
     pub fn to_code_term(&self, string_map: &mut StringMap) -> CodeTerm {

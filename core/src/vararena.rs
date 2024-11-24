@@ -1,5 +1,5 @@
-use crate::ast::StringMap;
 use crate::atom::Atom;
+use crate::stringmap::StringMap;
 use crate::{CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
 
 #[derive(Default)]

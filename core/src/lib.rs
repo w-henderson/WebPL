@@ -1,6 +1,7 @@
 pub mod ast;
 mod atom;
 mod builtins;
+mod stringmap;
 mod trail;
 mod vararena;
 
@@ -8,6 +9,7 @@ mod vararena;
 mod tests;
 
 use atom::Atom;
+use stringmap::StringMap;
 use trail::Trail;
 use vararena::VarArena;
 
@@ -51,7 +53,7 @@ struct ChoicePoint {
 }
 
 impl<'a> Solver<'a> {
-    pub fn solve(program: &'a Program, string_map: ast::StringMap, query: &Query) -> Self {
+    pub fn solve(program: &'a Program, string_map: StringMap, query: &Query) -> Self {
         let (vars, heap_query, var_map) = VarArena::new(string_map, query);
 
         Solver {
