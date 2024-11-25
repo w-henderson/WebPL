@@ -1,36 +1,12 @@
-use crate::ast::*;
-use crate::Solver;
+use crate::WebPL;
 
 #[test]
 fn is() {
-    let program: Program = Program::default();
+    let program = String::new();
+    let query = "Y = 3, X is Y + (2 * 5.1).";
 
-    let query: Query = vec![
-        ASTTerm::Compound(
-            "=".into(),
-            vec![ASTTerm::Var("Y".into()), ASTTerm::Atom("3".into())],
-        ),
-        ASTTerm::Compound(
-            "is".into(),
-            vec![
-                ASTTerm::Var("X".into()),
-                ASTTerm::Compound(
-                    "+".into(),
-                    vec![
-                        ASTTerm::Var("Y".into()),
-                        ASTTerm::Compound(
-                            "*".into(),
-                            vec![ASTTerm::Atom("2".into()), ASTTerm::Atom("5.1".into())],
-                        ),
-                    ],
-                ),
-            ],
-        ),
-    ];
-
-    let (program, query, string_map) = to_code_term(program, query);
-
-    let mut solver = Solver::solve(&program, string_map, &query);
+    let mut webpl = WebPL::new(program).unwrap();
+    let mut solver = webpl.solve(query).unwrap();
 
     assert_eq!(
         solver.next(),
@@ -42,22 +18,16 @@ fn is() {
 
 #[test]
 fn cmp() {
-    let query_1: Query = vec![ASTTerm::Compound(
-        ">".into(),
-        vec![ASTTerm::Atom("4".into()), ASTTerm::Atom("3".into())],
-    )];
-    let query_2: Query = vec![ASTTerm::Compound(
-        ">".into(),
-        vec![ASTTerm::Atom("3".into()), ASTTerm::Atom("4".into())],
-    )];
+    let program = String::new();
+    let query_1 = "4 > 3.";
+    let query_2 = "3 > 4.";
 
-    let (program_1, query_1, string_map_1) = to_code_term(Program::default(), query_1);
-    let (program_2, query_2, string_map_2) = to_code_term(Program::default(), query_2);
+    let mut webpl = WebPL::new(program).unwrap();
 
-    let mut solver_1 = Solver::solve(&program_1, string_map_1, &query_1);
-    let mut solver_2 = Solver::solve(&program_2, string_map_2, &query_2);
-
+    let mut solver_1 = webpl.solve(query_1).unwrap();
     assert_eq!(solver_1.next(), Some(vec![]));
     assert_eq!(solver_1.next(), None);
+
+    let mut solver_2 = webpl.solve(query_2).unwrap();
     assert_eq!(solver_2.next(), None);
 }

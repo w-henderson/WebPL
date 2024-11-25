@@ -1,0 +1,63 @@
+grammar;
+
+use crate::ast::*;
+
+pub Program: Program = {
+    <p:Clause*> => Program(p),
+}
+
+pub Query: Query = {
+    <p:Comma<Term>> "." => Query(p),
+}
+
+pub Clause: Clause = {
+    <h:Term> "." => Clause(h, vec![]),
+    <h:Term> ":-" <b:Comma<Term>> "." => Clause(h, b),
+}
+
+pub Term: Term = {
+    #[precedence(level="0")]
+    <a:Atom> => Term::Atom(a),
+    <v:VarStr> => Term::Variable(v),
+    <f:AtomStr> "(" <a:Comma<Term>> ")" => Term::Compound(f, a),
+    "(" <t:BracketedTerm> ")" => t,
+
+    "[" <a:Comma<Term>> "|" <t:Term> "]" => Term::list(a, Some(t)),
+    "[" <a:Comma<Term>> "]" => Term::list(a, None),
+    "[]" => Term::list(vec![], None),
+
+    #[precedence(level="1")] #[assoc(side="left")]
+    <t1:Term> <o:Op1> <t2:Term> => Term::Compound(o, vec![t1, t2]),
+
+    #[precedence(level="2")] #[assoc(side="left")]
+    <t1:Term> <o:Op2> <t2:Term> => Term::Compound(o, vec![t1, t2]),
+
+    #[precedence(level="3")] #[assoc(side="left")]
+    <t1:Term> <o:Op3> <t2:Term> => Term::Compound(o, vec![t1, t2]),
+}
+
+// https://github.com/lalrpop/lalrpop/issues/596
+pub BracketedTerm: Term = <Term>;
+
+pub Atom: Atom = {
+    <s:AtomStr> => Atom::String(s),
+    <i:Integer> => Atom::Integer(i),
+    <f:Float>   => Atom::Float(f),
+}
+
+pub Op1: String = r"\*|\/" => <>.to_string();
+pub Op2: String = r"\+|-" => <>.to_string();
+pub Op3: String = r"=|>|<|>=|<=|=\\=|=:=| is " => <>.trim().to_string();
+
+pub AtomStr: String = r"[a-z][a-zA-Z0-9_]*" => <>.to_string();
+pub VarStr: String = r"[A-Z][a-zA-Z0-9_]*" => <>.to_string();
+pub Integer: i64 = r"-?[0-9]+" => <>.parse().unwrap();
+pub Float: f64 = r"-?[0-9]+\.[0-9]+" => <>.parse().unwrap();
+
+Comma<T>: Vec<T> = {
+    <t:T> => vec![t],
+    <mut ts:Comma<T>> "," <t:T> => {
+        ts.push(t);
+        ts
+    },
+}
