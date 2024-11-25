@@ -10,12 +10,12 @@ pub Query: Query = {
     <p:Comma<Term>> "." => Query(p),
 }
 
-pub Clause: Clause = {
+Clause: Clause = {
     <h:Term> "." => Clause(h, vec![]),
     <h:Term> ":-" <b:Comma<Term>> "." => Clause(h, b),
 }
 
-pub Term: Term = {
+Term: Term = {
     #[precedence(level="0")]
     <a:Atom> => Term::Atom(a),
     <v:VarStr> => Term::Variable(v),
@@ -37,22 +37,22 @@ pub Term: Term = {
 }
 
 // https://github.com/lalrpop/lalrpop/issues/596
-pub BracketedTerm: Term = <Term>;
+BracketedTerm: Term = <Term>;
 
-pub Atom: Atom = {
+Atom: Atom = {
     <s:AtomStr> => Atom::String(s),
     <i:Integer> => Atom::Integer(i),
     <f:Float>   => Atom::Float(f),
 }
 
-pub Op1: String = r"\*|\/" => <>.to_string();
-pub Op2: String = r"\+|-" => <>.to_string();
-pub Op3: String = r"=|>|<|>=|<=|=\\=|=:=| is " => <>.trim().to_string();
+Op1: String = r"\*|\/" => <>.to_string();
+Op2: String = r"\+|-" => <>.to_string();
+Op3: String = r"=|>|<|>=|<=|=\\=|=:=| is " => <>.trim().to_string();
 
-pub AtomStr: String = r"[a-z][a-zA-Z0-9_]*" => <>.to_string();
-pub VarStr: String = r"[A-Z][a-zA-Z0-9_]*" => <>.to_string();
-pub Integer: i64 = r"-?[0-9]+" => <>.parse().unwrap();
-pub Float: f64 = r"-?[0-9]+\.[0-9]+" => <>.parse().unwrap();
+AtomStr: String = r"[a-z][a-zA-Z0-9_]*" => <>.to_string();
+VarStr: String = r"[A-Z][a-zA-Z0-9_]*" => <>.to_string();
+Integer: i64 = r"-?[0-9]+" => <>.parse().unwrap();
+Float: f64 = r"-?[0-9]+\.[0-9]+" => <>.parse().unwrap();
 
 Comma<T>: Vec<T> = {
     <t:T> => vec![t],
