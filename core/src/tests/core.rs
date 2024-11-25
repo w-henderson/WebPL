@@ -1,80 +1,15 @@
-use crate::ast::*;
-use crate::Solver;
+use crate::WebPL;
 
-fn app_program() -> Program {
-    vec![
-        (
-            ASTTerm::Compound(
-                "app".into(),
-                vec![
-                    ASTTerm::Atom("nil".into()),
-                    ASTTerm::Var("L2".into()),
-                    ASTTerm::Var("L2".into()),
-                ],
-            ),
-            vec![],
-        ),
-        (
-            ASTTerm::Compound(
-                "app".into(),
-                vec![
-                    ASTTerm::Compound(
-                        "cons".into(),
-                        vec![ASTTerm::Var("H".into()), ASTTerm::Var("T".into())],
-                    ),
-                    ASTTerm::Var("L2".into()),
-                    ASTTerm::Compound(
-                        "cons".into(),
-                        vec![ASTTerm::Var("H".into()), ASTTerm::Var("L3".into())],
-                    ),
-                ],
-            ),
-            vec![ASTTerm::Compound(
-                "app".into(),
-                vec![
-                    ASTTerm::Var("T".into()),
-                    ASTTerm::Var("L2".into()),
-                    ASTTerm::Var("L3".into()),
-                ],
-            )],
-        ),
-    ]
-}
+static APP_PROGRAM: &str = r#"
+app(nil, L2, L2).
+app(cons(H, T), L2, cons(H, L3)) :- app(T, L2, L3).
+"#;
 
 #[test]
 fn app() {
-    let program: Program = app_program();
-
-    let query: Query = vec![ASTTerm::Compound(
-        "app".into(),
-        vec![
-            ASTTerm::Compound(
-                "cons".into(),
-                vec![
-                    ASTTerm::Atom("1".into()),
-                    ASTTerm::Compound(
-                        "cons".into(),
-                        vec![ASTTerm::Atom("2".into()), ASTTerm::Atom("nil".into())],
-                    ),
-                ],
-            ),
-            ASTTerm::Compound(
-                "cons".into(),
-                vec![
-                    ASTTerm::Atom("3".into()),
-                    ASTTerm::Compound(
-                        "cons".into(),
-                        vec![ASTTerm::Atom("4".into()), ASTTerm::Atom("nil".into())],
-                    ),
-                ],
-            ),
-            ASTTerm::Var("L".into()),
-        ],
-    )];
-
-    let (program, query, string_map) = to_code_term(program, query);
-
-    let mut solver = Solver::solve(&program, string_map, &query);
+    let query = "app(cons(1, cons(2, nil)), cons(3, cons(4, nil)), L).";
+    let mut webpl = WebPL::new(APP_PROGRAM).unwrap();
+    let mut solver = webpl.solve(query).unwrap();
 
     assert_eq!(
         solver.next(),
@@ -89,29 +24,9 @@ fn app() {
 
 #[test]
 fn recursive_solution() {
-    let program: Program = app_program();
-
-    let query: Query = vec![ASTTerm::Compound(
-        "app".into(),
-        vec![
-            ASTTerm::Compound(
-                "cons".into(),
-                vec![
-                    ASTTerm::Atom("1".into()),
-                    ASTTerm::Compound(
-                        "cons".into(),
-                        vec![ASTTerm::Atom("2".into()), ASTTerm::Atom("nil".into())],
-                    ),
-                ],
-            ),
-            ASTTerm::Var("L".into()),
-            ASTTerm::Var("L".into()),
-        ],
-    )];
-
-    let (program, query, string_map) = to_code_term(program, query);
-
-    let mut solver = Solver::solve(&program, string_map, &query);
+    let query = "app(cons(1, cons(2, nil)), L, L).";
+    let mut webpl = WebPL::new(APP_PROGRAM).unwrap();
+    let mut solver = webpl.solve(query).unwrap();
 
     assert_eq!(
         solver.next(),
@@ -123,57 +38,32 @@ fn recursive_solution() {
 
 #[test]
 fn backtracking() {
-    let program: Program = vec![
-        (
-            ASTTerm::Compound("generate".into(), vec![ASTTerm::Atom("1".into())]),
-            vec![],
-        ),
-        (
-            ASTTerm::Compound("generate".into(), vec![ASTTerm::Atom("2".into())]),
-            vec![],
-        ),
-        (
-            ASTTerm::Compound("test".into(), vec![ASTTerm::Atom("2".into())]),
-            vec![],
-        ),
-        (
-            ASTTerm::Compound("solve".into(), vec![ASTTerm::Var("X".into())]),
-            vec![
-                ASTTerm::Compound("generate".into(), vec![ASTTerm::Var("X".into())]),
-                ASTTerm::Compound("test".into(), vec![ASTTerm::Var("X".into())]),
-            ],
-        ),
-    ];
+    let program = r#"
+        generate(1).
+        generate(2).
+        test(2).
+        solve(X) :- generate(X), test(X).
+    "#;
 
-    let query = vec![ASTTerm::Compound(
-        "solve".into(),
-        vec![ASTTerm::Var("X".into())],
-    )];
-
-    let (program, query, string_map) = to_code_term(program, query);
-
-    let mut solver = Solver::solve(&program, string_map, &query);
+    let query = "solve(X).";
+    let mut webpl = WebPL::new(program).unwrap();
+    let mut solver = webpl.solve(query).unwrap();
 
     assert_eq!(solver.next(), Some(vec![("X".into(), "2".into())]));
-
     assert_eq!(solver.next(), None);
 }
 
 #[test]
 fn multiple_goals() {
-    let program: Program = vec![
-        (ASTTerm::Atom("true".into()), vec![]),
-        (
-            ASTTerm::Atom("a".into()),
-            vec![ASTTerm::Atom("false".into()), ASTTerm::Atom("true".into())],
-        ),
-    ];
+    let program = r#"
+        true.
+        a :- false, true.
+    "#;
 
-    let query = vec![ASTTerm::Atom("a".into())];
+    let query = "a.";
 
-    let (program, query, string_map) = to_code_term(program, query);
-
-    let mut solver = Solver::solve(&program, string_map, &query);
+    let mut webpl = WebPL::new(program).unwrap();
+    let mut solver = webpl.solve(query).unwrap();
 
     assert_eq!(solver.next(), None);
     assert_eq!(solver.next(), None);

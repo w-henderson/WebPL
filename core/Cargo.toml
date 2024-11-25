@@ -3,6 +3,12 @@ name = "webpl"
 version = "0.1.0"
 edition = "2021"
 
+[dependencies]
+lalrpop-util = { version = "0.22.0", features = ["default", "lexer"] }
+
+[build-dependencies]
+lalrpop = "0.22.0"
+
 [dev-dependencies]
 criterion = "0.5.1"
 

@@ -1,5 +1,5 @@
 use crate::stringmap::StringMap;
-use crate::StringId;
+use crate::{ast, StringId};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum Atom {
@@ -9,13 +9,11 @@ pub enum Atom {
 }
 
 impl Atom {
-    pub fn new(string_map: &mut StringMap, atom: &str) -> Self {
-        if let Ok(integer) = atom.parse::<i64>() {
-            Atom::Integer(integer)
-        } else if let Ok(float) = atom.parse::<f64>() {
-            Atom::Float(float)
-        } else {
-            Atom::String(string_map.alloc(atom))
+    pub fn new(string_map: &mut StringMap, atom: &ast::Atom) -> Self {
+        match atom {
+            ast::Atom::String(s) => Atom::String(string_map.alloc(s)),
+            ast::Atom::Integer(n) => Atom::Integer(*n),
+            ast::Atom::Float(n) => Atom::Float(*n),
         }
     }
 

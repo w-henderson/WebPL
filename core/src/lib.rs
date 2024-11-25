@@ -5,6 +5,8 @@ mod stringmap;
 mod trail;
 mod vararena;
 
+lalrpop_util::lalrpop_mod!(grammar);
+
 #[cfg(test)]
 mod tests;
 
@@ -35,12 +37,21 @@ pub type Query = Vec<CodeTerm>;
 pub type Program = Vec<Clause>;
 pub type Solution = Vec<(String, String)>;
 
+pub trait ToCodeTerm {
+    fn to_code_term(&self, string_map: &mut StringMap) -> CodeTerm;
+}
+
+pub struct WebPL {
+    program: Program,
+    string_map: StringMap,
+}
+
 pub struct Solver<'a> {
     program: &'a Program,
     goals: Vec<HeapTermPtr>,
     clause: usize,
     choice_points: Vec<ChoicePoint>,
-    vars: VarArena,
+    vars: VarArena<'a>,
     var_map: Vec<(String, HeapTermPtr)>,
     trail: Trail,
 }
@@ -52,8 +63,64 @@ struct ChoicePoint {
     arena_checkpoint: vararena::Checkpoint,
 }
 
+#[derive(Debug)]
+pub enum Error {
+    ParseError(String),
+    BuiltinError(builtins::BuiltinError),
+}
+
+impl WebPL {
+    pub fn new(program: impl AsRef<str>) -> Result<Self, Error> {
+        let program = grammar::ProgramParser::new()
+            .parse(program.as_ref())
+            .map_err(|e| Error::ParseError(e.to_string()))?;
+        Ok(Self::from_ast(program))
+    }
+
+    pub fn from_ast(program: ast::Program) -> Self {
+        let mut string_map = StringMap::default();
+
+        let program = program
+            .0
+            .into_iter()
+            .map(|clause| {
+                (
+                    clause.0.to_code_term(&mut string_map),
+                    clause
+                        .1
+                        .into_iter()
+                        .map(|term| term.to_code_term(&mut string_map))
+                        .collect(),
+                )
+            })
+            .collect();
+
+        WebPL {
+            program,
+            string_map,
+        }
+    }
+
+    pub fn solve(&mut self, query: impl AsRef<str>) -> Result<Solver, Error> {
+        let query = grammar::QueryParser::new()
+            .parse(query.as_ref())
+            .map_err(|e| Error::ParseError(e.to_string()))?;
+        Ok(self.solve_from_ast(query))
+    }
+
+    pub fn solve_from_ast(&mut self, query: ast::Query) -> Solver {
+        let query = query
+            .0
+            .into_iter()
+            .map(|term| term.to_code_term(&mut self.string_map))
+            .collect();
+
+        Solver::solve(&self.program, &self.string_map, &query)
+    }
+}
+
 impl<'a> Solver<'a> {
-    pub fn solve(program: &'a Program, string_map: StringMap, query: &Query) -> Self {
+    pub fn solve(program: &'a Program, string_map: &'a StringMap, query: &Query) -> Self {
         let (vars, heap_query, var_map) = VarArena::new(string_map, query);
 
         Solver {
