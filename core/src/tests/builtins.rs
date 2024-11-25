@@ -3,7 +3,7 @@ use crate::WebPL;
 #[test]
 fn is() {
     let program = String::new();
-    let query = "=(Y, 3), is(X, +(Y, *(2, 5.1))).";
+    let query = "Y = 3, X is Y + (2 * 5.1).";
 
     let mut webpl = WebPL::new(program).unwrap();
     let mut solver = webpl.solve(query).unwrap();
@@ -19,8 +19,8 @@ fn is() {
 #[test]
 fn cmp() {
     let program = String::new();
-    let query_1 = ">(4, 3).";
-    let query_2 = ">(3, 4).";
+    let query_1 = "4 > 3.";
+    let query_2 = "3 > 4.";
 
     let mut webpl = WebPL::new(program).unwrap();
 

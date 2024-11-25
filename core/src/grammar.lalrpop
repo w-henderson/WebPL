@@ -7,24 +7,33 @@ pub Program: Program = {
 }
 
 pub Query: Query = {
-    <p:Comma<Predicate>> "." => Query(p),
+    <p:Comma<Term>> "." => Query(p),
 }
 
 pub Clause: Clause = {
-    <h:Predicate> "." => Clause(h, vec![]),
-    <h:Predicate> ":-" <b:Comma<Predicate>> "." => Clause(h, b),
-}
-
-pub Predicate: Predicate = {
-    <a:Atom> => Predicate::Atom(a),
-    <f:AtomStr> "(" <a:Comma<Term>> ")" => Predicate::Compound(f, a),
+    <h:Term> "." => Clause(h, vec![]),
+    <h:Term> ":-" <b:Comma<Term>> "." => Clause(h, b),
 }
 
 pub Term: Term = {
+    #[precedence(level="0")]
     <a:Atom> => Term::Atom(a),
     <v:VarStr> => Term::Variable(v),
     <f:AtomStr> "(" <a:Comma<Term>> ")" => Term::Compound(f, a),
+    "(" <t:BracketedTerm> ")" => t,
+
+    #[precedence(level="1")] #[assoc(side="left")]
+    <t1:Term> <o:Op1> <t2:Term> => Term::Compound(o, vec![t1, t2]),
+
+    #[precedence(level="2")] #[assoc(side="left")]
+    <t1:Term> <o:Op2> <t2:Term> => Term::Compound(o, vec![t1, t2]),
+
+    #[precedence(level="3")] #[assoc(side="left")]
+    <t1:Term> <o:Op3> <t2:Term> => Term::Compound(o, vec![t1, t2]),
 }
+
+// https://github.com/lalrpop/lalrpop/issues/596
+pub BracketedTerm: Term = <Term>;
 
 pub Atom: Atom = {
     <s:AtomStr> => Atom::String(s),
@@ -32,7 +41,11 @@ pub Atom: Atom = {
     <f:Float>   => Atom::Float(f),
 }
 
-pub AtomStr: String = r"([a-z][a-zA-Z0-9_]*)|=|>|<|>=|<=|=\\=|=:=|\+|-|\/|\*" => <>.to_string(); // TODO: add operators
+pub Op1: String = r"\*|\/" => <>.to_string();
+pub Op2: String = r"\+|-" => <>.to_string();
+pub Op3: String = r"=|>|<|>=|<=|=\\=|=:=| is " => <>.trim().to_string();
+
+pub AtomStr: String = r"[a-z][a-zA-Z0-9_]*" => <>.to_string();
 pub VarStr: String = r"[A-Z][a-zA-Z0-9_]*" => <>.to_string();
 pub Integer: i64 = r"-?[0-9]+" => <>.parse().unwrap();
 pub Float: f64 = r"-?[0-9]+\.[0-9]+" => <>.parse().unwrap();
