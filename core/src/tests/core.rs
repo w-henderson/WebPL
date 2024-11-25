@@ -67,6 +67,24 @@ fn multiple_goals() {
 }
 
 #[test]
+fn operator_precedence() {
+    let query_1 = "X is 1 + 2 * 3.";
+    let query_2 = "X is (1 + 2) * 3.";
+    let query_3 = "X is 1 + 2 * 3 + 4 * 5.";
+
+    let mut webpl = WebPL::new("").unwrap();
+
+    let mut solver_1 = webpl.solve(query_1).unwrap();
+    assert_eq!(solver_1.next(), Some(vec![("X".into(), "7".into())]));
+
+    let mut solver_2 = webpl.solve(query_2).unwrap();
+    assert_eq!(solver_2.next(), Some(vec![("X".into(), "9".into())]));
+
+    let mut solver_3 = webpl.solve(query_3).unwrap();
+    assert_eq!(solver_3.next(), Some(vec![("X".into(), "27".into())]));
+}
+
+#[test]
 #[ignore = "long in debug"]
 fn n_queens() {
     let program = r#"
