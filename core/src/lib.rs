@@ -1,6 +1,7 @@
 pub mod ast;
 mod atom;
 mod builtins;
+mod goal;
 mod stringmap;
 mod trail;
 mod vararena;
@@ -11,6 +12,7 @@ lalrpop_util::lalrpop_mod!(grammar);
 mod tests;
 
 use atom::Atom;
+use goal::{GoalArena, GoalPtr};
 use stringmap::StringMap;
 use trail::Trail;
 use vararena::VarArena;
@@ -48,7 +50,8 @@ pub struct WebPL {
 
 pub struct Solver<'a> {
     program: &'a Program,
-    goals: Vec<HeapTermPtr>,
+    goal: Option<GoalPtr>,
+    goals: GoalArena,
     clause: usize,
     choice_points: Vec<ChoicePoint>,
     vars: VarArena<'a>,
@@ -57,10 +60,11 @@ pub struct Solver<'a> {
 }
 
 struct ChoicePoint {
-    goals: Vec<HeapTermPtr>,
+    goal: Option<GoalPtr>,
     clause: usize,
     trail_checkpoint: trail::Checkpoint,
     arena_checkpoint: vararena::Checkpoint,
+    goals_checkpoint: goal::Checkpoint,
 }
 
 #[derive(Debug)]
@@ -122,10 +126,18 @@ impl WebPL {
 impl<'a> Solver<'a> {
     pub fn solve(program: &'a Program, string_map: &'a StringMap, query: &Query) -> Self {
         let (vars, heap_query, var_map) = VarArena::new(string_map, query);
+        let mut goals = GoalArena::default();
+
+        let mut goal = None;
+
+        for term in heap_query.into_iter().rev() {
+            goal = Some(goals.alloc(term, goal));
+        }
 
         Solver {
             program,
-            goals: heap_query.into_iter().rev().collect(),
+            goal,
+            goals,
             clause: 0,
             choice_points: Vec::new(),
             vars,
@@ -138,12 +150,12 @@ impl<'a> Solver<'a> {
         let mut var_map = Vec::new();
 
         'solve: loop {
-            let goal: HeapTermPtr = *self.goals.last()?;
+            let goal: HeapTermPtr = self.goals.get(*self.goal.as_ref()?).0;
 
             match builtins::eval(self, goal) {
                 Some(Ok(true)) => {
                     // Built-in predicate succeeded
-                    self.goals.pop();
+                    self.pop_goal();
                     if let Some(solution) = self.succeed() {
                         self.pop_choice_point();
                         return Some(solution);
@@ -166,24 +178,27 @@ impl<'a> Solver<'a> {
 
                 var_map.clear();
 
-                let head = self.vars.alloc(&clause.0, &mut var_map);
+                if self.pre_unify(goal, &clause.0) {
+                    let head = self.vars.alloc(&clause.0, &mut var_map);
 
-                if self.unify(goal, head) {
-                    self.push_choice_point(trail_checkpoint, arena_checkpoint);
+                    if self.unify(goal, head) {
+                        self.push_choice_point(trail_checkpoint, arena_checkpoint);
 
-                    self.clause = 0;
-                    self.goals.pop();
+                        self.clause = 0;
+                        self.pop_goal();
 
-                    clause.1.iter().rev().for_each(|goal| {
-                        self.goals.push(self.vars.alloc(goal, &mut var_map));
-                    });
+                        clause.1.iter().rev().for_each(|goal| {
+                            let heap_goal: HeapTermPtr = self.vars.alloc(goal, &mut var_map);
+                            self.push_goal(heap_goal);
+                        });
 
-                    if let Some(solution) = self.succeed() {
-                        self.pop_choice_point();
-                        return Some(solution);
+                        if let Some(solution) = self.succeed() {
+                            self.pop_choice_point();
+                            return Some(solution);
+                        }
+
+                        continue 'solve;
                     }
-
-                    continue 'solve;
                 }
 
                 self.undo(trail_checkpoint, arena_checkpoint);
@@ -192,6 +207,17 @@ impl<'a> Solver<'a> {
             }
 
             self.pop_choice_point()?;
+        }
+    }
+
+    fn pre_unify(&self, a_ptr: HeapTermPtr, b: &CodeTerm) -> bool {
+        match (self.vars.get(a_ptr), b) {
+            (HeapTerm::Atom(a), CodeTerm::Atom(b)) => a == b,
+            (HeapTerm::Var(_), _) | (_, CodeTerm::Var(_)) => true,
+            (HeapTerm::Compound(f, a_arity, _), CodeTerm::Compound(g, b_args)) => {
+                f == g && *a_arity == b_args.len()
+            }
+            _ => false,
         }
     }
 
@@ -240,8 +266,21 @@ impl<'a> Solver<'a> {
         }
     }
 
+    #[inline]
+    fn push_goal(&mut self, goal: HeapTermPtr) {
+        self.goal = Some(self.goals.alloc(goal, self.goal.take()));
+    }
+
+    #[inline]
+    fn pop_goal(&mut self) {
+        if let Some(goal) = self.goal.take() {
+            self.goal = self.goals.get(goal).1;
+        }
+    }
+
+    #[inline]
     fn succeed(&self) -> Option<Solution> {
-        if self.goals.is_empty() {
+        if self.goal.is_none() {
             return Some(self.serialize_solution());
         }
 
@@ -255,25 +294,28 @@ impl<'a> Solver<'a> {
         arena_checkpoint: vararena::Checkpoint,
     ) {
         self.choice_points.push(ChoicePoint {
-            goals: self.goals.clone(),
+            goal: self.goal,
             clause: self.clause + 1,
             trail_checkpoint,
             arena_checkpoint,
+            goals_checkpoint: self.goals.checkpoint(),
         });
     }
 
     #[inline]
     fn pop_choice_point(&mut self) -> Option<()> {
         if let Some(choice_point) = self.choice_points.pop() {
-            self.goals = choice_point.goals;
+            self.goal = choice_point.goal;
             self.clause = choice_point.clause;
             self.undo(choice_point.trail_checkpoint, choice_point.arena_checkpoint);
+            self.goals.undo(choice_point.goals_checkpoint);
             return Some(());
         }
 
         None
     }
 
+    #[inline]
     fn serialize_solution(&self) -> Solution {
         self.var_map
             .iter()
