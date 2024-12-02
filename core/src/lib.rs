@@ -1,6 +1,7 @@
 pub mod ast;
 mod atom;
 mod builtins;
+mod goal;
 mod stringmap;
 mod trail;
 mod vararena;
@@ -11,11 +12,10 @@ lalrpop_util::lalrpop_mod!(grammar);
 mod tests;
 
 use atom::Atom;
+use goal::{GoalArena, GoalPtr};
 use stringmap::StringMap;
 use trail::Trail;
 use vararena::VarArena;
-
-use std::rc::Rc;
 
 type HeapTermPtr = usize;
 
@@ -50,7 +50,8 @@ pub struct WebPL {
 
 pub struct Solver<'a> {
     program: &'a Program,
-    goal: Option<Rc<Goal>>,
+    goal: Option<GoalPtr>,
+    goals: GoalArena,
     clause: usize,
     choice_points: Vec<ChoicePoint>,
     vars: VarArena<'a>,
@@ -58,13 +59,12 @@ pub struct Solver<'a> {
     trail: Trail,
 }
 
-struct Goal(HeapTermPtr, Option<Rc<Goal>>);
-
 struct ChoicePoint {
-    goal: Option<Rc<Goal>>,
+    goal: Option<GoalPtr>,
     clause: usize,
     trail_checkpoint: trail::Checkpoint,
     arena_checkpoint: vararena::Checkpoint,
+    goals_checkpoint: goal::Checkpoint,
 }
 
 #[derive(Debug)]
@@ -126,16 +126,18 @@ impl WebPL {
 impl<'a> Solver<'a> {
     pub fn solve(program: &'a Program, string_map: &'a StringMap, query: &Query) -> Self {
         let (vars, heap_query, var_map) = VarArena::new(string_map, query);
+        let mut goals = GoalArena::default();
 
         let mut goal = None;
 
         for term in heap_query.into_iter().rev() {
-            goal = Some(Rc::new(Goal(term, goal)));
+            goal = Some(goals.alloc(term, goal));
         }
 
         Solver {
             program,
             goal,
+            goals,
             clause: 0,
             choice_points: Vec::new(),
             vars,
@@ -148,7 +150,7 @@ impl<'a> Solver<'a> {
         let mut var_map = Vec::new();
 
         'solve: loop {
-            let goal: HeapTermPtr = self.goal.as_ref()?.0;
+            let goal: HeapTermPtr = self.goals.get(*self.goal.as_ref()?).0;
 
             match builtins::eval(self, goal) {
                 Some(Ok(true)) => {
@@ -266,13 +268,13 @@ impl<'a> Solver<'a> {
 
     #[inline]
     fn push_goal(&mut self, goal: HeapTermPtr) {
-        self.goal = Some(Rc::new(Goal(goal, self.goal.take())));
+        self.goal = Some(self.goals.alloc(goal, self.goal.take()));
     }
 
     #[inline]
     fn pop_goal(&mut self) {
         if let Some(goal) = self.goal.take() {
-            self.goal = goal.1.clone();
+            self.goal = self.goals.get(goal).1;
         }
     }
 
@@ -292,10 +294,11 @@ impl<'a> Solver<'a> {
         arena_checkpoint: vararena::Checkpoint,
     ) {
         self.choice_points.push(ChoicePoint {
-            goal: self.goal.clone(),
+            goal: self.goal,
             clause: self.clause + 1,
             trail_checkpoint,
             arena_checkpoint,
+            goals_checkpoint: self.goals.checkpoint(),
         });
     }
 
@@ -305,6 +308,7 @@ impl<'a> Solver<'a> {
             self.goal = choice_point.goal;
             self.clause = choice_point.clause;
             self.undo(choice_point.trail_checkpoint, choice_point.arena_checkpoint);
+            self.goals.undo(choice_point.goals_checkpoint);
             return Some(());
         }
 
