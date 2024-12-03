@@ -144,7 +144,7 @@ impl Solver {
             };
 
             while self.clause < self.program.len() {
-                let (trail_checkpoint, heap_checkpoint) = self.enter();
+                let choice_point = self.enter();
 
                 var_map.clear();
 
@@ -154,7 +154,7 @@ impl Solver {
                     let head = self.heap.alloc(head, &mut var_map);
 
                     if self.unify(goal, head) {
-                        self.push_choice_point(trail_checkpoint, heap_checkpoint);
+                        self.choice_points.push(choice_point);
 
                         self.goals.pop();
                         let (_, body) = &self.program[self.clause];
@@ -174,9 +174,7 @@ impl Solver {
                     }
                 }
 
-                self.undo(trail_checkpoint, heap_checkpoint);
-
-                self.clause += 1;
+                self.undo(choice_point);
             }
 
             self.pop_choice_point()?;
@@ -240,29 +238,29 @@ impl Solver {
     }
 
     #[inline]
-    fn push_choice_point(
-        &mut self,
-        trail_checkpoint: trail::Checkpoint,
-        heap_checkpoint: heap::Checkpoint,
-    ) {
-        self.choice_points.push(ChoicePoint {
+    fn enter(&mut self) -> ChoicePoint {
+        ChoicePoint {
             clause: self.clause + 1,
-            trail_checkpoint,
-            heap_checkpoint,
+            trail_checkpoint: self.trail.checkpoint(),
+            heap_checkpoint: self.heap.checkpoint(),
             goals_checkpoint: self.goals.checkpoint(),
-        });
+        }
+    }
+
+    #[inline]
+    fn undo(&mut self, choice_point: ChoicePoint) {
+        self.clause = choice_point.clause;
+        self.trail
+            .undo(choice_point.trail_checkpoint, &mut self.heap);
+        self.heap.undo(choice_point.heap_checkpoint);
+        self.goals.undo(choice_point.goals_checkpoint);
     }
 
     #[inline]
     fn pop_choice_point(&mut self) -> Option<()> {
-        if let Some(choice_point) = self.choice_points.pop() {
-            self.clause = choice_point.clause;
-            self.undo(choice_point.trail_checkpoint, choice_point.heap_checkpoint);
-            self.goals.undo(choice_point.goals_checkpoint);
-            return Some(());
-        }
-
-        None
+        self.choice_points
+            .pop()
+            .map(|choice_point| self.undo(choice_point))
     }
 
     #[inline]
@@ -271,17 +269,6 @@ impl Solver {
             .iter()
             .map(|(name, ptr)| (name.clone(), self.heap.serialize(*ptr, name)))
             .collect::<Vec<_>>()
-    }
-
-    #[inline]
-    fn enter(&mut self) -> (trail::Checkpoint, heap::Checkpoint) {
-        (self.trail.checkpoint(), self.heap.checkpoint())
-    }
-
-    #[inline]
-    fn undo(&mut self, trail_checkpoint: trail::Checkpoint, heap_checkpoint: heap::Checkpoint) {
-        self.trail.undo(trail_checkpoint, &mut self.heap);
-        self.heap.undo(heap_checkpoint);
     }
 }
 
