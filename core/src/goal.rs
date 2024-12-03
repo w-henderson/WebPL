@@ -1,11 +1,10 @@
 use crate::HeapTermPtr;
 
-#[derive(Debug)]
 pub struct Goal(HeapTermPtr, Option<GoalPtr>);
 
 pub type GoalPtr = usize;
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Goals {
     current: Option<GoalPtr>,
     goals: Vec<Goal>,
