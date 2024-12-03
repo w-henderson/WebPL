@@ -1,4 +1,4 @@
-use crate::vararena::VarArena;
+use crate::heap::Heap;
 use crate::HeapTermPtr;
 
 #[derive(Default)]
@@ -22,7 +22,7 @@ impl Trail {
         Checkpoint(self.vars.len())
     }
 
-    pub fn undo(&mut self, checkpoint: Checkpoint, vars: &mut VarArena) {
+    pub fn undo(&mut self, checkpoint: Checkpoint, vars: &mut Heap) {
         for var in (checkpoint.0..self.vars.len()).rev() {
             vars.unbind(self.vars[var]);
         }

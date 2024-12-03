@@ -1,4 +1,4 @@
-use crate::WebPL;
+use crate::Solver;
 
 static APP_PROGRAM: &str = r#"
 app([], L2, L2).
@@ -8,8 +8,7 @@ app([H|T], L2, [H|L3]) :- app(T, L2, L3).
 #[test]
 fn app() {
     let query = "app([1, 2], [3, 4], L).";
-    let mut webpl = WebPL::new(APP_PROGRAM).unwrap();
-    let mut solver = webpl.solve(query).unwrap();
+    let mut solver = Solver::new(APP_PROGRAM, query).unwrap();
 
     assert_eq!(
         solver.next(),
@@ -22,8 +21,7 @@ fn app() {
 #[test]
 fn recursive_solution() {
     let query = "app([1, 2], L, L).";
-    let mut webpl = WebPL::new(APP_PROGRAM).unwrap();
-    let mut solver = webpl.solve(query).unwrap();
+    let mut solver = Solver::new(APP_PROGRAM, query).unwrap();
 
     assert_eq!(
         solver.next(),
@@ -43,8 +41,8 @@ fn backtracking() {
     "#;
 
     let query = "solve(X).";
-    let mut webpl = WebPL::new(program).unwrap();
-    let mut solver = webpl.solve(query).unwrap();
+
+    let mut solver = Solver::new(program, query).unwrap();
 
     assert_eq!(solver.next(), Some(vec![("X".into(), "2".into())]));
     assert_eq!(solver.next(), None);
@@ -59,8 +57,7 @@ fn multiple_goals() {
 
     let query = "a.";
 
-    let mut webpl = WebPL::new(program).unwrap();
-    let mut solver = webpl.solve(query).unwrap();
+    let mut solver = Solver::new(program, query).unwrap();
 
     assert_eq!(solver.next(), None);
     assert_eq!(solver.next(), None);
@@ -72,15 +69,13 @@ fn operator_precedence() {
     let query_2 = "X is (1 + 2) * 3.";
     let query_3 = "X is 1 + 2 * 3 + 4 * 5.";
 
-    let mut webpl = WebPL::new("").unwrap();
-
-    let mut solver_1 = webpl.solve(query_1).unwrap();
+    let mut solver_1 = Solver::new("", query_1).unwrap();
     assert_eq!(solver_1.next(), Some(vec![("X".into(), "7".into())]));
 
-    let mut solver_2 = webpl.solve(query_2).unwrap();
+    let mut solver_2 = Solver::new("", query_2).unwrap();
     assert_eq!(solver_2.next(), Some(vec![("X".into(), "9".into())]));
 
-    let mut solver_3 = webpl.solve(query_3).unwrap();
+    let mut solver_3 = Solver::new("", query_3).unwrap();
     assert_eq!(solver_3.next(), Some(vec![("X".into(), "27".into())]));
 }
 
@@ -106,8 +101,7 @@ fn n_queens() {
 
     let query = "n_queens(8, Qs).";
 
-    let mut webpl = WebPL::new(program).unwrap();
-    let solver = webpl.solve(query).unwrap();
+    let solver = Solver::new(program, query).unwrap();
 
     assert_eq!(solver.count(), 92);
 }

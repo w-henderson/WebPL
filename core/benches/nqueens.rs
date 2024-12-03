@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use webpl::WebPL;
+use webpl::Solver;
 
 static PROGRAM: &str = r#"
 take([H|T], H, T).
@@ -20,9 +20,8 @@ safe_queens([Q|Qs], Q0, D0) :- Q0 =\= Q, Diff is Q0 - Q, abs(Diff, AbsDiff), Abs
 "#;
 
 fn n_queens(n: usize) {
-    let mut webpl = WebPL::new(PROGRAM).unwrap();
     let query = format!("n_queens({}, Qs).", n);
-    let solver = webpl.solve(&query).unwrap();
+    let solver = Solver::new(PROGRAM, query).unwrap();
 
     solver.take(2).for_each(drop);
 }

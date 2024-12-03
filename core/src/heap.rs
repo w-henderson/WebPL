@@ -2,21 +2,21 @@ use crate::atom::Atom;
 use crate::stringmap::StringMap;
 use crate::{CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
 
-pub struct VarArena<'a> {
-    arena: Vec<HeapTerm>,
-    string_map: &'a StringMap,
+pub struct Heap {
+    data: Vec<HeapTerm>,
+    string_map: StringMap,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Checkpoint(usize);
 
-impl<'a> VarArena<'a> {
+impl Heap {
     pub fn new(
-        string_map: &'a StringMap,
+        string_map: StringMap,
         query: &Query,
     ) -> (Self, Vec<HeapTermPtr>, Vec<(String, HeapTermPtr)>) {
-        let mut arena = Self {
-            arena: Vec::new(),
+        let mut heap = Self {
+            data: Vec::new(),
             string_map,
         };
 
@@ -24,23 +24,23 @@ impl<'a> VarArena<'a> {
         let mut heap_query = Vec::new();
 
         for term in query {
-            heap_query.push(arena.alloc(term, &mut var_map));
+            heap_query.push(heap.alloc(term, &mut var_map));
         }
 
         let var_map = var_map
             .into_iter()
-            .map(|(id, ptr)| (arena.string_map.get(id).unwrap().to_string(), ptr))
+            .map(|(id, ptr)| (heap.string_map.get(id).unwrap().to_string(), ptr))
             .collect();
 
-        (arena, heap_query, var_map)
+        (heap, heap_query, var_map)
     }
 
     pub fn checkpoint(&self) -> Checkpoint {
-        Checkpoint(self.arena.len())
+        Checkpoint(self.data.len())
     }
 
     pub fn undo(&mut self, checkpoint: Checkpoint) {
-        self.arena.truncate(checkpoint.0);
+        self.data.truncate(checkpoint.0);
     }
 
     pub fn alloc(
@@ -48,31 +48,31 @@ impl<'a> VarArena<'a> {
         term: &CodeTerm,
         var_map: &mut Vec<(StringId, HeapTermPtr)>,
     ) -> HeapTermPtr {
-        let result = self.arena.len();
+        let result = self.data.len();
 
         match term {
-            CodeTerm::Atom(atom) => self.arena.push(HeapTerm::Atom(*atom)),
+            CodeTerm::Atom(atom) => self.data.push(HeapTerm::Atom(*atom)),
             CodeTerm::Var(id) => {
                 if let Some((_, unified)) = var_map.iter().find(|(x, _)| x == id) {
-                    self.arena.push(HeapTerm::Var(*unified));
+                    self.data.push(HeapTerm::Var(*unified));
                 } else {
-                    self.arena.push(HeapTerm::Var(result));
+                    self.data.push(HeapTerm::Var(result));
                     var_map.push((*id, result));
                 }
             }
             CodeTerm::Compound(functor, args) => {
                 let arity = args.len();
 
-                self.arena.push(HeapTerm::Compound(*functor, arity, None));
+                self.data.push(HeapTerm::Compound(*functor, arity, None));
 
                 let mut next = None;
                 for arg in args.iter().rev() {
                     let head = self.alloc(arg, var_map);
-                    let tail = next.replace(self.arena.len());
-                    self.arena.push(HeapTerm::CompoundCons(head, tail));
+                    let tail = next.replace(self.data.len());
+                    self.data.push(HeapTerm::CompoundCons(head, tail));
                 }
 
-                if let HeapTerm::Compound(_, _, arg) = &mut self.arena[result] {
+                if let HeapTerm::Compound(_, _, arg) = &mut self.data[result] {
                     *arg = next;
                 }
             }
@@ -82,32 +82,32 @@ impl<'a> VarArena<'a> {
     }
 
     pub fn alloc_atom(&mut self, atom: Atom) -> HeapTermPtr {
-        let result = self.arena.len();
-        self.arena.push(HeapTerm::Atom(atom));
+        let result = self.data.len();
+        self.data.push(HeapTerm::Atom(atom));
         result
     }
 
     pub fn get(&self, mut var: HeapTermPtr) -> &HeapTerm {
-        debug_assert!(var < self.arena.len());
+        debug_assert!(var < self.data.len());
 
         // Follow the chain of variable bindings until we reach the root.
         loop {
-            match &self.arena[var] {
+            match &self.data[var] {
                 HeapTerm::Var(x) if *x != var => var = *x,
-                _ => return &self.arena[var],
+                _ => return &self.data[var],
             }
         }
     }
 
     pub fn unify(&mut self, a: usize, b: usize) {
-        match &mut self.arena[a] {
+        match &mut self.data[a] {
             HeapTerm::Var(x) => *x = b,
             _ => unreachable!(),
         }
     }
 
     pub fn unbind(&mut self, term: HeapTermPtr) {
-        match &mut self.arena[term] {
+        match &mut self.data[term] {
             HeapTerm::Var(x) => *x = term,
             _ => unreachable!(),
         }
@@ -128,8 +128,8 @@ impl<'a> VarArena<'a> {
         stack: &mut Vec<HeapTermPtr>,
         equal_limit: Option<usize>,
     ) -> String {
-        match &self.arena[term] {
-            HeapTerm::Atom(atom) => atom.to_string(self.string_map),
+        match &self.data[term] {
+            HeapTerm::Atom(atom) => atom.to_string(&self.string_map),
             HeapTerm::Var(x) => {
                 let position = stack.iter().position(|y| y == x);
 
@@ -156,7 +156,7 @@ impl<'a> VarArena<'a> {
                 let mut next = *next;
 
                 while let Some(arg) = next {
-                    if let HeapTerm::CompoundCons(head, tail) = &self.arena[arg] {
+                    if let HeapTerm::CompoundCons(head, tail) = &self.data[arg] {
                         result.push_str(&self.serialize_inner(*head, name, stack, equal_limit));
                         stack.truncate(len);
                         next = *tail;

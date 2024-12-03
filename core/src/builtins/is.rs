@@ -11,7 +11,7 @@ impl Builtin<2> for IsBuiltin {
         let result = IsBuiltin::arithmetic_eval(solver, args[1]);
 
         result.map(|n| {
-            let n: HeapTermPtr = solver.vars.alloc_atom(n);
+            let n: HeapTermPtr = solver.heap.alloc_atom(n);
             solver.unify(args[0], n)
         })
     }
@@ -19,7 +19,7 @@ impl Builtin<2> for IsBuiltin {
 
 impl IsBuiltin {
     fn arithmetic_eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Atom, BuiltinError> {
-        match solver.vars.get(term) {
+        match solver.heap.get(term) {
             HeapTerm::Atom(atom) => {
                 if matches!(atom, Atom::Integer(_) | Atom::Float(_)) {
                     Ok(*atom)
@@ -33,7 +33,7 @@ impl IsBuiltin {
                 let args = args::<2>(solver, *next);
                 let a = Self::arithmetic_eval(solver, args[0])?;
                 let b = Self::arithmetic_eval(solver, args[1])?;
-                let f = solver.vars.get_atom(f);
+                let f = solver.heap.get_atom(f);
 
                 match f {
                     "+" => add(&a, &b),

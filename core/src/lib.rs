@@ -2,9 +2,9 @@ pub mod ast;
 mod atom;
 mod builtins;
 mod goal;
+mod heap;
 mod stringmap;
 mod trail;
-mod vararena;
 
 lalrpop_util::lalrpop_mod!(grammar);
 
@@ -12,10 +12,10 @@ lalrpop_util::lalrpop_mod!(grammar);
 mod tests;
 
 use atom::Atom;
-use goal::{GoalArena, GoalPtr};
+use goal::Goals;
+use heap::Heap;
 use stringmap::StringMap;
 use trail::Trail;
-use vararena::VarArena;
 
 type HeapTermPtr = usize;
 
@@ -43,27 +43,20 @@ pub trait ToCodeTerm {
     fn to_code_term(&self, string_map: &mut StringMap) -> CodeTerm;
 }
 
-pub struct WebPL {
+pub struct Solver {
     program: Program,
-    string_map: StringMap,
-}
-
-pub struct Solver<'a> {
-    program: &'a Program,
-    goal: Option<GoalPtr>,
-    goals: GoalArena,
+    goals: Goals,
     clause: usize,
     choice_points: Vec<ChoicePoint>,
-    vars: VarArena<'a>,
+    heap: Heap,
     var_map: Vec<(String, HeapTermPtr)>,
     trail: Trail,
 }
 
 struct ChoicePoint {
-    goal: Option<GoalPtr>,
     clause: usize,
     trail_checkpoint: trail::Checkpoint,
-    arena_checkpoint: vararena::Checkpoint,
+    heap_checkpoint: heap::Checkpoint,
     goals_checkpoint: goal::Checkpoint,
 }
 
@@ -73,15 +66,20 @@ pub enum Error {
     BuiltinError(builtins::BuiltinError),
 }
 
-impl WebPL {
-    pub fn new(program: impl AsRef<str>) -> Result<Self, Error> {
+impl Solver {
+    pub fn new(program: impl AsRef<str>, query: impl AsRef<str>) -> Result<Self, Error> {
         let program = grammar::ProgramParser::new()
             .parse(program.as_ref())
             .map_err(|e| Error::ParseError(e.to_string()))?;
-        Ok(Self::from_ast(program))
+
+        let query = grammar::QueryParser::new()
+            .parse(query.as_ref())
+            .map_err(|e| Error::ParseError(e.to_string()))?;
+
+        Ok(Self::from_ast(program, query))
     }
 
-    pub fn from_ast(program: ast::Program) -> Self {
+    pub fn from_ast(program: ast::Program, query: ast::Query) -> Self {
         let mut string_map = StringMap::default();
 
         let program = program
@@ -99,48 +97,21 @@ impl WebPL {
             })
             .collect();
 
-        WebPL {
-            program,
-            string_map,
-        }
-    }
-
-    pub fn solve(&mut self, query: impl AsRef<str>) -> Result<Solver, Error> {
-        let query = grammar::QueryParser::new()
-            .parse(query.as_ref())
-            .map_err(|e| Error::ParseError(e.to_string()))?;
-        Ok(self.solve_from_ast(query))
-    }
-
-    pub fn solve_from_ast(&mut self, query: ast::Query) -> Solver {
         let query = query
             .0
             .into_iter()
-            .map(|term| term.to_code_term(&mut self.string_map))
+            .map(|term| term.to_code_term(&mut string_map))
             .collect();
 
-        Solver::solve(&self.program, &self.string_map, &query)
-    }
-}
-
-impl<'a> Solver<'a> {
-    pub fn solve(program: &'a Program, string_map: &'a StringMap, query: &Query) -> Self {
-        let (vars, heap_query, var_map) = VarArena::new(string_map, query);
-        let mut goals = GoalArena::default();
-
-        let mut goal = None;
-
-        for term in heap_query.into_iter().rev() {
-            goal = Some(goals.alloc(term, goal));
-        }
+        let (vars, heap_query, var_map) = Heap::new(string_map, &query);
+        let goals = Goals::new(&heap_query);
 
         Solver {
             program,
-            goal,
             goals,
             clause: 0,
             choice_points: Vec::new(),
-            vars,
+            heap: vars,
             var_map,
             trail: Trail::new(),
         }
@@ -150,13 +121,14 @@ impl<'a> Solver<'a> {
         let mut var_map = Vec::new();
 
         'solve: loop {
-            let goal: HeapTermPtr = self.goals.get(*self.goal.as_ref()?).0;
+            let goal: HeapTermPtr = self.goals.current()?;
 
             match builtins::eval(self, goal) {
                 Some(Ok(true)) => {
                     // Built-in predicate succeeded
-                    self.pop_goal();
-                    if let Some(solution) = self.succeed() {
+                    self.goals.pop();
+                    if self.goals.is_complete() {
+                        let solution = self.serialize_solution();
                         self.pop_choice_point();
                         return Some(solution);
                     }
@@ -172,27 +144,28 @@ impl<'a> Solver<'a> {
             };
 
             while self.clause < self.program.len() {
-                let clause = &self.program[self.clause];
-
-                let (trail_checkpoint, arena_checkpoint) = self.enter();
+                let choice_point = self.enter();
 
                 var_map.clear();
 
-                if self.pre_unify(goal, &clause.0) {
-                    let head = self.vars.alloc(&clause.0, &mut var_map);
+                let (head, _) = &self.program[self.clause];
+
+                if self.pre_unify(goal, head) {
+                    let head = self.heap.alloc(head, &mut var_map);
 
                     if self.unify(goal, head) {
-                        self.push_choice_point(trail_checkpoint, arena_checkpoint);
+                        self.choice_points.push(choice_point);
+
+                        self.goals.pop();
+                        let (_, body) = &self.program[self.clause];
+                        for goal in body.iter().rev() {
+                            self.goals.push(self.heap.alloc(goal, &mut var_map));
+                        }
 
                         self.clause = 0;
-                        self.pop_goal();
 
-                        clause.1.iter().rev().for_each(|goal| {
-                            let heap_goal: HeapTermPtr = self.vars.alloc(goal, &mut var_map);
-                            self.push_goal(heap_goal);
-                        });
-
-                        if let Some(solution) = self.succeed() {
+                        if self.goals.is_complete() {
+                            let solution = self.serialize_solution();
                             self.pop_choice_point();
                             return Some(solution);
                         }
@@ -201,9 +174,7 @@ impl<'a> Solver<'a> {
                     }
                 }
 
-                self.undo(trail_checkpoint, arena_checkpoint);
-
-                self.clause += 1;
+                self.undo(choice_point);
             }
 
             self.pop_choice_point()?;
@@ -211,7 +182,7 @@ impl<'a> Solver<'a> {
     }
 
     fn pre_unify(&self, a_ptr: HeapTermPtr, b: &CodeTerm) -> bool {
-        match (self.vars.get(a_ptr), b) {
+        match (self.heap.get(a_ptr), b) {
             (HeapTerm::Atom(a), CodeTerm::Atom(b)) => a == b,
             (HeapTerm::Var(_), _) | (_, CodeTerm::Var(_)) => true,
             (HeapTerm::Compound(f, a_arity, _), CodeTerm::Compound(g, b_args)) => {
@@ -222,16 +193,16 @@ impl<'a> Solver<'a> {
     }
 
     fn unify(&mut self, a_ptr: HeapTermPtr, b_ptr: HeapTermPtr) -> bool {
-        match (self.vars.get(a_ptr), self.vars.get(b_ptr)) {
+        match (self.heap.get(a_ptr), self.heap.get(b_ptr)) {
             (HeapTerm::Atom(a), HeapTerm::Atom(b)) => a == b,
             (HeapTerm::Var(a), _) => {
                 self.trail.push(*a);
-                self.vars.unify(*a, b_ptr);
+                self.heap.unify(*a, b_ptr);
                 true
             }
             (_, HeapTerm::Var(b)) => {
                 self.trail.push(*b);
-                self.vars.unify(*b, a_ptr);
+                self.heap.unify(*b, a_ptr);
                 true
             }
             (HeapTerm::Compound(f, a_arity, a_next), HeapTerm::Compound(g, b_arity, b_next)) => {
@@ -248,13 +219,13 @@ impl<'a> Solver<'a> {
                     if let (
                         HeapTerm::CompoundCons(a_head, a_tail),
                         HeapTerm::CompoundCons(b_head, b_tail),
-                    ) = (self.vars.get(a_ref), self.vars.get(b_ref))
+                    ) = (self.heap.get(a_ref), self.heap.get(b_ref))
                     {
                         a_arg = *a_tail;
                         b_arg = *b_tail;
 
                         if !self.unify(*a_head, *b_head) {
-                            self.trail.undo(checkpoint, &mut self.vars);
+                            self.trail.undo(checkpoint, &mut self.heap);
                             return false;
                         }
                     };
@@ -267,79 +238,41 @@ impl<'a> Solver<'a> {
     }
 
     #[inline]
-    fn push_goal(&mut self, goal: HeapTermPtr) {
-        self.goal = Some(self.goals.alloc(goal, self.goal.take()));
-    }
-
-    #[inline]
-    fn pop_goal(&mut self) {
-        if let Some(goal) = self.goal.take() {
-            self.goal = self.goals.get(goal).1;
-        }
-    }
-
-    #[inline]
-    fn succeed(&self) -> Option<Solution> {
-        if self.goal.is_none() {
-            return Some(self.serialize_solution());
-        }
-
-        None
-    }
-
-    #[inline]
-    fn push_choice_point(
-        &mut self,
-        trail_checkpoint: trail::Checkpoint,
-        arena_checkpoint: vararena::Checkpoint,
-    ) {
-        self.choice_points.push(ChoicePoint {
-            goal: self.goal,
+    fn enter(&mut self) -> ChoicePoint {
+        ChoicePoint {
             clause: self.clause + 1,
-            trail_checkpoint,
-            arena_checkpoint,
+            trail_checkpoint: self.trail.checkpoint(),
+            heap_checkpoint: self.heap.checkpoint(),
             goals_checkpoint: self.goals.checkpoint(),
-        });
+        }
+    }
+
+    #[inline]
+    fn undo(&mut self, choice_point: ChoicePoint) {
+        self.clause = choice_point.clause;
+        self.trail
+            .undo(choice_point.trail_checkpoint, &mut self.heap);
+        self.heap.undo(choice_point.heap_checkpoint);
+        self.goals.undo(choice_point.goals_checkpoint);
     }
 
     #[inline]
     fn pop_choice_point(&mut self) -> Option<()> {
-        if let Some(choice_point) = self.choice_points.pop() {
-            self.goal = choice_point.goal;
-            self.clause = choice_point.clause;
-            self.undo(choice_point.trail_checkpoint, choice_point.arena_checkpoint);
-            self.goals.undo(choice_point.goals_checkpoint);
-            return Some(());
-        }
-
-        None
+        self.choice_points
+            .pop()
+            .map(|choice_point| self.undo(choice_point))
     }
 
     #[inline]
     fn serialize_solution(&self) -> Solution {
         self.var_map
             .iter()
-            .map(|(name, ptr)| (name.clone(), self.vars.serialize(*ptr, name)))
+            .map(|(name, ptr)| (name.clone(), self.heap.serialize(*ptr, name)))
             .collect::<Vec<_>>()
-    }
-
-    #[inline]
-    fn enter(&mut self) -> (trail::Checkpoint, vararena::Checkpoint) {
-        (self.trail.checkpoint(), self.vars.checkpoint())
-    }
-
-    #[inline]
-    fn undo(
-        &mut self,
-        trail_checkpoint: trail::Checkpoint,
-        arena_checkpoint: vararena::Checkpoint,
-    ) {
-        self.trail.undo(trail_checkpoint, &mut self.vars);
-        self.vars.undo(arena_checkpoint);
     }
 }
 
-impl Iterator for Solver<'_> {
+impl Iterator for Solver {
     type Item = Solution;
 
     fn next(&mut self) -> Option<Self::Item> {
