@@ -7,8 +7,8 @@ macro_rules! impl_arithmetic_cmp {
 
         impl Builtin<2> for $op {
             fn eval(solver: &mut Solver, args: [HeapTermPtr; 2]) -> Result<bool, BuiltinError> {
-                let a = solver.vars.get(args[0]);
-                let b = solver.vars.get(args[1]);
+                let a = solver.heap.get(args[0]);
+                let b = solver.heap.get(args[1]);
 
                 match (a, b) {
                     (HeapTerm::Atom(Atom::Integer(a)), HeapTerm::Atom(Atom::Integer(b))) => {

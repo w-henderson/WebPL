@@ -2,9 +2,9 @@ pub mod ast;
 mod atom;
 mod builtins;
 mod goal;
+mod heap;
 mod stringmap;
 mod trail;
-mod vararena;
 
 lalrpop_util::lalrpop_mod!(grammar);
 
@@ -13,9 +13,9 @@ mod tests;
 
 use atom::Atom;
 use goal::Goals;
+use heap::Heap;
 use stringmap::StringMap;
 use trail::Trail;
-use vararena::VarArena;
 
 type HeapTermPtr = usize;
 
@@ -48,7 +48,7 @@ pub struct Solver {
     goals: Goals,
     clause: usize,
     choice_points: Vec<ChoicePoint>,
-    vars: VarArena,
+    heap: Heap,
     var_map: Vec<(String, HeapTermPtr)>,
     trail: Trail,
 }
@@ -56,7 +56,7 @@ pub struct Solver {
 struct ChoicePoint {
     clause: usize,
     trail_checkpoint: trail::Checkpoint,
-    arena_checkpoint: vararena::Checkpoint,
+    heap_checkpoint: heap::Checkpoint,
     goals_checkpoint: goal::Checkpoint,
 }
 
@@ -103,7 +103,7 @@ impl Solver {
             .map(|term| term.to_code_term(&mut string_map))
             .collect();
 
-        let (vars, heap_query, var_map) = VarArena::new(string_map, &query);
+        let (vars, heap_query, var_map) = Heap::new(string_map, &query);
         let goals = Goals::new(&heap_query);
 
         Solver {
@@ -111,7 +111,7 @@ impl Solver {
             goals,
             clause: 0,
             choice_points: Vec::new(),
-            vars,
+            heap: vars,
             var_map,
             trail: Trail::new(),
         }
@@ -144,22 +144,22 @@ impl Solver {
             };
 
             while self.clause < self.program.len() {
-                let (trail_checkpoint, arena_checkpoint) = self.enter();
+                let (trail_checkpoint, heap_checkpoint) = self.enter();
 
                 var_map.clear();
 
                 let (head, _) = &self.program[self.clause];
 
                 if self.pre_unify(goal, head) {
-                    let head = self.vars.alloc(head, &mut var_map);
+                    let head = self.heap.alloc(head, &mut var_map);
 
                     if self.unify(goal, head) {
-                        self.push_choice_point(trail_checkpoint, arena_checkpoint);
+                        self.push_choice_point(trail_checkpoint, heap_checkpoint);
 
                         self.goals.pop();
                         let (_, body) = &self.program[self.clause];
                         for goal in body.iter().rev() {
-                            self.goals.push(self.vars.alloc(goal, &mut var_map));
+                            self.goals.push(self.heap.alloc(goal, &mut var_map));
                         }
 
                         self.clause = 0;
@@ -174,7 +174,7 @@ impl Solver {
                     }
                 }
 
-                self.undo(trail_checkpoint, arena_checkpoint);
+                self.undo(trail_checkpoint, heap_checkpoint);
 
                 self.clause += 1;
             }
@@ -184,7 +184,7 @@ impl Solver {
     }
 
     fn pre_unify(&self, a_ptr: HeapTermPtr, b: &CodeTerm) -> bool {
-        match (self.vars.get(a_ptr), b) {
+        match (self.heap.get(a_ptr), b) {
             (HeapTerm::Atom(a), CodeTerm::Atom(b)) => a == b,
             (HeapTerm::Var(_), _) | (_, CodeTerm::Var(_)) => true,
             (HeapTerm::Compound(f, a_arity, _), CodeTerm::Compound(g, b_args)) => {
@@ -195,16 +195,16 @@ impl Solver {
     }
 
     fn unify(&mut self, a_ptr: HeapTermPtr, b_ptr: HeapTermPtr) -> bool {
-        match (self.vars.get(a_ptr), self.vars.get(b_ptr)) {
+        match (self.heap.get(a_ptr), self.heap.get(b_ptr)) {
             (HeapTerm::Atom(a), HeapTerm::Atom(b)) => a == b,
             (HeapTerm::Var(a), _) => {
                 self.trail.push(*a);
-                self.vars.unify(*a, b_ptr);
+                self.heap.unify(*a, b_ptr);
                 true
             }
             (_, HeapTerm::Var(b)) => {
                 self.trail.push(*b);
-                self.vars.unify(*b, a_ptr);
+                self.heap.unify(*b, a_ptr);
                 true
             }
             (HeapTerm::Compound(f, a_arity, a_next), HeapTerm::Compound(g, b_arity, b_next)) => {
@@ -221,13 +221,13 @@ impl Solver {
                     if let (
                         HeapTerm::CompoundCons(a_head, a_tail),
                         HeapTerm::CompoundCons(b_head, b_tail),
-                    ) = (self.vars.get(a_ref), self.vars.get(b_ref))
+                    ) = (self.heap.get(a_ref), self.heap.get(b_ref))
                     {
                         a_arg = *a_tail;
                         b_arg = *b_tail;
 
                         if !self.unify(*a_head, *b_head) {
-                            self.trail.undo(checkpoint, &mut self.vars);
+                            self.trail.undo(checkpoint, &mut self.heap);
                             return false;
                         }
                     };
@@ -243,12 +243,12 @@ impl Solver {
     fn push_choice_point(
         &mut self,
         trail_checkpoint: trail::Checkpoint,
-        arena_checkpoint: vararena::Checkpoint,
+        heap_checkpoint: heap::Checkpoint,
     ) {
         self.choice_points.push(ChoicePoint {
             clause: self.clause + 1,
             trail_checkpoint,
-            arena_checkpoint,
+            heap_checkpoint,
             goals_checkpoint: self.goals.checkpoint(),
         });
     }
@@ -257,7 +257,7 @@ impl Solver {
     fn pop_choice_point(&mut self) -> Option<()> {
         if let Some(choice_point) = self.choice_points.pop() {
             self.clause = choice_point.clause;
-            self.undo(choice_point.trail_checkpoint, choice_point.arena_checkpoint);
+            self.undo(choice_point.trail_checkpoint, choice_point.heap_checkpoint);
             self.goals.undo(choice_point.goals_checkpoint);
             return Some(());
         }
@@ -269,23 +269,19 @@ impl Solver {
     fn serialize_solution(&self) -> Solution {
         self.var_map
             .iter()
-            .map(|(name, ptr)| (name.clone(), self.vars.serialize(*ptr, name)))
+            .map(|(name, ptr)| (name.clone(), self.heap.serialize(*ptr, name)))
             .collect::<Vec<_>>()
     }
 
     #[inline]
-    fn enter(&mut self) -> (trail::Checkpoint, vararena::Checkpoint) {
-        (self.trail.checkpoint(), self.vars.checkpoint())
+    fn enter(&mut self) -> (trail::Checkpoint, heap::Checkpoint) {
+        (self.trail.checkpoint(), self.heap.checkpoint())
     }
 
     #[inline]
-    fn undo(
-        &mut self,
-        trail_checkpoint: trail::Checkpoint,
-        arena_checkpoint: vararena::Checkpoint,
-    ) {
-        self.trail.undo(trail_checkpoint, &mut self.vars);
-        self.vars.undo(arena_checkpoint);
+    fn undo(&mut self, trail_checkpoint: trail::Checkpoint, heap_checkpoint: heap::Checkpoint) {
+        self.trail.undo(trail_checkpoint, &mut self.heap);
+        self.heap.undo(heap_checkpoint);
     }
 }
 
