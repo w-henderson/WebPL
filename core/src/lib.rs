@@ -43,18 +43,13 @@ pub trait ToCodeTerm {
     fn to_code_term(&self, string_map: &mut StringMap) -> CodeTerm;
 }
 
-pub struct WebPL {
+pub struct Solver {
     program: Program,
-    string_map: StringMap,
-}
-
-pub struct Solver<'a> {
-    program: &'a Program,
     goal: Option<GoalPtr>,
     goals: GoalArena,
     clause: usize,
     choice_points: Vec<ChoicePoint>,
-    vars: VarArena<'a>,
+    vars: VarArena,
     var_map: Vec<(String, HeapTermPtr)>,
     trail: Trail,
 }
@@ -73,15 +68,20 @@ pub enum Error {
     BuiltinError(builtins::BuiltinError),
 }
 
-impl WebPL {
-    pub fn new(program: impl AsRef<str>) -> Result<Self, Error> {
+impl Solver {
+    pub fn new(program: impl AsRef<str>, query: impl AsRef<str>) -> Result<Self, Error> {
         let program = grammar::ProgramParser::new()
             .parse(program.as_ref())
             .map_err(|e| Error::ParseError(e.to_string()))?;
-        Ok(Self::from_ast(program))
+
+        let query = grammar::QueryParser::new()
+            .parse(query.as_ref())
+            .map_err(|e| Error::ParseError(e.to_string()))?;
+
+        Ok(Self::from_ast(program, query))
     }
 
-    pub fn from_ast(program: ast::Program) -> Self {
+    pub fn from_ast(program: ast::Program, query: ast::Query) -> Self {
         let mut string_map = StringMap::default();
 
         let program = program
@@ -99,33 +99,13 @@ impl WebPL {
             })
             .collect();
 
-        WebPL {
-            program,
-            string_map,
-        }
-    }
-
-    pub fn solve(&mut self, query: impl AsRef<str>) -> Result<Solver, Error> {
-        let query = grammar::QueryParser::new()
-            .parse(query.as_ref())
-            .map_err(|e| Error::ParseError(e.to_string()))?;
-        Ok(self.solve_from_ast(query))
-    }
-
-    pub fn solve_from_ast(&mut self, query: ast::Query) -> Solver {
         let query = query
             .0
             .into_iter()
-            .map(|term| term.to_code_term(&mut self.string_map))
+            .map(|term| term.to_code_term(&mut string_map))
             .collect();
 
-        Solver::solve(&self.program, &self.string_map, &query)
-    }
-}
-
-impl<'a> Solver<'a> {
-    pub fn solve(program: &'a Program, string_map: &'a StringMap, query: &Query) -> Self {
-        let (vars, heap_query, var_map) = VarArena::new(string_map, query);
+        let (vars, heap_query, var_map) = VarArena::new(string_map, &query);
         let mut goals = GoalArena::default();
 
         let mut goal = None;
@@ -172,25 +152,28 @@ impl<'a> Solver<'a> {
             };
 
             while self.clause < self.program.len() {
-                let clause = &self.program[self.clause];
-
                 let (trail_checkpoint, arena_checkpoint) = self.enter();
 
                 var_map.clear();
 
-                if self.pre_unify(goal, &clause.0) {
-                    let head = self.vars.alloc(&clause.0, &mut var_map);
+                let (head, _) = &self.program[self.clause];
+
+                if self.pre_unify(goal, head) {
+                    let head = self.vars.alloc(head, &mut var_map);
 
                     if self.unify(goal, head) {
                         self.push_choice_point(trail_checkpoint, arena_checkpoint);
 
-                        self.clause = 0;
                         self.pop_goal();
 
-                        clause.1.iter().rev().for_each(|goal| {
+                        // Push body goals in reverse order
+                        let (_, body) = &self.program[self.clause];
+                        for goal in body.iter().rev() {
                             let heap_goal: HeapTermPtr = self.vars.alloc(goal, &mut var_map);
-                            self.push_goal(heap_goal);
-                        });
+                            self.goal = Some(self.goals.alloc(heap_goal, self.goal.take()));
+                        }
+
+                        self.clause = 0;
 
                         if let Some(solution) = self.succeed() {
                             self.pop_choice_point();
@@ -267,11 +250,6 @@ impl<'a> Solver<'a> {
     }
 
     #[inline]
-    fn push_goal(&mut self, goal: HeapTermPtr) {
-        self.goal = Some(self.goals.alloc(goal, self.goal.take()));
-    }
-
-    #[inline]
     fn pop_goal(&mut self) {
         if let Some(goal) = self.goal.take() {
             self.goal = self.goals.get(goal).1;
@@ -339,7 +317,7 @@ impl<'a> Solver<'a> {
     }
 }
 
-impl Iterator for Solver<'_> {
+impl Iterator for Solver {
     type Item = Solution;
 
     fn next(&mut self) -> Option<Self::Item> {

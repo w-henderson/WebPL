@@ -2,17 +2,17 @@ use crate::atom::Atom;
 use crate::stringmap::StringMap;
 use crate::{CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
 
-pub struct VarArena<'a> {
+pub struct VarArena {
     arena: Vec<HeapTerm>,
-    string_map: &'a StringMap,
+    string_map: StringMap,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Checkpoint(usize);
 
-impl<'a> VarArena<'a> {
+impl VarArena {
     pub fn new(
-        string_map: &'a StringMap,
+        string_map: StringMap,
         query: &Query,
     ) -> (Self, Vec<HeapTermPtr>, Vec<(String, HeapTermPtr)>) {
         let mut arena = Self {
@@ -129,7 +129,7 @@ impl<'a> VarArena<'a> {
         equal_limit: Option<usize>,
     ) -> String {
         match &self.arena[term] {
-            HeapTerm::Atom(atom) => atom.to_string(self.string_map),
+            HeapTerm::Atom(atom) => atom.to_string(&self.string_map),
             HeapTerm::Var(x) => {
                 let position = stack.iter().position(|y| y == x);
 

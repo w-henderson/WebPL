@@ -1,4 +1,4 @@
-use webpl::WebPL;
+use webpl::Solver;
 
 static PROGRAM: &str = r#"
 take([H|T], H, T).
@@ -20,8 +20,7 @@ safe_queens([Q|Qs], Q0, D0) :- Q0 =\= Q, Diff is Q0 - Q, abs(Diff, AbsDiff), Abs
 static QUERY: &str = r#"n_queens(8, Qs)."#;
 
 fn main() {
-    let mut webpl = WebPL::new(PROGRAM).unwrap();
-    let solver = webpl.solve(QUERY).unwrap();
+    let solver = Solver::new(PROGRAM, QUERY).unwrap();
 
     for solution in solver {
         println!("{:?}", solution);
