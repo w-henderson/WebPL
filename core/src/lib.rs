@@ -12,7 +12,7 @@ lalrpop_util::lalrpop_mod!(grammar);
 mod tests;
 
 use atom::Atom;
-use goal::{GoalArena, GoalPtr};
+use goal::Goals;
 use stringmap::StringMap;
 use trail::Trail;
 use vararena::VarArena;
@@ -45,8 +45,7 @@ pub trait ToCodeTerm {
 
 pub struct Solver {
     program: Program,
-    goal: Option<GoalPtr>,
-    goals: GoalArena,
+    goals: Goals,
     clause: usize,
     choice_points: Vec<ChoicePoint>,
     vars: VarArena,
@@ -55,7 +54,6 @@ pub struct Solver {
 }
 
 struct ChoicePoint {
-    goal: Option<GoalPtr>,
     clause: usize,
     trail_checkpoint: trail::Checkpoint,
     arena_checkpoint: vararena::Checkpoint,
@@ -106,17 +104,10 @@ impl Solver {
             .collect();
 
         let (vars, heap_query, var_map) = VarArena::new(string_map, &query);
-        let mut goals = GoalArena::default();
-
-        let mut goal = None;
-
-        for term in heap_query.into_iter().rev() {
-            goal = Some(goals.alloc(term, goal));
-        }
+        let goals = Goals::new(&heap_query);
 
         Solver {
             program,
-            goal,
             goals,
             clause: 0,
             choice_points: Vec::new(),
@@ -130,13 +121,14 @@ impl Solver {
         let mut var_map = Vec::new();
 
         'solve: loop {
-            let goal: HeapTermPtr = self.goals.get(*self.goal.as_ref()?).0;
+            let goal: HeapTermPtr = self.goals.current()?;
 
             match builtins::eval(self, goal) {
                 Some(Ok(true)) => {
                     // Built-in predicate succeeded
-                    self.pop_goal();
-                    if let Some(solution) = self.succeed() {
+                    self.goals.pop();
+                    if self.goals.is_complete() {
+                        let solution = self.serialize_solution();
                         self.pop_choice_point();
                         return Some(solution);
                     }
@@ -164,18 +156,16 @@ impl Solver {
                     if self.unify(goal, head) {
                         self.push_choice_point(trail_checkpoint, arena_checkpoint);
 
-                        self.pop_goal();
-
-                        // Push body goals in reverse order
+                        self.goals.pop();
                         let (_, body) = &self.program[self.clause];
                         for goal in body.iter().rev() {
-                            let heap_goal: HeapTermPtr = self.vars.alloc(goal, &mut var_map);
-                            self.goal = Some(self.goals.alloc(heap_goal, self.goal.take()));
+                            self.goals.push(self.vars.alloc(goal, &mut var_map));
                         }
 
                         self.clause = 0;
 
-                        if let Some(solution) = self.succeed() {
+                        if self.goals.is_complete() {
+                            let solution = self.serialize_solution();
                             self.pop_choice_point();
                             return Some(solution);
                         }
@@ -250,29 +240,12 @@ impl Solver {
     }
 
     #[inline]
-    fn pop_goal(&mut self) {
-        if let Some(goal) = self.goal.take() {
-            self.goal = self.goals.get(goal).1;
-        }
-    }
-
-    #[inline]
-    fn succeed(&self) -> Option<Solution> {
-        if self.goal.is_none() {
-            return Some(self.serialize_solution());
-        }
-
-        None
-    }
-
-    #[inline]
     fn push_choice_point(
         &mut self,
         trail_checkpoint: trail::Checkpoint,
         arena_checkpoint: vararena::Checkpoint,
     ) {
         self.choice_points.push(ChoicePoint {
-            goal: self.goal,
             clause: self.clause + 1,
             trail_checkpoint,
             arena_checkpoint,
@@ -283,7 +256,6 @@ impl Solver {
     #[inline]
     fn pop_choice_point(&mut self) -> Option<()> {
         if let Some(choice_point) = self.choice_points.pop() {
-            self.goal = choice_point.goal;
             self.clause = choice_point.clause;
             self.undo(choice_point.trail_checkpoint, choice_point.arena_checkpoint);
             self.goals.undo(choice_point.goals_checkpoint);
