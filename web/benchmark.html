@@ -11,6 +11,7 @@
 
   <script type="module">
     import init, { Solver } from './webpl/webpl.js';
+    import { Prolog, load } from './vendor/trealla-prolog/trealla.mjs';
 
     const PROGRAM = `take([H|T], H, T).
       take([H|T], R, [H|S]) :- take(T, R, S).
@@ -68,10 +69,23 @@
         resolve();
       });
 
+      // Initialise Trealla Prolog
+      await load();
+      const tpl = new Prolog();
+      const solveTreallaProlog = () => new Promise(async resolve => {
+        await tpl.consultText(PROGRAM);
+        const query = tpl.query(QUERY);
+        for await (let x of query) {
+          continue;
+        }
+        resolve();
+      });
+
       return {
         webpl: solveWebPL,
         swipl: solveSWIPL,
-        tau: solveTauProlog
+        tau: solveTauProlog,
+        trealla: solveTreallaProlog
       };
     };
 
@@ -87,12 +101,13 @@
     };
 
     window.bench = async () => {
-      let webpl = await once(window.solvers.webpl);
-      alert(webpl);
-      let swipl = await once(window.solvers.swipl);
-      alert(swipl);
-      let tau = await once(window.solvers.tau);
-      alert(tau);
+      for (let i = 0; i < 10; i++) { // warm up
+        await once(window.solvers.webpl);
+      }
+      await once(window.solvers.webpl).then(t => document.write(`WebPL: ${t}ms<br>`));
+      await once(window.solvers.trealla).then(t => document.write(`Trealla Prolog: ${t}ms<br>`));
+      await once(window.solvers.swipl).then(t => document.write(`SWIPL: ${t}ms<br>`));
+      await once(window.solvers.tau).then(t => document.write(`Tau Prolog: ${t}ms<br>`));
     };
   </script>
 
