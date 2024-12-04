@@ -5,6 +5,9 @@ mod goal;
 mod heap;
 mod stringmap;
 mod trail;
+mod wasm;
+
+pub use wasm::*;
 
 lalrpop_util::lalrpop_mod!(grammar);
 
