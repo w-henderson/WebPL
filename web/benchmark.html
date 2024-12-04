@@ -1,0 +1,101 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script src="/webpl/webpl.js" type="module"></script>
+  <script src="/vendor/swipl/swipl-web.js"></script>
+  <script src="/vendor/tau-prolog/tau-prolog.js"></script>
+
+  <script type="module">
+    import init, { Solver } from './webpl/webpl.js';
+
+    const PROGRAM = `take([H|T], H, T).
+      take([H|T], R, [H|S]) :- take(T, R, S).
+      perm([], []).
+      perm(L, [H|R]) :- take(L, H, T), perm(T,R).
+      generate_list(1, [1]).
+      generate_list(N, [N|T]) :- N > 1, M is N - 1, generate_list(M, T).
+      abs(0, 0).
+      abs(N, N) :- N > 0.
+      abs(N, M) :- N < 0, M is N * -1.
+      n_queens(N, Qs) :- generate_list(N, Qs1), perm(Qs1, Qs), safe_queens(Qs).
+      safe_queens([]).
+      safe_queens([Q|Qs]) :- safe_queens(Qs, Q, 1), safe_queens(Qs).
+      safe_queens([], Y, X).
+      safe_queens([Q|Qs], Q0, D0) :- Q0 =\\= Q, Diff is Q0 - Q, abs(Diff, AbsDiff), AbsDiff =\\= D0, D1 is D0 + 1, safe_queens(Qs, Q0, D1).
+    `;
+
+    const QUERY = "n_queens(8, L).";
+
+    const initProlog = async () => {
+      // Initialise WebPL
+      init();
+      const solveWebPL = () => new Promise(resolve => {
+        let solver = new Solver(PROGRAM, QUERY);
+        solver.all();
+        resolve();
+      });
+
+      // Initialise SWIPL
+      const swipl = await SWIPL({
+        arguments: ["-q"],
+        locateFile: path => `/vendor/swipl/${path}`
+      });
+      const solveSWIPL = () => new Promise(resolve => {
+        swipl.prolog.load_string(PROGRAM, "n_queens.pl");
+        for (let x of swipl.prolog.query(QUERY)) {
+          continue;
+        }
+        resolve();
+      });
+
+      // Initialise Tau Prolog
+      const session = window.pl.create();
+      const solveTauProlog = () => new Promise(async resolve => {
+        await new Promise((resolve, reject) => session.consult(PROGRAM, { success: resolve, error: reject }));
+        await new Promise((resolve, reject) => session.query(QUERY, { success: resolve, error: reject }));
+        while (await new Promise((resolve, reject) => session.answer({
+          success: () => resolve(true),
+          fail: () => resolve(false),
+          error: reject,
+          limit: reject
+        }))) {
+          continue;
+        }
+        resolve();
+      });
+
+      return {
+        webpl: solveWebPL,
+        swipl: solveSWIPL,
+        tau: solveTauProlog
+      };
+    };
+
+    const once = async (f) => {
+      let start = performance.now();
+      await f();
+      let end = performance.now();
+      return end - start;
+    };
+
+    window.onload = async () => {
+      window.solvers = await initProlog();
+    };
+
+    window.bench = async () => {
+      let webpl = await once(window.solvers.webpl);
+      alert(webpl);
+      let swipl = await once(window.solvers.swipl);
+      alert(swipl);
+      let tau = await once(window.solvers.tau);
+      alert(tau);
+    };
+  </script>
+
+  <button onclick="bench()">Start Benchmark</button>
+</body>
+</html>
