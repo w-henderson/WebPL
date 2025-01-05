@@ -15,6 +15,7 @@
     "react-dom": "19.0.0-rc-66855b96-20241106",
     "swipl-wasm": "^4.0.18",
     "tau-prolog": "^0.3.4",
+    "trealla": "^0.21.14",
     "webpl": "file:../core/pkg"
   },
   "devDependencies": {
@@ -24,5 +25,8 @@
     "eslint": "^8",
     "eslint-config-next": "15.0.3",
     "typescript": "^5"
+  },
+  "optionalDependencies": {
+    "fsevents": "^2.3.3"
   }
 }

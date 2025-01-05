@@ -13,6 +13,7 @@ import Prolog from "@/prolog";
 import WebPL from "@/prolog/webpl";
 import SWIPL from "@/prolog/swipl";
 import TauProlog from "@/prolog/tau-prolog";
+import TreallaProlog from "@/prolog/trealla-prolog";
 
 type QueryResults = {
   query: string,
@@ -21,7 +22,7 @@ type QueryResults = {
 }
 
 export default function Home() {
-  const [prolog, setProlog] = useState<Prolog>(new TauProlog());
+  const [prolog, setProlog] = useState<Prolog>(new TreallaProlog());
   const [program, setProgram] = useState<string>("");
   const [query, setQuery] = useState<string>("");
   const [results, setResults] = useState<QueryResults[]>([]);
