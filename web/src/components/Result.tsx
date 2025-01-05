@@ -11,6 +11,10 @@ export default function Result(props: Readonly<{
       <div>
         {props.results.map((result, i) => (
           <div key={i}>
+            {result.size === 0 && (
+              <div>True</div>
+            )}
+
             {Array.from(result.entries()).map(([key, value]) => (
               <div key={key}>{key}: {value}</div>
             ))}
