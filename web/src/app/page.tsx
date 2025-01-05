@@ -11,6 +11,8 @@ import Header from "@/components/Header";
 
 import Prolog from "@/prolog";
 import WebPL from "@/prolog/webpl";
+import SWIPL from "@/prolog/swipl";
+import TauProlog from "@/prolog/tau-prolog";
 
 type QueryResults = {
   query: string,
@@ -19,14 +21,14 @@ type QueryResults = {
 }
 
 export default function Home() {
-  const [prolog, setProlog] = useState<Prolog>(new WebPL());
+  const [prolog, setProlog] = useState<Prolog>(new TauProlog());
   const [program, setProgram] = useState<string>("");
   const [query, setQuery] = useState<string>("");
   const [results, setResults] = useState<QueryResults[]>([]);
 
   useEffect(() => {
     prolog.init();
-  });
+  }, [prolog]);
 
   const appendResult = (complete: boolean, ...solutions: Map<string, string>[]) => {
     setResults(prevResults => {
@@ -67,7 +69,7 @@ export default function Home() {
         query={query}
         updateQuery={setQuery}
         solve={async () => {
-          prolog.solve(program, query);
+          await prolog.solve(program, query);
           setResults(prevResults => [...prevResults, { query, bindings: [], complete: false }]);
           const solution = await prolog.next();
           if (solution) appendResult(false, solution);
