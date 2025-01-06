@@ -100,6 +100,22 @@
       window.solvers = await initProlog();
     };
 
+    window.oneWebPL = async () => {
+      console.log(await once(window.solvers.webpl));
+    };
+
+    window.oneSWIPL = async () => {
+      console.log(await once(window.solvers.swipl));
+    };
+
+    window.oneTau = async () => {
+      console.log(await once(window.solvers.tau));
+    };
+
+    window.oneTrealla = async () => {
+      console.log(await once(window.solvers.trealla));
+    };
+
     window.bench = async () => {
       for (let x of [
         { engine: window.solvers.webpl, name: "WebPL" },
@@ -113,7 +129,7 @@
           await once(window.solvers.webpl);
         }
 
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 16; i++) {
           await once(x.engine).then(t => samples.push(t));
         }
 
@@ -123,5 +139,9 @@
   </script>
 
   <button onclick="bench()">Start Benchmark</button>
+  <button onclick="oneWebPL()">Run WebPL</button>
+  <button onclick="oneSWIPL()">Run SWIPL</button>
+  <button onclick="oneTau()">Run Tau Prolog</button>
+  <button onclick="oneTrealla()">Run Trealla Prolog</button>
 </body>
 </html>
