@@ -1,0 +1,21 @@
+div.result {
+  background: var(--background);
+  border-radius: 16px;
+  font-family: "Fira Mono", monospace;
+  margin-bottom: 16px;
+}
+
+div.result>div:first-child {
+  padding: 8px;
+  background: var(--accent);
+  border-radius: 16px 16px 0 0;
+  color: white;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+div.result>div:last-child {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 0 0 16px 16px;
+  padding: 16px;
+}

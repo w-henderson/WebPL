@@ -45,8 +45,8 @@
         arguments: ["-q"],
         locateFile: path => `/vendor/swipl/${path}`
       });
-      const solveSWIPL = () => new Promise(resolve => {
-        swipl.prolog.load_string(PROGRAM, "n_queens.pl");
+      const solveSWIPL = () => new Promise(async resolve => {
+        await swipl.prolog.load_string(PROGRAM, "n_queens.pl");
         for (let x of swipl.prolog.query(QUERY)) {
           continue;
         }
@@ -100,17 +100,48 @@
       window.solvers = await initProlog();
     };
 
+    window.oneWebPL = async () => {
+      console.log(await once(window.solvers.webpl));
+    };
+
+    window.oneSWIPL = async () => {
+      console.log(await once(window.solvers.swipl));
+    };
+
+    window.oneTau = async () => {
+      console.log(await once(window.solvers.tau));
+    };
+
+    window.oneTrealla = async () => {
+      console.log(await once(window.solvers.trealla));
+    };
+
     window.bench = async () => {
-      for (let i = 0; i < 10; i++) { // warm up
-        await once(window.solvers.webpl);
+      for (let x of [
+        { engine: window.solvers.webpl, name: "WebPL" },
+        { engine: window.solvers.trealla, name: "Trealla Prolog" },
+        { engine: window.solvers.swipl, name: "SWIPL" },
+        { engine: window.solvers.tau, name: "Tau Prolog" }
+      ]) {
+        let samples = [];
+
+        for (let i = 0; i < 10; i++) { // warm up
+          await once(window.solvers.webpl);
+        }
+
+        for (let i = 0; i < 16; i++) {
+          await once(x.engine).then(t => samples.push(t));
+        }
+
+        document.write(`${x.name}: ${JSON.stringify(samples)}<br>`);
       }
-      await once(window.solvers.webpl).then(t => document.write(`WebPL: ${t}ms<br>`));
-      await once(window.solvers.trealla).then(t => document.write(`Trealla Prolog: ${t}ms<br>`));
-      await once(window.solvers.swipl).then(t => document.write(`SWIPL: ${t}ms<br>`));
-      await once(window.solvers.tau).then(t => document.write(`Tau Prolog: ${t}ms<br>`));
     };
   </script>
 
   <button onclick="bench()">Start Benchmark</button>
+  <button onclick="oneWebPL()">Run WebPL</button>
+  <button onclick="oneSWIPL()">Run SWIPL</button>
+  <button onclick="oneTau()">Run Tau Prolog</button>
+  <button onclick="oneTrealla()">Run Trealla Prolog</button>
 </body>
 </html>

@@ -1,2 +1,2 @@
 #!/bin/bash
-wasm-pack build --target web --out-dir ../web/webpl --no-pack --no-typescript ./core
+wasm-pack build --target web ./core
