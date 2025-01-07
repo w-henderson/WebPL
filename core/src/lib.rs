@@ -29,12 +29,14 @@ pub enum HeapTerm {
     Var(HeapTermPtr),
     Compound(StringId, usize, Option<HeapTermPtr>),
     CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
+    Cut,
 }
 
 pub enum CodeTerm {
     Atom(Atom),
     Var(StringId),
     Compound(StringId, Vec<CodeTerm>),
+    Cut,
 }
 
 pub type Clause = (CodeTerm, Vec<CodeTerm>);

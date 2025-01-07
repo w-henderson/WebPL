@@ -76,6 +76,7 @@ impl Heap {
                     *arg = next;
                 }
             }
+            CodeTerm::Cut => self.data.push(HeapTerm::Cut),
         }
 
         result
@@ -172,6 +173,7 @@ impl Heap {
                 result
             }
             HeapTerm::CompoundCons(_, _) => unreachable!(),
+            HeapTerm::Cut => "!".to_string(),
         }
     }
 }

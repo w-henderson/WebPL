@@ -1,4 +1,5 @@
 mod cmp;
+mod cut;
 mod is;
 mod unify;
 
@@ -16,8 +17,8 @@ pub trait Builtin<const ARITY: usize> {
 }
 
 pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, BuiltinError>> {
-    if let HeapTerm::Compound(functor, arity, next) = solver.heap.get(goal) {
-        match (solver.heap.get_atom(*functor), arity) {
+    match solver.heap.get(goal) {
+        HeapTerm::Compound(functor, arity, next) => match (solver.heap.get_atom(*functor), arity) {
             ("=", 2) => Some(unify::UnifyBuiltin::eval(solver, args(solver, *next))),
             ("is", 2) => Some(is::IsBuiltin::eval(solver, args(solver, *next))),
             (">", 2) => Some(cmp::GtBuiltin::eval(solver, args(solver, *next))),
@@ -27,9 +28,9 @@ pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, Built
             ("=\\=", 2) => Some(cmp::NeqBuiltin::eval(solver, args(solver, *next))),
             ("=:=", 2) => Some(cmp::EqBuiltin::eval(solver, args(solver, *next))),
             _ => None,
-        }
-    } else {
-        None
+        },
+        HeapTerm::Cut => Some(cut::CutBuiltin::eval(solver, [])),
+        _ => None,
     }
 }
 

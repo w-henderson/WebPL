@@ -11,6 +11,7 @@ pub enum Term {
     Atom(Atom),
     Variable(String),
     Compound(String, Vec<Term>),
+    Cut,
 }
 
 pub enum Atom {
@@ -43,6 +44,7 @@ impl ToCodeTerm for Term {
                     .map(|arg| arg.to_code_term(string_map))
                     .collect(),
             ),
+            Term::Cut => CodeTerm::Cut,
         }
     }
 }
