@@ -2,10 +2,54 @@ use crate::StringId;
 
 use std::collections::HashMap;
 
-#[derive(Default)]
+// Pre-loaded strings with known values
+pub mod str {
+    pub const EXCL: usize = 0;
+    pub const EQ: usize = 1;
+    pub const IS: usize = 2;
+    pub const GT: usize = 3;
+    pub const GE: usize = 4;
+    pub const LT: usize = 5;
+    pub const LE: usize = 6;
+    pub const ANE: usize = 7;
+    pub const AEQ: usize = 8;
+    pub const ADD: usize = 9;
+    pub const SUB: usize = 10;
+    pub const MUL: usize = 11;
+    pub const DIV: usize = 12;
+}
+
 pub struct StringMap {
     map: HashMap<String, usize>,
     reverse: Vec<String>,
+}
+
+impl Default for StringMap {
+    fn default() -> Self {
+        let reverse = vec![
+            "!".to_string(),
+            "=".to_string(),
+            "is".to_string(),
+            ">".to_string(),
+            ">=".to_string(),
+            "<".to_string(),
+            "<=".to_string(),
+            "=\\=".to_string(),
+            "=:=".to_string(),
+            "+".to_string(),
+            "-".to_string(),
+            "*".to_string(),
+            "/".to_string(),
+        ];
+
+        let map = reverse
+            .iter()
+            .enumerate()
+            .map(|(a, b)| (b.clone(), a))
+            .collect();
+
+        StringMap { map, reverse }
+    }
 }
 
 impl StringMap {

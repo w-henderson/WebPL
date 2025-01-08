@@ -1,5 +1,6 @@
 use crate::atom::Atom;
 use crate::builtins::{args, Builtin, BuiltinError};
+use crate::stringmap::str;
 use crate::{HeapTerm, HeapTermPtr, Solver};
 
 use std::ops::{Add, Div, Mul, Sub};
@@ -33,13 +34,12 @@ impl IsBuiltin {
                 let args = args::<2>(solver, *next);
                 let a = Self::arithmetic_eval(solver, args[0])?;
                 let b = Self::arithmetic_eval(solver, args[1])?;
-                let f = solver.heap.get_atom(f);
 
                 match f {
-                    "+" => add(&a, &b),
-                    "-" => sub(&a, &b),
-                    "*" => mul(&a, &b),
-                    "/" => div(&a, &b),
+                    str::ADD => add(&a, &b),
+                    str::SUB => sub(&a, &b),
+                    str::MUL => mul(&a, &b),
+                    str::DIV => div(&a, &b),
                     _ => Err(BuiltinError::UnsupportedOperation),
                 }
             }
