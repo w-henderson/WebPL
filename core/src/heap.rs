@@ -1,6 +1,6 @@
 use crate::atom::Atom;
 use crate::stringmap::StringMap;
-use crate::{ChoicePointIdx, CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
+use crate::{ChoicePointIdx, ClauseName, CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
 
 pub struct Heap {
     data: Vec<HeapTerm>,
@@ -117,6 +117,15 @@ impl Heap {
 
     pub fn get_atom(&self, atom: StringId) -> &str {
         self.string_map.get(atom).unwrap()
+    }
+
+    pub fn get_name(&self, term: HeapTermPtr) -> ClauseName {
+        match self.get(term) {
+            HeapTerm::Atom(Atom::String(name)) => ClauseName(*name, 0),
+            HeapTerm::Compound(functor, arity, _) => ClauseName(*functor, *arity),
+            HeapTerm::Cut(_) => ClauseName(crate::stringmap::str::EXCL, 0),
+            _ => unreachable!(),
+        }
     }
 
     pub fn serialize(&self, term: HeapTermPtr, name: &str) -> String {

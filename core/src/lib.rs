@@ -1,6 +1,7 @@
 pub mod ast;
 mod atom;
 mod builtins;
+mod compile;
 mod goal;
 mod heap;
 mod stringmap;
@@ -15,6 +16,7 @@ lalrpop_util::lalrpop_mod!(grammar);
 mod tests;
 
 use atom::Atom;
+use compile::compile;
 use goal::Goals;
 use heap::Heap;
 use stringmap::StringMap;
@@ -40,18 +42,22 @@ pub enum CodeTerm {
     Cut,
 }
 
-pub type Clause = (CodeTerm, Vec<CodeTerm>);
-pub type Query = Vec<CodeTerm>;
-pub type Program = Vec<Clause>;
-pub type Solution = Vec<(String, String)>;
+#[derive(PartialEq, Eq, Hash, Copy, Clone)]
+pub struct ClauseName(pub StringId, pub usize); // functor, arity
 
-pub trait ToCodeTerm {
-    fn to_code_term(&self, string_map: &mut StringMap) -> CodeTerm;
+pub struct Clause {
+    head: CodeTerm,
+    body: Vec<CodeTerm>,
 }
+
+pub type Query = Vec<CodeTerm>;
+pub type Program = Vec<(ClauseName, Vec<Clause>)>;
+pub type Solution = Vec<(String, String)>;
 
 pub struct Solver {
     program: Program,
     goals: Goals,
+    group: Option<usize>,
     clause: usize,
     choice_points: Vec<ChoicePoint>,
     heap: Heap,
@@ -60,6 +66,7 @@ pub struct Solver {
 }
 
 struct ChoicePoint {
+    group: Option<usize>,
     clause: usize,
     trail_checkpoint: trail::Checkpoint,
     heap_checkpoint: heap::Checkpoint,
@@ -88,39 +95,31 @@ impl Solver {
     pub fn from_ast(program: ast::Program, query: ast::Query) -> Self {
         let mut string_map = StringMap::default();
 
-        let program = program
-            .0
-            .into_iter()
-            .map(|clause| {
-                (
-                    clause.0.to_code_term(&mut string_map),
-                    clause
-                        .1
-                        .into_iter()
-                        .map(|term| term.to_code_term(&mut string_map))
-                        .collect(),
-                )
-            })
-            .collect();
+        let program = compile(program, &mut string_map);
 
         let query = query
             .0
             .into_iter()
-            .map(|term| term.to_code_term(&mut string_map))
+            .map(|term| term.to_code_term(&mut string_map).0)
             .collect();
 
         let (vars, heap_query, var_map) = Heap::new(string_map, &query);
         let goals = Goals::new(&heap_query);
 
-        Solver {
+        let mut solver = Solver {
             program,
             goals,
+            group: None,
             clause: 0,
             choice_points: Vec::new(),
             heap: vars,
             var_map,
             trail: Trail::new(),
-        }
+        };
+
+        solver.find_clause_group();
+
+        solver
     }
 
     fn step(&mut self) -> Option<Solution> {
@@ -133,6 +132,7 @@ impl Solver {
                 Some(Ok(true)) => {
                     // Built-in predicate succeeded
                     self.goals.pop();
+                    self.find_clause_group();
                     if self.goals.is_complete() {
                         let solution = self.serialize_solution();
                         self.pop_choice_point();
@@ -149,12 +149,14 @@ impl Solver {
                 None => {}                                // This goal is not a built-in predicate
             };
 
-            while self.clause < self.program.len() {
+            let group = self.group?;
+
+            while self.clause < self.program[group].1.len() {
                 let choice_point = self.enter();
 
                 var_map.clear();
 
-                let (head, _) = &self.program[self.clause];
+                let head = &self.program[group].1[self.clause].head;
 
                 if self.pre_unify(goal, head) {
                     let head = self
@@ -165,7 +167,7 @@ impl Solver {
                         self.choice_points.push(choice_point);
 
                         self.goals.pop();
-                        let (_, body) = &self.program[self.clause];
+                        let body = &self.program[group].1[self.clause].body;
                         for goal in body.iter().rev() {
                             self.goals.push(self.heap.alloc(
                                 goal,
@@ -174,7 +176,7 @@ impl Solver {
                             ));
                         }
 
-                        self.clause = 0;
+                        self.find_clause_group();
 
                         if self.goals.is_complete() {
                             let solution = self.serialize_solution();
@@ -252,6 +254,7 @@ impl Solver {
     #[inline]
     fn enter(&mut self) -> ChoicePoint {
         ChoicePoint {
+            group: self.group,
             clause: self.clause + 1,
             trail_checkpoint: self.trail.checkpoint(),
             heap_checkpoint: self.heap.checkpoint(),
@@ -261,6 +264,7 @@ impl Solver {
 
     #[inline]
     fn undo(&mut self, choice_point: ChoicePoint) {
+        self.group = choice_point.group;
         self.clause = choice_point.clause;
         self.trail
             .undo(choice_point.trail_checkpoint, &mut self.heap);
@@ -273,6 +277,18 @@ impl Solver {
         self.choice_points
             .pop()
             .map(|choice_point| self.undo(choice_point))
+    }
+
+    #[inline]
+    fn find_clause_group(&mut self) {
+        if let Some(goal) = self.goals.current() {
+            let name = self.heap.get_name(goal);
+            self.group = self
+                .program
+                .iter()
+                .position(|(clause_name, _)| clause_name == &name);
+            self.clause = 0;
+        }
     }
 
     #[inline]

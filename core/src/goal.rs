@@ -32,7 +32,7 @@ impl Goals {
         result
     }
 
-    pub fn current(&self) -> Option<GoalPtr> {
+    pub fn current(&self) -> Option<HeapTermPtr> {
         self.current.map(|ptr| self.goals[ptr].term())
     }
 
