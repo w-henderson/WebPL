@@ -1,5 +1,4 @@
 mod cmp;
-mod cut;
 mod is;
 mod unify;
 
@@ -29,7 +28,10 @@ pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, Built
             ("=:=", 2) => Some(cmp::EqBuiltin::eval(solver, args(solver, *next))),
             _ => None,
         },
-        HeapTerm::Cut => Some(cut::CutBuiltin::eval(solver, [])),
+        HeapTerm::Cut(choice_point_idx) => {
+            solver.cut(*choice_point_idx);
+            Some(Ok(true))
+        }
         _ => None,
     }
 }

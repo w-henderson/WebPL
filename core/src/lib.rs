@@ -21,6 +21,7 @@ use stringmap::StringMap;
 use trail::Trail;
 
 type HeapTermPtr = usize;
+type ChoicePointIdx = usize;
 
 type StringId = usize;
 
@@ -29,7 +30,7 @@ pub enum HeapTerm {
     Var(HeapTermPtr),
     Compound(StringId, usize, Option<HeapTermPtr>),
     CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
-    Cut,
+    Cut(ChoicePointIdx),
 }
 
 pub enum CodeTerm {
@@ -156,7 +157,9 @@ impl Solver {
                 let (head, _) = &self.program[self.clause];
 
                 if self.pre_unify(goal, head) {
-                    let head = self.heap.alloc(head, &mut var_map);
+                    let head = self
+                        .heap
+                        .alloc(head, &mut var_map, self.choice_points.len());
 
                     if self.unify(goal, head) {
                         self.choice_points.push(choice_point);
@@ -164,7 +167,11 @@ impl Solver {
                         self.goals.pop();
                         let (_, body) = &self.program[self.clause];
                         for goal in body.iter().rev() {
-                            self.goals.push(self.heap.alloc(goal, &mut var_map));
+                            self.goals.push(self.heap.alloc(
+                                goal,
+                                &mut var_map,
+                                self.choice_points.len() - 1,
+                            ));
                         }
 
                         self.clause = 0;
@@ -266,6 +273,11 @@ impl Solver {
         self.choice_points
             .pop()
             .map(|choice_point| self.undo(choice_point))
+    }
+
+    #[inline]
+    fn cut(&mut self, choice_point_idx: ChoicePointIdx) {
+        self.choice_points.truncate(choice_point_idx);
     }
 
     #[inline]
