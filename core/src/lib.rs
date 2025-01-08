@@ -152,19 +152,22 @@ impl Solver {
             let group = self.group?;
 
             while self.clause < self.program[group].1.len() {
-                let choice_point = self.enter();
-
                 var_map.clear();
 
                 let head = &self.program[group].1[self.clause].head;
 
                 if self.pre_unify(goal, head) {
+                    let choice_point = self.enter();
+
                     let head = self
                         .heap
                         .alloc(head, &mut var_map, self.choice_points.len());
 
                     if self.unify(goal, head) {
-                        self.choice_points.push(choice_point);
+                        // If this was the only choice, don't push a choice point
+                        if self.clause + 1 < self.program[group].1.len() {
+                            self.choice_points.push(choice_point);
+                        }
 
                         self.goals.pop();
                         let body = &self.program[group].1[self.clause].body;
@@ -172,7 +175,7 @@ impl Solver {
                             self.goals.push(self.heap.alloc(
                                 goal,
                                 &mut var_map,
-                                self.choice_points.len() - 1,
+                                self.choice_points.len().saturating_sub(1),
                             ));
                         }
 
@@ -186,9 +189,9 @@ impl Solver {
 
                         continue 'solve;
                     }
-                }
 
-                self.undo(choice_point);
+                    self.undo(choice_point);
+                }
             }
 
             self.pop_choice_point()?;
@@ -252,7 +255,7 @@ impl Solver {
     }
 
     #[inline]
-    fn enter(&mut self) -> ChoicePoint {
+    fn enter(&self) -> ChoicePoint {
         ChoicePoint {
             group: self.group,
             clause: self.clause + 1,
