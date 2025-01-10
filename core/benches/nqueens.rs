@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use webpl::Solver;
@@ -27,7 +29,10 @@ fn n_queens(n: usize) {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("nqueens 8", |b| b.iter(|| n_queens(black_box(8))));
+    let mut group = c.benchmark_group("nqueens");
+    group.measurement_time(Duration::from_secs(30));
+    group.sample_size(500);
+    group.bench_function("nqueens 8", |b| b.iter(|| n_queens(black_box(8))));
 }
 
 criterion_group!(benches, criterion_benchmark);
