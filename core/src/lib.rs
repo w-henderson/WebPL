@@ -306,6 +306,11 @@ impl Solver {
             .map(|(name, ptr)| (name.clone(), self.heap.serialize(*ptr, name)))
             .collect::<Vec<_>>()
     }
+
+    #[cfg(test)]
+    pub(crate) fn max_choice_point_stack_height(&self) -> usize {
+        self.choice_points.capacity()
+    }
 }
 
 impl Iterator for Solver {
