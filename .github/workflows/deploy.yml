@@ -1,0 +1,36 @@
+name: Deploy
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust WASM tooling
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WebPL
+        run: ./build
+
+      - name: Install web dependencies
+        run: (cd web && npm install --force)
+
+      - name: Build web
+        run: (cd web && npm run build)
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@1
+        with:
+          apiToken: ${{ secrets.PAGES_TOKEN }}
+          accountId: ${{ secrets.PAGES_ACCOUNT_ID }}
+          projectName: webpl
+          directory: web/dist
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
