@@ -55,7 +55,9 @@ export default function Home() {
 
   return (
     <main className={styles.container}>
-      <Header className={styles.header} />
+      <Header
+        className={styles.header}
+        name={prolog.name} />
 
       <Program
         className={styles.program}
