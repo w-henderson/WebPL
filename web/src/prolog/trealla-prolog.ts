@@ -1,9 +1,11 @@
 import Prolog, { Solution } from ".";
-import { load, Prolog as TreallaWasm } from "trealla";
+import { Prolog as TreallaWasm } from "trealla";
 
 export default class TreallaProlog extends Prolog {
   private tpl?: TreallaWasm;
   private query?: any;
+
+  public name = "Trealla Prolog";
 
   public async init(): Promise<void> {
     if (this.tpl !== undefined) return;

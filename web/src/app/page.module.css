@@ -46,14 +46,14 @@ div.query {
   display: flex;
 }
 
-div.query div {
+div.query>div {
   margin-left: 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-div.query div svg:first-of-type {
+div.query div svg:first-child {
   background: var(--accent);
   color: white;
 }

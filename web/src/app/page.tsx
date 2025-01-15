@@ -11,9 +11,7 @@ import Header from "@/components/Header";
 
 import Prolog from "@/prolog";
 import WebPL from "@/prolog/webpl";
-import SWIPL from "@/prolog/swipl";
-import TauProlog from "@/prolog/tau-prolog";
-import TreallaProlog from "@/prolog/trealla-prolog";
+import EngineSelector from "@/components/EngineSelector";
 
 type QueryResults = {
   query: string,
@@ -22,13 +20,16 @@ type QueryResults = {
 }
 
 export default function Home() {
-  const [prolog, setProlog] = useState<Prolog>(new TreallaProlog());
+  const [prolog, setProlog] = useState<Prolog>(new WebPL());
+  const [loading, setLoading] = useState<boolean>(true);
   const [program, setProgram] = useState<string>("");
   const [query, setQuery] = useState<string>("");
   const [results, setResults] = useState<QueryResults[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
 
   useEffect(() => {
     prolog.init();
+    setLoading(false);
   }, [prolog]);
 
   const appendResult = (complete: boolean, ...solutions: Map<string, string>[]) => {
@@ -69,27 +70,46 @@ export default function Home() {
         className={styles.query}
         query={query}
         updateQuery={setQuery}
+        loading={loading}
+        settingsOpen={settingsOpen}
+        setSettingsOpen={setSettingsOpen}
         solve={async () => {
           await prolog.solve(program, query);
           setResults(prevResults => [...prevResults, { query, bindings: [], complete: false }]);
+          setLoading(true);
           const solution = await prolog.next();
+          setLoading(false);
           if (solution) appendResult(false, solution);
           else completeResults();
         }}
         one={async () => {
           if (results.length > 0 && results[results.length - 1].query === query) {
+            setLoading(true);
             const solution = await prolog.next();
+            setLoading(false);
             if (solution) appendResult(false, solution);
             else completeResults();
           }
         }}
         all={async () => {
           if (results.length > 0 && results[results.length - 1].query === query) {
+            setLoading(true);
             const solutions = await prolog.all();
+            setLoading(false);
             if (solutions) appendResult(true, ...solutions);
             else completeResults();
           }
         }} />
+
+      <EngineSelector
+        prolog={prolog}
+        setProlog={engine => {
+          setLoading(true);
+          setResults([]);
+          setProlog(engine);
+        }}
+        open={settingsOpen}
+        setOpen={setSettingsOpen} />
     </main>
   );
 }
