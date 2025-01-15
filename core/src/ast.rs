@@ -1,5 +1,5 @@
 use crate::stringmap::StringMap;
-use crate::{atom, CodeTerm, ToCodeTerm};
+use crate::{atom, ClauseName, CodeTerm};
 
 pub struct Program(pub Vec<Clause>);
 
@@ -11,6 +11,7 @@ pub enum Term {
     Atom(Atom),
     Variable(String),
     Compound(String, Vec<Term>),
+    Cut,
 }
 
 pub enum Atom {
@@ -30,19 +31,31 @@ impl Term {
 
         term
     }
-}
 
-impl ToCodeTerm for Term {
-    fn to_code_term(&self, string_map: &mut StringMap) -> CodeTerm {
+    pub fn to_code_term(&self, string_map: &mut StringMap) -> (CodeTerm, Option<ClauseName>) {
         match self {
-            Term::Atom(atom) => CodeTerm::Atom(atom::Atom::new(string_map, atom)),
-            Term::Variable(var) => CodeTerm::Var(string_map.alloc(var)),
-            Term::Compound(functor, args) => CodeTerm::Compound(
-                string_map.alloc(functor),
-                args.iter()
-                    .map(|arg| arg.to_code_term(string_map))
-                    .collect(),
-            ),
+            Term::Atom(atom) => {
+                let atom = atom::Atom::new(string_map, atom);
+                if let atom::Atom::String(string_id) = &atom {
+                    (CodeTerm::Atom(atom), Some(ClauseName(*string_id, 0)))
+                } else {
+                    (CodeTerm::Atom(atom), None)
+                }
+            }
+            Term::Variable(var) => (CodeTerm::Var(string_map.alloc(var)), None),
+            Term::Compound(functor, args) => {
+                let functor = string_map.alloc(functor);
+                (
+                    CodeTerm::Compound(
+                        functor,
+                        args.iter()
+                            .map(|arg| arg.to_code_term(string_map).0)
+                            .collect(),
+                    ),
+                    Some(ClauseName(functor, args.len())),
+                )
+            }
+            Term::Cut => (CodeTerm::Cut, None),
         }
     }
 }

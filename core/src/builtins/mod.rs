@@ -2,6 +2,7 @@ mod cmp;
 mod is;
 mod unify;
 
+use crate::stringmap::str;
 use crate::{HeapTerm, HeapTermPtr, Solver};
 
 #[derive(Debug)]
@@ -16,20 +17,29 @@ pub trait Builtin<const ARITY: usize> {
 }
 
 pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, BuiltinError>> {
-    if let HeapTerm::Compound(functor, arity, next) = solver.heap.get(goal) {
-        match (solver.heap.get_atom(*functor), arity) {
-            ("=", 2) => Some(unify::UnifyBuiltin::eval(solver, args(solver, *next))),
-            ("is", 2) => Some(is::IsBuiltin::eval(solver, args(solver, *next))),
-            (">", 2) => Some(cmp::GtBuiltin::eval(solver, args(solver, *next))),
-            (">=", 2) => Some(cmp::GteBuiltin::eval(solver, args(solver, *next))),
-            ("<", 2) => Some(cmp::LtBuiltin::eval(solver, args(solver, *next))),
-            ("<=", 2) => Some(cmp::LteBuiltin::eval(solver, args(solver, *next))),
-            ("=\\=", 2) => Some(cmp::NeqBuiltin::eval(solver, args(solver, *next))),
-            ("=:=", 2) => Some(cmp::EqBuiltin::eval(solver, args(solver, *next))),
-            _ => None,
+    match solver.heap.get(goal) {
+        HeapTerm::Compound(functor, arity, next) => {
+            if *arity == 2 {
+                match *functor {
+                    str::EQ => Some(unify::UnifyBuiltin::eval(solver, args(solver, *next))),
+                    str::IS => Some(is::IsBuiltin::eval(solver, args(solver, *next))),
+                    str::GT => Some(cmp::GtBuiltin::eval(solver, args(solver, *next))),
+                    str::GE => Some(cmp::GteBuiltin::eval(solver, args(solver, *next))),
+                    str::LT => Some(cmp::LtBuiltin::eval(solver, args(solver, *next))),
+                    str::LE => Some(cmp::LteBuiltin::eval(solver, args(solver, *next))),
+                    str::ANE => Some(cmp::NeqBuiltin::eval(solver, args(solver, *next))),
+                    str::AEQ => Some(cmp::EqBuiltin::eval(solver, args(solver, *next))),
+                    _ => None,
+                }
+            } else {
+                None
+            }
         }
-    } else {
-        None
+        HeapTerm::Cut(choice_point_idx) => {
+            solver.cut(*choice_point_idx);
+            Some(Ok(true))
+        }
+        _ => None,
     }
 }
 

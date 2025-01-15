@@ -26,6 +26,8 @@ Term: Term = {
     "[" <a:Comma<Term>> "]" => Term::list(a, None),
     "[]" => Term::list(vec![], None),
 
+    "!" => Term::Cut,
+
     #[precedence(level="1")] #[assoc(side="left")]
     <t1:Term> <o:Op1> <t2:Term> => Term::Compound(o, vec![t1, t2]),
 

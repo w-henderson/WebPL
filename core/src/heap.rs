@@ -1,6 +1,6 @@
 use crate::atom::Atom;
 use crate::stringmap::StringMap;
-use crate::{CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
+use crate::{ChoicePointIdx, ClauseName, CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
 
 pub struct Heap {
     data: Vec<HeapTerm>,
@@ -24,7 +24,7 @@ impl Heap {
         let mut heap_query = Vec::new();
 
         for term in query {
-            heap_query.push(heap.alloc(term, &mut var_map));
+            heap_query.push(heap.alloc(term, &mut var_map, 0));
         }
 
         let var_map = var_map
@@ -47,6 +47,7 @@ impl Heap {
         &mut self,
         term: &CodeTerm,
         var_map: &mut Vec<(StringId, HeapTermPtr)>,
+        choice_point_idx: ChoicePointIdx,
     ) -> HeapTermPtr {
         let result = self.data.len();
 
@@ -67,7 +68,7 @@ impl Heap {
 
                 let mut next = None;
                 for arg in args.iter().rev() {
-                    let head = self.alloc(arg, var_map);
+                    let head = self.alloc(arg, var_map, choice_point_idx);
                     let tail = next.replace(self.data.len());
                     self.data.push(HeapTerm::CompoundCons(head, tail));
                 }
@@ -76,6 +77,7 @@ impl Heap {
                     *arg = next;
                 }
             }
+            CodeTerm::Cut => self.data.push(HeapTerm::Cut(choice_point_idx)),
         }
 
         result
@@ -115,6 +117,15 @@ impl Heap {
 
     pub fn get_atom(&self, atom: StringId) -> &str {
         self.string_map.get(atom).unwrap()
+    }
+
+    pub fn get_name(&self, term: HeapTermPtr) -> ClauseName {
+        match self.get(term) {
+            HeapTerm::Atom(Atom::String(name)) => ClauseName(*name, 0),
+            HeapTerm::Compound(functor, arity, _) => ClauseName(*functor, *arity),
+            HeapTerm::Cut(_) => ClauseName(crate::stringmap::str::EXCL, 0),
+            _ => unreachable!(),
+        }
     }
 
     pub fn serialize(&self, term: HeapTermPtr, name: &str) -> String {
@@ -172,6 +183,7 @@ impl Heap {
                 result
             }
             HeapTerm::CompoundCons(_, _) => unreachable!(),
+            HeapTerm::Cut(_) => "!".to_string(),
         }
     }
 }
