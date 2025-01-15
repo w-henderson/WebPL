@@ -11,27 +11,34 @@ import Header from "@/components/Header";
 
 import Prolog from "@/prolog";
 import WebPL from "@/prolog/webpl";
-import SWIPL from "@/prolog/swipl";
-import TauProlog from "@/prolog/tau-prolog";
-import TreallaProlog from "@/prolog/trealla-prolog";
+import EngineSelector from "@/components/EngineSelector";
 
 type QueryResults = {
   query: string,
-  bindings: Map<string, string>[],
+  bindings: {
+    map: Map<string, string>,
+    duration?: number
+  }[],
   complete: boolean
 }
 
 export default function Home() {
-  const [prolog, setProlog] = useState<Prolog>(new TreallaProlog());
+  const [prolog, setProlog] = useState<Prolog>(new WebPL());
+  const [loading, setLoading] = useState<boolean>(true);
   const [program, setProgram] = useState<string>("");
   const [query, setQuery] = useState<string>("");
   const [results, setResults] = useState<QueryResults[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
 
   useEffect(() => {
     prolog.init();
+    setLoading(false);
   }, [prolog]);
 
-  const appendResult = (complete: boolean, ...solutions: Map<string, string>[]) => {
+  const appendResult = (complete: boolean, ...solutions: {
+    map: Map<string, string>,
+    duration?: number
+  }[]) => {
     setResults(prevResults => {
       const lastResult = prevResults[prevResults.length - 1];
       return prevResults.slice(0, prevResults.length - 1).concat({
@@ -54,7 +61,9 @@ export default function Home() {
 
   return (
     <main className={styles.container}>
-      <Header className={styles.header} />
+      <Header
+        className={styles.header}
+        name={prolog.name} />
 
       <Program
         className={styles.program}
@@ -69,27 +78,67 @@ export default function Home() {
         className={styles.query}
         query={query}
         updateQuery={setQuery}
+        loading={loading}
+        settingsOpen={settingsOpen}
+        setSettingsOpen={setSettingsOpen}
         solve={async () => {
           await prolog.solve(program, query);
           setResults(prevResults => [...prevResults, { query, bindings: [], complete: false }]);
+          setLoading(true);
+          const start = performance.now();
           const solution = await prolog.next();
-          if (solution) appendResult(false, solution);
+          const end = performance.now();
+          setLoading(false);
+          if (solution) appendResult(false, {
+            map: solution,
+            duration: end - start
+          });
           else completeResults();
         }}
         one={async () => {
           if (results.length > 0 && results[results.length - 1].query === query) {
+            setLoading(true);
+            const start = performance.now();
             const solution = await prolog.next();
-            if (solution) appendResult(false, solution);
+            const end = performance.now();
+            setLoading(false);
+            if (solution) appendResult(false, {
+              map: solution,
+              duration: end - start
+            });
             else completeResults();
           }
         }}
         all={async () => {
           if (results.length > 0 && results[results.length - 1].query === query) {
+            setLoading(true);
+            const start = performance.now();
             const solutions = await prolog.all();
-            if (solutions) appendResult(true, ...solutions);
+            const end = performance.now();
+            setLoading(false);
+            if (solutions) {
+              const newSolutions: {
+                map: Map<string, string>,
+                duration?: number
+              }[] = solutions.map(solution => ({
+                map: solution
+              }));
+              newSolutions[newSolutions.length - 1].duration = end - start;
+              appendResult(true, ...newSolutions)
+            }
             else completeResults();
           }
         }} />
+
+      <EngineSelector
+        prolog={prolog}
+        setProlog={engine => {
+          setLoading(true);
+          setResults([]);
+          setProlog(engine);
+        }}
+        open={settingsOpen}
+        setOpen={setSettingsOpen} />
     </main>
   );
 }

@@ -5,6 +5,8 @@ export default class SWIPL extends Prolog {
   private swipl?: any;
   private query?: any;
 
+  public name = "SWI-Prolog";
+
   public async init(): Promise<void> {
     if (this.swipl !== undefined) return;
     this.swipl = await SWIPLWasm({ arguments: ["-q"] });

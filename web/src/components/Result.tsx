@@ -2,7 +2,10 @@ import styles from "./Result.module.css";
 
 export default function Result(props: Readonly<{
   query: string,
-  results: Map<string, string>[],
+  results: {
+    map: Map<string, string>,
+    duration?: number
+  }[],
   complete: boolean
 }>) {
   return (
@@ -11,13 +14,15 @@ export default function Result(props: Readonly<{
       <div>
         {props.results.map((result, i) => (
           <div key={i}>
-            {result.size === 0 && (
+            {result.map.size === 0 && (
               <div>True</div>
             )}
 
-            {Array.from(result.entries()).map(([key, value]) => (
-              <div key={key}>{key}: {value}</div>
-            ))}
+            <div>
+              {Array.from(result.map.entries()).map(([key, value]) => `${key}: ${value}`).join(", ")}
+
+              {result.duration && ` (${result.duration.toFixed(1)}ms)`}
+            </div>
           </div>
         ))}
 

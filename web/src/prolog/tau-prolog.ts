@@ -4,6 +4,8 @@ import pl from "tau-prolog";
 export default class TauProlog extends Prolog {
   private session?: any;
 
+  public name = "Tau Prolog";
+
   public async init(): Promise<void> {
     if (this.session !== undefined) return;
     this.session = pl.create();

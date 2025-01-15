@@ -5,7 +5,10 @@ export default function Results(props: Readonly<{
   className?: string,
   results: {
     query: string,
-    bindings: Map<string, string>[],
+    bindings: {
+      map: Map<string, string>,
+      duration?: number
+    }[],
     complete: boolean
   }[]
 }>) {

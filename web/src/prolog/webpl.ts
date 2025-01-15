@@ -5,6 +5,8 @@ export default class WebPL extends Prolog {
   private solver?: Solver;
   private ready: boolean = false;
 
+  public name = "WebPL";
+
   public async init(): Promise<void> {
     if (this.ready) return;
     init();

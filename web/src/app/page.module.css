@@ -14,6 +14,8 @@ header.header {
   grid-column: 1 / 3;
   grid-row: 1 / 2;
   margin-bottom: -8px;
+  display: flex;
+  align-items: baseline;
 }
 
 header.header h1 {
@@ -21,6 +23,12 @@ header.header h1 {
   color: var(--accent);
   font-size: 36px;
   margin: 0;
+}
+
+header.header span {
+  margin-left: 16px;
+  color: rgba(0, 0, 0, 0.5);
+  font-family: Inter;
 }
 
 div.program {
@@ -46,14 +54,14 @@ div.query {
   display: flex;
 }
 
-div.query div {
+div.query>div {
   margin-left: 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-div.query div svg:first-of-type {
+div.query div svg:first-child {
   background: var(--accent);
   color: white;
 }
