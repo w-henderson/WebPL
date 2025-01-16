@@ -9,7 +9,7 @@ export default class WebPL extends Prolog {
 
   public async init(): Promise<void> {
     if (this.ready) return;
-    init();
+    await init();
     this.ready = true;
   }
 
