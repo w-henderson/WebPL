@@ -11,8 +11,10 @@
   "dependencies": {
     "iconoir-react": "^7.10.1",
     "next": "15.0.3",
+    "prismjs": "^1.29.0",
     "react": "19.0.0-rc-66855b96-20241106",
     "react-dom": "19.0.0-rc-66855b96-20241106",
+    "react-simple-code-editor": "^0.14.1",
     "swipl-wasm": "^4.0.18",
     "tau-prolog": "^0.3.4",
     "trealla": "^0.21.14",
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/prismjs": "^1.26.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "eslint": "^8",
