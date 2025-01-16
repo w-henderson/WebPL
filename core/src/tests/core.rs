@@ -10,10 +10,7 @@ fn app() {
     let query = "app([1, 2], [3, 4], L).";
     let mut solver = Solver::new(APP_PROGRAM, query).unwrap();
 
-    assert_eq!(
-        solver.next(),
-        Some(vec![("L".into(), ".(1, .(2, .(3, .(4, []))))".into())])
-    );
+    assert_eq!(solver.next(), Some(vec![("L".into(), "[1,2,3,4]".into())]));
 
     assert_eq!(solver.next(), None);
 }
@@ -23,12 +20,36 @@ fn recursive_solution() {
     let query = "app([1, 2], L, L).";
     let mut solver = Solver::new(APP_PROGRAM, query).unwrap();
 
-    assert_eq!(
-        solver.next(),
-        Some(vec![("L".into(), ".(1, .(2, L))".into())])
-    );
+    assert_eq!(solver.next(), Some(vec![("L".into(), "[1,2|L]".into())]));
 
     assert_eq!(solver.next(), None);
+}
+
+#[test]
+fn mutual_recursive_solution() {
+    let query_1 = "X = f(L), app([1, X], L, L).";
+    let query_2 = "app([1, X], L, L), X = f(L).";
+    let mut solver_1 = Solver::new(APP_PROGRAM, query_1).unwrap();
+    let mut solver_2 = Solver::new(APP_PROGRAM, query_2).unwrap();
+
+    assert_eq!(
+        solver_1.next(),
+        Some(vec![
+            ("L".into(), "[1,f(L)|L]".into()),
+            ("X".into(), "f(L)".into()),
+        ])
+    );
+
+    assert_eq!(
+        solver_2.next(),
+        Some(vec![
+            ("L".into(), "[1,f(L)|L]".into()),
+            ("X".into(), "f(L)".into()),
+        ])
+    );
+
+    assert_eq!(solver_1.next(), None);
+    assert_eq!(solver_2.next(), None);
 }
 
 #[test]

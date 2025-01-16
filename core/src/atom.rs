@@ -24,4 +24,8 @@ impl Atom {
             Atom::Float(float) => float.to_string(),
         }
     }
+
+    pub fn is_nil(&self) -> bool {
+        matches!(self, Atom::String(crate::stringmap::str::NIL))
+    }
 }

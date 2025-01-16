@@ -300,11 +300,8 @@ impl Solver {
     }
 
     #[inline]
-    fn serialize_solution(&self) -> Solution {
-        self.var_map
-            .iter()
-            .map(|(name, ptr)| (name.clone(), self.heap.serialize(*ptr, name)))
-            .collect::<Vec<_>>()
+    pub(crate) fn serialize_solution(&self) -> Solution {
+        self.heap.serialize(&self.var_map)
     }
 
     #[cfg(test)]

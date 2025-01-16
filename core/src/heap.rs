@@ -2,6 +2,8 @@ use crate::atom::Atom;
 use crate::stringmap::StringMap;
 use crate::{ChoicePointIdx, ClauseName, CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
 
+use std::fmt::Write;
+
 pub struct Heap {
     data: Vec<HeapTerm>,
     string_map: StringMap,
@@ -128,62 +130,132 @@ impl Heap {
         }
     }
 
-    pub fn serialize(&self, term: HeapTermPtr, name: &str) -> String {
-        self.serialize_inner(term, name, &mut Vec::new(), None)
+    pub fn serialize(&self, terms: &[(String, usize)]) -> Vec<(String, String)> {
+        let mut stacks = terms.iter().map(|(x, _)| (x.clone(), Vec::new())).collect();
+
+        terms
+            .iter()
+            .enumerate()
+            .map(|(i, (name, term))| {
+                (
+                    name.clone(),
+                    self.serialize_inner(*term, Some(i), &mut stacks, false)
+                        .unwrap(),
+                )
+            })
+            .collect()
     }
 
     fn serialize_inner(
         &self,
-        term: HeapTermPtr,
-        name: &str,
-        stack: &mut Vec<HeapTermPtr>,
-        equal_limit: Option<usize>,
-    ) -> String {
-        match &self.data[term] {
-            HeapTerm::Atom(atom) => atom.to_string(&self.string_map),
-            HeapTerm::Var(x) => {
-                let position = stack.iter().position(|y| y == x);
+        mut term: HeapTermPtr,
+        stack: Option<usize>,
+        stacks: &mut Vec<(String, Vec<HeapTermPtr>)>,
+        mut continue_list: bool,
+    ) -> Result<String, std::fmt::Error> {
+        let mut result = String::new();
 
-                if *x == term
-                    || (equal_limit.is_some()
-                        && position.map(|p| p >= equal_limit.unwrap()).unwrap_or(false))
-                {
-                    return format!("_{}", x);
-                }
+        loop {
+            match &self.data[term] {
+                HeapTerm::Atom(atom) => {
+                    if continue_list {
+                        if atom.is_nil() {
+                            result.push(']');
+                            return Ok(result);
+                        }
 
-                if position.is_some() {
-                    return name.to_string();
-                }
-
-                stack.push(term);
-                self.serialize_inner(*x, name, stack, equal_limit)
-            }
-            HeapTerm::Compound(functor, _, next) => {
-                stack.push(term);
-
-                let len = stack.len();
-
-                let mut result = format!("{}(", self.get_atom(*functor));
-                let mut next = *next;
-
-                while let Some(arg) = next {
-                    if let HeapTerm::CompoundCons(head, tail) = &self.data[arg] {
-                        result.push_str(&self.serialize_inner(*head, name, stack, equal_limit));
-                        stack.truncate(len);
-                        next = *tail;
+                        result.push('|');
                     }
 
-                    if next.is_some() {
-                        result.push_str(", ");
+                    result.push_str(&atom.to_string(&self.string_map));
+                }
+                HeapTerm::Var(ptr) => {
+                    if *ptr == term {
+                        // The variable is unbound
+                        if continue_list {
+                            result.push('|');
+                        }
+                        write!(result, "_{}", ptr)?;
+                    } else if let Some(name) = stacks
+                        .iter()
+                        .find(|(_, stack)| stack.contains(ptr))
+                        .map(|(name, _)| name)
+                    {
+                        // We've found a cycle
+                        if continue_list {
+                            result.push('|');
+                        }
+                        result.push_str(name);
+                    } else {
+                        if let Some(stack) = stack {
+                            // Keep track of this variable to find future cycles
+                            stacks[stack].1.push(term);
+                        }
+                        term = *ptr;
+                        continue;
                     }
                 }
+                HeapTerm::Compound(crate::stringmap::str::DOT, 2, next) => {
+                    if let Some(HeapTerm::CompoundCons(head, tail)) = next.map(|x| &self.data[x]) {
+                        let element = self.serialize_inner(*head, None, stacks, false)?;
 
-                result.push(')');
+                        if element == "]" {
+                            match continue_list {
+                                true => write!(result, "]")?,
+                                false => write!(result, "[]")?,
+                            };
+                            return Ok(result);
+                        }
 
-                result
+                        if let Some(HeapTerm::CompoundCons(next_term, None)) =
+                            tail.map(|x| &self.data[x])
+                        {
+                            match continue_list {
+                                true => write!(result, ",{}", element)?,
+                                false => write!(result, "[{}", element)?,
+                            };
+
+                            term = *next_term;
+                            continue_list = true;
+                            continue;
+                        }
+                    }
+
+                    unreachable!();
+                }
+                HeapTerm::Compound(functor, arity, next) => {
+                    if continue_list {
+                        result.push('|');
+                    }
+
+                    write!(result, "{}(", self.get_atom(*functor))?;
+
+                    let mut arg = *next;
+                    for i in 0..*arity {
+                        if let Some(HeapTerm::CompoundCons(head, tail)) = arg.map(|x| &self.data[x])
+                        {
+                            result.push_str(&self.serialize_inner(*head, None, stacks, false)?);
+
+                            if i + 1 < *arity {
+                                result.push(',');
+                            }
+                            arg = *tail;
+                        } else {
+                            unreachable!();
+                        }
+                    }
+
+                    result.push(')');
+                }
+                HeapTerm::CompoundCons(_, _) => unreachable!(),
+                HeapTerm::Cut(_) => result.push('!'),
+            };
+
+            if continue_list {
+                result.push(']');
             }
-            HeapTerm::CompoundCons(_, _) => unreachable!(),
-            HeapTerm::Cut(_) => "!".to_string(),
+
+            return Ok(result);
         }
     }
 }
