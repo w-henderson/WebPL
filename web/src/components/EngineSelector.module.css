@@ -24,12 +24,29 @@ div.container div:first-of-type {
   border-radius: 16px 16px 0 0;
 }
 
-div.container div:last-of-type {
-  border-radius: 0 0 16px 16px;
-}
-
 div.selected {
   background: var(--accent) !important;
   color: white;
   cursor: default !important;
+}
+
+div.container span {
+  display: flex;
+  place-items: center;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.5);
+  border-radius: 0 0 16px 16px;
+  padding: 12px 16px;
+}
+
+div.container span svg {
+  margin-right: 6px;
+}
+
+div.container span code {
+  margin-left: 4px;
+  font-family: "Fire Mono", monospace;
+  cursor: pointer;
+  text-decoration: underline;
 }

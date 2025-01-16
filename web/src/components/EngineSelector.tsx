@@ -6,6 +6,7 @@ import WebPL from "@/prolog/webpl";
 import SWIPL from "@/prolog/swipl";
 import TreallaProlog from "@/prolog/trealla-prolog";
 import TauProlog from "@/prolog/tau-prolog";
+import { InfoCircle } from "iconoir-react";
 
 const engines = [
   { name: "WebPL", engine: WebPL },
@@ -33,6 +34,16 @@ export default function EngineSelector(props: Readonly<{
           {name}
         </div>
       ))}
+
+      {props.open && (
+        <span>
+          <InfoCircle width={14} height={14} />
+          WebPL
+          <code onClick={() => open(`https://github.com/w-henderson/WebPL/commit/${process.env.NEXT_PUBLIC_GIT_COMMIT_HASH}`, "_blank")}>
+            {process.env.NEXT_PUBLIC_GIT_COMMIT_HASH}
+          </code>
+        </span>
+      )}
     </div>
   )
 }

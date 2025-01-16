@@ -3,6 +3,7 @@ div.result {
   border-radius: 16px;
   font-family: "Fira Mono", monospace;
   margin-bottom: 16px;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.08));
 }
 
 div.result>div:first-child {
@@ -15,7 +16,6 @@ div.result>div:first-child {
 }
 
 div.result>div:last-child {
-  border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 0 0 16px 16px;
   padding: 16px;
 }
