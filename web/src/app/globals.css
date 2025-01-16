@@ -21,3 +21,12 @@ body {
 * {
   box-sizing: border-box;
 }
+
+.token.function {
+  color: var(--accent) !important;
+}
+
+.token.number,
+.token.operator {
+  color: var(--accent-dark) !important;
+}
