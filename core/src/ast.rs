@@ -1,5 +1,7 @@
 use crate::stringmap::StringMap;
-use crate::{atom, ClauseName, CodeTerm};
+use crate::{atom, ClauseName, CodeTerm, Error, ErrorLocation};
+
+use lalrpop_util::lexer::Token;
 
 pub struct Program(pub Vec<Clause>);
 
@@ -57,5 +59,66 @@ impl Term {
             }
             Term::Cut => (CodeTerm::Cut, None),
         }
+    }
+}
+
+pub fn parse_error(input: &str, error: lalrpop_util::ParseError<usize, Token<'_>, &str>) -> Error {
+    match error {
+        lalrpop_util::ParseError::InvalidToken { location } => {
+            with_location("Invalid token".into(), input, location)
+        }
+        lalrpop_util::ParseError::UnrecognizedEof {
+            location,
+            expected: _,
+        } => with_location(
+            "Unexpected end of file, did you forget a '.'?".into(),
+            input,
+            location,
+        ),
+        lalrpop_util::ParseError::UnrecognizedToken { token, expected: _ } => with_location(
+            format!("Unexpected token `{}`", &input[token.0..token.2]),
+            input,
+            token.0,
+        ),
+        lalrpop_util::ParseError::ExtraToken { token } => with_location(
+            format!("Extra token `{}`", &input[token.0..token.2]),
+            input,
+            token.0,
+        ),
+        lalrpop_util::ParseError::User { error } => Error {
+            location: None,
+            error: error.to_string(),
+        },
+    }
+}
+
+fn with_location(error: String, input: &str, offset: usize) -> Error {
+    Error {
+        location: Some(get_location(input, offset)),
+        error,
+    }
+}
+
+fn get_location(input: &str, offset: usize) -> ErrorLocation {
+    let mut line = 1;
+    let mut column = 1;
+
+    for (i, c) in input.chars().enumerate() {
+        if i == offset {
+            break;
+        }
+
+        if c == '\n' {
+            line += 1;
+            column = 1;
+        } else {
+            column += 1;
+        }
+    }
+
+    ErrorLocation {
+        offset,
+        line,
+        column,
     }
 }

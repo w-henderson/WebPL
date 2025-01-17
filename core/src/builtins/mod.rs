@@ -3,13 +3,13 @@ mod is;
 mod unify;
 
 use crate::stringmap::str;
-use crate::{HeapTerm, HeapTermPtr, Solver};
+use crate::{Error, HeapTerm, HeapTermPtr, Solver, StringId};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum BuiltinError {
-    NotANumber,
-    InsufficientlyInstantiated,
-    UnsupportedOperation,
+    NotANumber(HeapTermPtr),
+    InsufficientlyInstantiated(HeapTermPtr),
+    UnsupportedOperation(StringId),
 }
 
 pub trait Builtin<const ARITY: usize> {
@@ -62,4 +62,25 @@ pub fn args<const N: usize>(solver: &Solver, next: Option<HeapTermPtr>) -> [Heap
     debug_assert_eq!(i, N);
 
     args
+}
+
+pub fn error(solver: &Solver, error: BuiltinError) -> Error {
+    Error {
+        location: None,
+        error: match error {
+            BuiltinError::NotANumber(ptr) => {
+                format!(
+                    "Expected a number, got `{}`",
+                    solver.heap.serialize(&[("Err".to_string(), ptr)])[0].1
+                )
+            }
+            BuiltinError::InsufficientlyInstantiated(ptr) => format!(
+                "Insufficiently instantiated variable `{}`",
+                solver.heap.serialize(&[("Err".to_string(), ptr)])[0].1
+            ),
+            BuiltinError::UnsupportedOperation(s) => {
+                format!("Unsupported operation `{}`", solver.heap.get_atom(s))
+            }
+        },
+    }
 }
