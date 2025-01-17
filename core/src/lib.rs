@@ -83,6 +83,7 @@ pub struct Error {
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct ErrorLocation {
+    pub query: bool,
     pub offset: usize,
     pub line: usize,
     pub column: usize,
@@ -92,11 +93,11 @@ impl Solver {
     pub fn new(program: impl AsRef<str>, query: impl AsRef<str>) -> Result<Self, Error> {
         let program = grammar::ProgramParser::new()
             .parse(program.as_ref())
-            .map_err(|e| ast::parse_error(program.as_ref(), e))?;
+            .map_err(|e| ast::parse_error(program.as_ref(), false, e))?;
 
         let query = grammar::QueryParser::new()
             .parse(query.as_ref())
-            .map_err(|e| ast::parse_error(query.as_ref(), e))?;
+            .map_err(|e| ast::parse_error(query.as_ref(), true, e))?;
 
         Ok(Self::from_ast(program, query))
     }

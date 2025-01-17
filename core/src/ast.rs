@@ -62,10 +62,14 @@ impl Term {
     }
 }
 
-pub fn parse_error(input: &str, error: lalrpop_util::ParseError<usize, Token<'_>, &str>) -> Error {
+pub fn parse_error(
+    input: &str,
+    query: bool,
+    error: lalrpop_util::ParseError<usize, Token<'_>, &str>,
+) -> Error {
     match error {
         lalrpop_util::ParseError::InvalidToken { location } => {
-            with_location("Invalid token".into(), input, location)
+            with_location("Invalid token".into(), input, query, location)
         }
         lalrpop_util::ParseError::UnrecognizedEof {
             location,
@@ -73,16 +77,19 @@ pub fn parse_error(input: &str, error: lalrpop_util::ParseError<usize, Token<'_>
         } => with_location(
             "Unexpected end of file, did you forget a '.'?".into(),
             input,
+            query,
             location,
         ),
         lalrpop_util::ParseError::UnrecognizedToken { token, expected: _ } => with_location(
             format!("Unexpected token `{}`", &input[token.0..token.2]),
             input,
+            query,
             token.0,
         ),
         lalrpop_util::ParseError::ExtraToken { token } => with_location(
             format!("Extra token `{}`", &input[token.0..token.2]),
             input,
+            query,
             token.0,
         ),
         lalrpop_util::ParseError::User { error } => Error {
@@ -92,14 +99,14 @@ pub fn parse_error(input: &str, error: lalrpop_util::ParseError<usize, Token<'_>
     }
 }
 
-fn with_location(error: String, input: &str, offset: usize) -> Error {
+fn with_location(error: String, input: &str, query: bool, offset: usize) -> Error {
     Error {
-        location: Some(get_location(input, offset)),
+        location: Some(get_location(input, query, offset)),
         error,
     }
 }
 
-fn get_location(input: &str, offset: usize) -> ErrorLocation {
+fn get_location(input: &str, query: bool, offset: usize) -> ErrorLocation {
     let mut line = 1;
     let mut column = 1;
 
@@ -117,6 +124,7 @@ fn get_location(input: &str, offset: usize) -> ErrorLocation {
     }
 
     ErrorLocation {
+        query,
         offset,
         line,
         column,

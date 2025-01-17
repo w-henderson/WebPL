@@ -14,7 +14,8 @@ fn invalid_token() {
                 location: Some(ErrorLocation {
                     offset: 39,
                     line: 3,
-                    column: 17
+                    column: 17,
+                    query: false
                 }),
                 error: "Invalid token".into()
             }
@@ -38,7 +39,8 @@ fn unexpected_token() {
                 location: Some(ErrorLocation {
                     offset: 45,
                     line: 3,
-                    column: 23
+                    column: 23,
+                    query: false,
                 }),
                 error: "Unexpected token `c`".into()
             }
@@ -62,9 +64,30 @@ fn unexpected_eof() {
                 location: Some(ErrorLocation {
                     offset: 35,
                     line: 3,
-                    column: 13
+                    column: 13,
+                    query: false,
                 }),
                 error: "Unexpected end of file, did you forget a '.'?".into()
+            }
+        );
+    } else {
+        panic!("Expected an error");
+    }
+}
+
+#[test]
+fn invalid_query() {
+    if let Err(e) = Solver::new("", "a") {
+        assert_eq!(
+            e,
+            Error {
+                location: Some(ErrorLocation {
+                    offset: 1,
+                    line: 1,
+                    column: 2,
+                    query: true
+                }),
+                error: "Unexpected end of file, did you forget a '.'?".to_string()
             }
         );
     } else {
