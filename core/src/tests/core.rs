@@ -141,3 +141,10 @@ fn n_queens() {
 
     assert_eq!(solver.count(), 92);
 }
+
+#[test]
+fn empty() {
+    assert!(Solver::new("", "a.").is_ok());
+    assert!(Solver::new("a.", "").is_ok());
+    assert!(Solver::new("", "").is_ok());
+}
