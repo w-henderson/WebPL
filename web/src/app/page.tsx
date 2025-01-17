@@ -19,7 +19,8 @@ type QueryResults = {
     map: Map<string, string>,
     duration?: number
   }[],
-  complete: boolean
+  complete: boolean,
+  error?: string
 }
 
 export default function Home() {
@@ -59,49 +60,80 @@ export default function Home() {
     });
   };
 
+  const errorResult = (e: any) => {
+    setLoading(false);
+    setResults(prevResults => {
+      const lastResult = prevResults[prevResults.length - 1];
+      return prevResults.slice(0, prevResults.length - 1).concat({
+        ...lastResult,
+        bindings: [],
+        complete: true,
+        error: prolog.handleError(e)
+      });
+    });
+  };
+
   const solve = async (solveAll: boolean) => {
-    await prolog.solve(program, query);
-    setResults(prevResults => [...prevResults, { query, bindings: [], complete: false }]);
+    try {
+      await prolog.solve(program, query);
+      setResults(prevResults => [...prevResults, { query, bindings: [], complete: false }]);
+    } catch (e: any) {
+      setResults(prevResults => [...prevResults, {
+        query,
+        bindings: [],
+        complete: true,
+        error: prolog.handleError(e)
+      }]);
+      return;
+    }
 
     if (solveAll) await all();
     else await one();
   };
 
   const one = async () => {
-    setLoading(true);
-    const start = performance.now();
-    const solution = await prolog.next();
-    const end = performance.now();
-    setLoading(false);
+    try {
+      setLoading(true);
+      const start = performance.now();
+      const solution = await prolog.next();
+      const end = performance.now();
+      setLoading(false);
 
-    if (solution) {
-      appendResult(false, {
-        map: solution,
-        duration: end - start
-      });
-    } else {
-      completeResults();
+      if (solution) {
+        appendResult(false, {
+          map: solution,
+          duration: end - start
+        });
+      } else {
+        completeResults();
+      }
+    } catch (e: any) {
+      errorResult(e);
     }
   };
 
   const all = async () => {
-    setLoading(true);
-    const start = performance.now();
-    const solutions = await prolog.all();
-    const end = performance.now();
-    setLoading(false);
+    try {
+      setLoading(true);
+      const start = performance.now();
+      const solutions = await prolog.all();
+      const end = performance.now();
+      setLoading(false);
 
-    if (solutions && solutions.length > 0) {
-      const newSolutions: {
-        map: Map<string, string>,
-        duration?: number
-      }[] = solutions.map(solution => ({
-        map: solution
-      }));
-      newSolutions[newSolutions.length - 1].duration = end - start;
-      appendResult(true, ...newSolutions)
-    } else {
-      completeResults();
+      if (solutions && solutions.length > 0) {
+        const newSolutions: {
+          map: Map<string, string>,
+          duration?: number
+        }[] = solutions.map(solution => ({
+          map: solution
+        }));
+        newSolutions[newSolutions.length - 1].duration = end - start;
+        appendResult(true, ...newSolutions)
+      } else {
+        completeResults();
+      }
+    } catch (e: any) {
+      errorResult(e);
     }
   };
 

@@ -10,7 +10,8 @@ export default function Program(props: Readonly<{
       <TextContainer
         placeholder="Write your program here"
         text={props.program}
-        update={props.updateProgram} />
+        update={props.updateProgram}
+        scrollable={true} />
     </div>
   )
 }
