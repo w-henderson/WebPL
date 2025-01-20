@@ -1,2 +1,4 @@
 #!/bin/bash
 wasm-pack build --target web ./core
+rm -r ./web/public/webpl
+cp -r ./core/pkg ./web/public/webpl
