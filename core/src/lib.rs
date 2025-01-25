@@ -2,8 +2,10 @@ pub mod ast;
 mod atom;
 mod builtins;
 mod compile;
+mod gc;
 mod goal;
 mod heap;
+mod serialize;
 mod stringmap;
 mod trail;
 mod wasm;
@@ -19,6 +21,7 @@ mod tests;
 
 use atom::Atom;
 use compile::compile;
+use gc::{GCRewritable, GarbageCollector};
 use goal::Goals;
 use heap::Heap;
 use stringmap::StringMap;
@@ -29,6 +32,11 @@ type ChoicePointIdx = usize;
 
 type StringId = usize;
 
+static GC_HEAP_SIZE_THRESHOLD: usize = 1024;
+static GC_HEAP_PRESSURE_THRESHOLD: f64 = 0.8;
+static GC_COOLDOWN: usize = 16;
+
+#[derive(Clone, Copy)]
 pub enum HeapTerm {
     Atom(Atom),
     Var(HeapTermPtr),
@@ -63,6 +71,7 @@ pub struct Solver {
     clause: usize,
     choice_points: Vec<ChoicePoint>,
     heap: Heap,
+    gc: GarbageCollector,
     var_map: Vec<(String, HeapTermPtr)>,
     trail: Trail,
 }
@@ -123,6 +132,11 @@ impl Solver {
             clause: 0,
             choice_points: Vec::new(),
             heap: vars,
+            gc: GarbageCollector::new(
+                GC_HEAP_SIZE_THRESHOLD,
+                GC_HEAP_PRESSURE_THRESHOLD,
+                GC_COOLDOWN,
+            ),
             var_map,
             trail: Trail::new(),
         };
@@ -140,6 +154,10 @@ impl Solver {
         let mut var_map = Vec::new();
 
         'solve: loop {
+            if self.gc.should_run(&self.heap) {
+                GarbageCollector::run(self);
+            }
+
             let goal: HeapTermPtr = self.goals.current()?;
 
             match builtins::eval(self, goal) {
@@ -314,13 +332,17 @@ impl Solver {
     }
 
     #[inline]
-    pub(crate) fn serialize_solution(&self) -> Solution {
+    pub(crate) fn serialize_solution(&mut self) -> Solution {
         self.heap.serialize(&self.var_map)
     }
 
     #[cfg(test)]
     pub(crate) fn max_choice_point_stack_height(&self) -> usize {
         self.choice_points.capacity()
+    }
+
+    pub fn peak_heap_size(&self) -> usize {
+        self.heap.data.capacity() * std::mem::size_of::<HeapTerm>()
     }
 }
 
@@ -329,5 +351,13 @@ impl Iterator for Solver {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.step_inner()
+    }
+}
+
+impl GCRewritable for [ChoicePoint] {
+    fn rewrite(&mut self, map: &[usize]) {
+        for cp in self.iter_mut() {
+            cp.heap_checkpoint = crate::heap::Checkpoint(map[cp.heap_checkpoint.0]);
+        }
     }
 }

@@ -1,6 +1,7 @@
+use crate::gc::GCRewritable;
 use crate::HeapTermPtr;
 
-pub struct Goal(HeapTermPtr, Option<GoalPtr>);
+pub struct Goal(pub(crate) HeapTermPtr, pub(crate) Option<GoalPtr>);
 
 pub type GoalPtr = usize;
 
@@ -10,6 +11,7 @@ pub struct Goals {
     goals: Vec<Goal>,
 }
 
+#[derive(Clone, Copy)]
 pub struct Checkpoint(Option<GoalPtr>, usize);
 
 impl Goals {
@@ -59,6 +61,20 @@ impl Goals {
         self.current = checkpoint.0;
         self.goals.truncate(checkpoint.1);
     }
+
+    pub fn iter(&self) -> GoalIterator {
+        GoalIterator {
+            goals: self,
+            current: self.current,
+        }
+    }
+
+    pub fn iter_from(&self, checkpoint: Checkpoint) -> GoalIterator {
+        GoalIterator {
+            goals: self,
+            current: checkpoint.0,
+        }
+    }
 }
 
 impl Goal {
@@ -68,5 +84,32 @@ impl Goal {
 
     pub fn prev_ptr(&self) -> Option<GoalPtr> {
         self.1
+    }
+}
+
+impl GCRewritable for Goals {
+    fn rewrite(&mut self, map: &[usize]) {
+        for goal in self.goals.iter_mut() {
+            goal.0 = map[goal.0];
+        }
+    }
+}
+
+pub struct GoalIterator<'a> {
+    goals: &'a Goals,
+    current: Option<GoalPtr>,
+}
+
+impl<'a> Iterator for GoalIterator<'a> {
+    type Item = HeapTermPtr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(ptr) = self.current {
+            let Goal(heap_term_ptr, next) = &self.goals.goals[ptr];
+            self.current = *next;
+            Some(*heap_term_ptr)
+        } else {
+            None
+        }
     }
 }

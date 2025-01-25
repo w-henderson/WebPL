@@ -1,7 +1,8 @@
+use crate::gc::GCRewritable;
 use crate::heap::Heap;
 use crate::HeapTermPtr;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Trail {
     vars: Vec<HeapTermPtr>,
 }
@@ -28,5 +29,17 @@ impl Trail {
         }
 
         self.vars.truncate(checkpoint.0);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = HeapTermPtr> + '_ {
+        self.vars.iter().copied()
+    }
+}
+
+impl GCRewritable for Trail {
+    fn rewrite(&mut self, map: &[usize]) {
+        for var in self.vars.iter_mut() {
+            *var = map[*var];
+        }
     }
 }

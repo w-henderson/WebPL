@@ -20,9 +20,11 @@ safe_queens([Q|Qs], Q0, D0) :- Q0 =\= Q, Diff is Q0 - Q, abs(Diff, AbsDiff), Abs
 static QUERY: &str = r#"n_queens(8, Qs)."#;
 
 fn main() {
-    let solver = Solver::new(PROGRAM, QUERY).unwrap();
+    let mut solver = Solver::new(PROGRAM, QUERY).unwrap();
 
-    for solution in solver {
+    for solution in &mut solver {
         println!("{:?}", solution);
     }
+
+    println!("peak heap size: {} bytes", solver.peak_heap_size())
 }
