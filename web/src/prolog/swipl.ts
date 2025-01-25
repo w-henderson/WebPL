@@ -20,7 +20,7 @@ export default class SWIPL extends Prolog {
 
   public async next(): Promise<Solution | undefined> {
     const solution: any = this.query!.next();
-    if (solution.done) return undefined;
+    if (solution.done && !solution.value) return undefined;
     return this.encodeSolution(solution);
   }
 
