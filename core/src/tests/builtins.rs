@@ -24,16 +24,22 @@ fn cut() {
     let query_3 = "e(2).";
 
     let mut solver_1 = Solver::new(program, query_1).unwrap();
-    assert_eq!(solver_1.next(), Some(vec![("X".into(), "2".into())]));
-    assert_eq!(solver_1.next(), None);
+    assert_eq!(
+        solver_1.step().unwrap(),
+        Some(vec![("X".into(), "2".into())])
+    );
+    assert_eq!(solver_1.step().unwrap(), None);
 
     let mut solver_2 = Solver::new(program, query_2).unwrap();
-    assert_eq!(solver_2.next(), Some(vec![("X".into(), "1".into())]));
-    assert_eq!(solver_2.next(), None);
+    assert_eq!(
+        solver_2.step().unwrap(),
+        Some(vec![("X".into(), "1".into())])
+    );
+    assert_eq!(solver_2.step().unwrap(), None);
 
     let mut solver_3 = Solver::new(program, query_3).unwrap();
-    assert_eq!(solver_3.next(), Some(vec![]));
-    assert_eq!(solver_3.next(), None);
+    assert_eq!(solver_3.step().unwrap(), Some(vec![]));
+    assert_eq!(solver_3.step().unwrap(), None);
 }
 
 #[test]
@@ -49,11 +55,11 @@ fn cut_failure() {
     let query_2 = "b.";
 
     let mut solver_1 = Solver::new(program, query_1).unwrap();
-    assert_eq!(solver_1.next(), None);
+    assert_eq!(solver_1.step().unwrap(), None);
 
     let mut solver_2 = Solver::new(program, query_2).unwrap();
-    assert_eq!(solver_2.next(), Some(vec![]));
-    assert_eq!(solver_2.next(), None);
+    assert_eq!(solver_2.step().unwrap(), Some(vec![]));
+    assert_eq!(solver_2.step().unwrap(), None);
 }
 
 #[test]
@@ -63,11 +69,11 @@ fn is() {
     let mut solver = Solver::new("", query).unwrap();
 
     assert_eq!(
-        solver.next(),
+        solver.step().unwrap(),
         Some(vec![("Y".into(), "3".into()), ("X".into(), "13.2".into())])
     );
 
-    assert_eq!(solver.next(), None);
+    assert_eq!(solver.step().unwrap(), None);
 }
 
 #[test]
@@ -76,9 +82,24 @@ fn cmp() {
     let query_2 = "3 > 4.";
 
     let mut solver_1 = Solver::new("", query_1).unwrap();
-    assert_eq!(solver_1.next(), Some(vec![]));
-    assert_eq!(solver_1.next(), None);
+    assert_eq!(solver_1.step().unwrap(), Some(vec![]));
+    assert_eq!(solver_1.step().unwrap(), None);
 
     let mut solver_2 = Solver::new("", query_2).unwrap();
-    assert_eq!(solver_2.next(), None);
+    assert_eq!(solver_2.step().unwrap(), None);
 }
+
+/*#[test]
+fn insufficient_instantiation() {
+    if let Err(e) = Solver::new("", "X is Y.") {
+        assert_eq!(
+            e,
+            Error {
+                location: None,
+                error: "Invalid token".into()
+            }
+        );
+    } else {
+        panic!("Expected an error");
+    }
+}*/

@@ -9,7 +9,8 @@ export default function Results(props: Readonly<{
       map: Map<string, string>,
       duration?: number
     }[],
-    complete: boolean
+    complete: boolean,
+    error?: string
   }[]
 }>) {
   const resultsEndRef = useRef<HTMLDivElement>(null);
@@ -35,7 +36,8 @@ export default function Results(props: Readonly<{
           key={i}
           query={result.query}
           results={result.bindings}
-          complete={result.complete} />
+          complete={result.complete}
+          error={result.error} />
       ))}
       <div ref={resultsEndRef} />
     </div>

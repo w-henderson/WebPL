@@ -5,13 +5,18 @@ import "prismjs/components/prism-prolog";
 
 import styles from "./TextContainer.module.css";
 
-export default function TextContainer(props: Readonly<{ placeholder: string, text: string, update: (x: string) => void }>) {
+export default function TextContainer(props: Readonly<{
+  placeholder: string,
+  text: string,
+  update: (x: string) => void,
+  scrollable?: boolean
+}>) {
   return (
     <Editor
       value={props.text}
       onValueChange={code => props.update(code)}
       highlight={code => highlight(code, languages.prolog)}
-      className={styles.editor}
+      className={props.scrollable ? `${styles.editor} ${styles.editorScrollable}` : styles.editor}
       placeholder={props.placeholder}
       padding={16}
     />

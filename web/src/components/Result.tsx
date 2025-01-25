@@ -6,7 +6,8 @@ export default function Result(props: Readonly<{
     map: Map<string, string>,
     duration?: number
   }[],
-  complete: boolean
+  complete: boolean,
+  error?: string
 }>) {
   return (
     <div className={styles.result}>
@@ -26,12 +27,16 @@ export default function Result(props: Readonly<{
           </div>
         ))}
 
-        {props.complete && props.results.length > 0 && (
+        {props.complete && !props.error && props.results.length > 0 && (
           <div>No more results</div>
         )}
 
-        {props.complete && props.results.length === 0 && (
+        {props.complete && !props.error && props.results.length === 0 && (
           <div>No results</div>
+        )}
+
+        {props.error && (
+          <div className={styles.error}>{props.error.toString()}</div>
         )}
       </div>
     </div>

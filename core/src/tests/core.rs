@@ -10,9 +10,12 @@ fn app() {
     let query = "app([1, 2], [3, 4], L).";
     let mut solver = Solver::new(APP_PROGRAM, query).unwrap();
 
-    assert_eq!(solver.next(), Some(vec![("L".into(), "[1,2,3,4]".into())]));
+    assert_eq!(
+        solver.step().unwrap(),
+        Some(vec![("L".into(), "[1,2,3,4]".into())])
+    );
 
-    assert_eq!(solver.next(), None);
+    assert_eq!(solver.step().unwrap(), None);
 }
 
 #[test]
@@ -20,9 +23,12 @@ fn recursive_solution() {
     let query = "app([1, 2], L, L).";
     let mut solver = Solver::new(APP_PROGRAM, query).unwrap();
 
-    assert_eq!(solver.next(), Some(vec![("L".into(), "[1,2|L]".into())]));
+    assert_eq!(
+        solver.step().unwrap(),
+        Some(vec![("L".into(), "[1,2|L]".into())])
+    );
 
-    assert_eq!(solver.next(), None);
+    assert_eq!(solver.step().unwrap(), None);
 }
 
 #[test]
@@ -33,7 +39,7 @@ fn mutual_recursive_solution() {
     let mut solver_2 = Solver::new(APP_PROGRAM, query_2).unwrap();
 
     assert_eq!(
-        solver_1.next(),
+        solver_1.step().unwrap(),
         Some(vec![
             ("L".into(), "[1,f(L)|L]".into()),
             ("X".into(), "f(L)".into()),
@@ -41,15 +47,15 @@ fn mutual_recursive_solution() {
     );
 
     assert_eq!(
-        solver_2.next(),
+        solver_2.step().unwrap(),
         Some(vec![
             ("L".into(), "[1,f(L)|L]".into()),
             ("X".into(), "f(L)".into()),
         ])
     );
 
-    assert_eq!(solver_1.next(), None);
-    assert_eq!(solver_2.next(), None);
+    assert_eq!(solver_1.step().unwrap(), None);
+    assert_eq!(solver_2.step().unwrap(), None);
 }
 
 #[test]
@@ -65,8 +71,8 @@ fn backtracking() {
 
     let mut solver = Solver::new(program, query).unwrap();
 
-    assert_eq!(solver.next(), Some(vec![("X".into(), "2".into())]));
-    assert_eq!(solver.next(), None);
+    assert_eq!(solver.step().unwrap(), Some(vec![("X".into(), "2".into())]));
+    assert_eq!(solver.step().unwrap(), None);
 }
 
 #[test]
@@ -80,8 +86,8 @@ fn multiple_goals() {
 
     let mut solver = Solver::new(program, query).unwrap();
 
-    assert_eq!(solver.next(), None);
-    assert_eq!(solver.next(), None);
+    assert_eq!(solver.step().unwrap(), None);
+    assert_eq!(solver.step().unwrap(), None);
 }
 
 #[test]
@@ -91,13 +97,22 @@ fn operator_precedence() {
     let query_3 = "X is 1 + 2 * 3 + 4 * 5.";
 
     let mut solver_1 = Solver::new("", query_1).unwrap();
-    assert_eq!(solver_1.next(), Some(vec![("X".into(), "7".into())]));
+    assert_eq!(
+        solver_1.step().unwrap(),
+        Some(vec![("X".into(), "7".into())])
+    );
 
     let mut solver_2 = Solver::new("", query_2).unwrap();
-    assert_eq!(solver_2.next(), Some(vec![("X".into(), "9".into())]));
+    assert_eq!(
+        solver_2.step().unwrap(),
+        Some(vec![("X".into(), "9".into())])
+    );
 
     let mut solver_3 = Solver::new("", query_3).unwrap();
-    assert_eq!(solver_3.next(), Some(vec![("X".into(), "27".into())]));
+    assert_eq!(
+        solver_3.step().unwrap(),
+        Some(vec![("X".into(), "27".into())])
+    );
 }
 
 #[test]
@@ -125,4 +140,11 @@ fn n_queens() {
     let solver = Solver::new(program, query).unwrap();
 
     assert_eq!(solver.count(), 92);
+}
+
+#[test]
+fn empty() {
+    assert!(Solver::new("", "a.").is_ok());
+    assert!(Solver::new("a.", "").is_ok());
+    assert!(Solver::new("", "").is_ok());
 }

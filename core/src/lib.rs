@@ -12,6 +12,8 @@ pub use wasm::*;
 
 lalrpop_util::lalrpop_mod!(grammar);
 
+use serde::Serialize;
+
 #[cfg(test)]
 mod tests;
 
@@ -73,21 +75,29 @@ struct ChoicePoint {
     goals_checkpoint: goal::Checkpoint,
 }
 
-#[derive(Debug)]
-pub enum Error {
-    ParseError(String),
-    BuiltinError(builtins::BuiltinError),
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct Error {
+    pub location: Option<ErrorLocation>,
+    pub error: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct ErrorLocation {
+    pub query: bool,
+    pub offset: usize,
+    pub line: usize,
+    pub column: usize,
 }
 
 impl Solver {
     pub fn new(program: impl AsRef<str>, query: impl AsRef<str>) -> Result<Self, Error> {
         let program = grammar::ProgramParser::new()
             .parse(program.as_ref())
-            .map_err(|e| Error::ParseError(e.to_string()))?;
+            .map_err(|e| ast::parse_error(program.as_ref(), false, e))?;
 
         let query = grammar::QueryParser::new()
             .parse(query.as_ref())
-            .map_err(|e| Error::ParseError(e.to_string()))?;
+            .map_err(|e| ast::parse_error(query.as_ref(), true, e))?;
 
         Ok(Self::from_ast(program, query))
     }
@@ -122,7 +132,11 @@ impl Solver {
         solver
     }
 
-    fn step(&mut self) -> Option<Solution> {
+    fn step(&mut self) -> Result<Option<Solution>, Error> {
+        self.step_inner().transpose()
+    }
+
+    fn step_inner(&mut self) -> Option<Result<Solution, Error>> {
         let mut var_map = Vec::new();
 
         'solve: loop {
@@ -136,7 +150,7 @@ impl Solver {
                     if self.goals.is_complete() {
                         let solution = self.serialize_solution();
                         self.pop_choice_point();
-                        return Some(solution);
+                        return Some(Ok(solution));
                     }
                     continue;
                 }
@@ -145,8 +159,8 @@ impl Solver {
                     self.pop_choice_point()?;
                     continue;
                 }
-                Some(Err(e)) => panic!("Error: {:?}", e), // Built-in predicate had an error
-                None => {}                                // This goal is not a built-in predicate
+                Some(Err(e)) => return Some(Err(builtins::error(self, e))), // Built-in predicate had an error
+                None => {} // This goal is not a built-in predicate
             };
 
             let group = self.group?;
@@ -184,7 +198,7 @@ impl Solver {
                         if self.goals.is_complete() {
                             let solution = self.serialize_solution();
                             self.pop_choice_point();
-                            return Some(solution);
+                            return Some(Ok(solution));
                         }
 
                         continue 'solve;
@@ -311,9 +325,9 @@ impl Solver {
 }
 
 impl Iterator for Solver {
-    type Item = Solution;
+    type Item = Result<Solution, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.step()
+        self.step_inner()
     }
 }

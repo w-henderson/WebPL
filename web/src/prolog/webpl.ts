@@ -1,4 +1,4 @@
-import Prolog, { Solution } from ".";
+import Prolog, { Solution, Error } from ".";
 import init, { Solver } from "webpl";
 
 export default class WebPL extends Prolog {
@@ -27,5 +27,13 @@ export default class WebPL extends Prolog {
     const solutions = this.solver?.all();
     if (solutions === undefined) return [];
     return solutions;
+  }
+
+  public handleError(e: Error): string {
+    if (e.location) {
+      return `Error in ${e.location!.query ? "query" : "program"} (${e.location!.line}:${e.location!.column}): ${e.error}`;
+    } else {
+      return e.error;
+    }
   }
 }

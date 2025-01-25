@@ -25,10 +25,10 @@ impl IsBuiltin {
                 if matches!(atom, Atom::Integer(_) | Atom::Float(_)) {
                     Ok(*atom)
                 } else {
-                    Err(BuiltinError::UnsupportedOperation)
+                    Err(BuiltinError::NotANumber(term))
                 }
             }
-            HeapTerm::Var(_) => Err(BuiltinError::InsufficientlyInstantiated),
+            HeapTerm::Var(_) => Err(BuiltinError::InsufficientlyInstantiated(term)),
             HeapTerm::Compound(f, arity, next) if *arity == 2 => {
                 let f = *f;
                 let args = args::<2>(solver, *next);
@@ -40,23 +40,24 @@ impl IsBuiltin {
                     str::SUB => sub(&a, &b),
                     str::MUL => mul(&a, &b),
                     str::DIV => div(&a, &b),
-                    _ => Err(BuiltinError::UnsupportedOperation),
+                    _ => Err(()),
                 }
+                .map_err(|_| BuiltinError::UnsupportedOperation(f))
             }
-            _ => Err(BuiltinError::UnsupportedOperation),
+            _ => Err(BuiltinError::NotANumber(term)),
         }
     }
 }
 
 macro_rules! impl_arithmetic_op {
     ($op:ident) => {
-        fn $op(a: &Atom, b: &Atom) -> Result<Atom, BuiltinError> {
+        fn $op(a: &Atom, b: &Atom) -> Result<Atom, ()> {
             match (a, b) {
                 (Atom::Integer(a), Atom::Integer(b)) => Ok(Atom::Integer(a.$op(b))),
                 (Atom::Float(a), Atom::Float(b)) => Ok(Atom::Float(a.$op(b))),
                 (Atom::Integer(a), Atom::Float(b)) => Ok(Atom::Float((*a as f64).$op(b))),
                 (Atom::Float(a), Atom::Integer(b)) => Ok(Atom::Float(a.$op(*b as f64))),
-                _ => Err(BuiltinError::UnsupportedOperation),
+                _ => Err(()),
             }
         }
     };

@@ -19,3 +19,7 @@ div.result>div:last-child {
   border-radius: 0 0 16px 16px;
   padding: 16px;
 }
+
+div.error {
+  color: red;
+}
