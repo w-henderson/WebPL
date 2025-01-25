@@ -88,9 +88,13 @@ impl Goal {
 }
 
 impl GCRewritable for Goals {
-    fn rewrite(&mut self, map: &[usize]) {
+    fn rewrite(&mut self, map: &[usize], _: &[usize]) {
         for goal in self.goals.iter_mut() {
-            goal.0 = map[goal.0];
+            if let Some(ptr) = map.get(goal.0) {
+                // This will always be true for live goals
+                // TODO: collect dead goals
+                goal.0 = *ptr;
+            }
         }
     }
 }

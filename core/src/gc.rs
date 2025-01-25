@@ -3,8 +3,12 @@ use crate::heap::Heap;
 use crate::trail::Trail;
 use crate::{ChoicePoint, HeapTerm, HeapTermPtr, Solver};
 
+const GC_MARKED: usize = 0;
+const GC_UNMARKED: usize = usize::MAX;
+
 pub struct GarbageCollector {
     map: Vec<usize>,
+    trail_map: Vec<usize>,
     scheduler: GCScheduler,
 }
 
@@ -16,13 +20,14 @@ pub struct GCScheduler {
 }
 
 pub trait GCRewritable {
-    fn rewrite(&mut self, map: &[usize]);
+    fn rewrite(&mut self, map: &[usize], trail_map: &[usize]);
 }
 
 impl GarbageCollector {
     pub fn new(absolute_threshold: usize, relative_threshold: f64, cooldown: usize) -> Self {
         Self {
             map: Vec::new(),
+            trail_map: Vec::new(),
             scheduler: GCScheduler {
                 absolute_threshold,
                 relative_threshold,
@@ -33,18 +38,15 @@ impl GarbageCollector {
     }
 
     pub fn run(solver: &mut Solver) {
-        let roots = solver.gc.get_roots(
-            &solver.var_map,
-            &solver.goals,
-            &solver.choice_points,
-            &solver.trail,
-        );
+        let roots = solver
+            .gc
+            .get_roots(&solver.var_map, &solver.goals, &solver.choice_points);
         solver.gc.collect(&mut solver.heap, roots);
+        solver.gc.collect_trail(&mut solver.trail);
         solver.gc.rewrite(
             &mut solver.var_map,
             &mut solver.goals,
             &mut solver.choice_points,
-            &mut solver.trail,
         );
     }
 
@@ -53,7 +55,6 @@ impl GarbageCollector {
         vars: &'a [(String, usize)],
         goals: &'a Goals,
         choice_points: &'a [ChoicePoint],
-        trail: &'a Trail,
     ) -> impl Iterator<Item = HeapTermPtr> + 'a {
         vars.iter()
             .map(|(_, ptr)| *ptr)
@@ -63,12 +64,11 @@ impl GarbageCollector {
                     .iter_from(cp.goals_checkpoint)
                     .chain(std::iter::once(cp.heap_checkpoint.0))
             }))
-            .chain(trail.iter())
     }
 
     pub fn collect(&mut self, heap: &mut Heap, roots: impl Iterator<Item = HeapTermPtr>) {
         self.map.clear();
-        self.map.resize(heap.data.len(), 0);
+        self.map.resize(heap.data.len(), GC_UNMARKED);
 
         for root in roots {
             self.mark(heap, root);
@@ -78,11 +78,11 @@ impl GarbageCollector {
     }
 
     fn mark(&mut self, heap: &Heap, ptr: HeapTermPtr) {
-        if self.map[ptr] != 0 {
+        if self.map[ptr] == GC_MARKED {
             return;
         }
 
-        self.map[ptr] = 1;
+        self.map[ptr] = GC_MARKED;
 
         match &heap.data[ptr] {
             HeapTerm::Var(ptr) => self.mark(heap, *ptr),
@@ -105,7 +105,7 @@ impl GarbageCollector {
             .map
             .iter_mut()
             .enumerate()
-            .filter(|(_, ptr)| **ptr != 0)
+            .filter(|(_, ptr)| **ptr == GC_MARKED)
         {
             *ptr = new_ptr;
             new_ptr += 1;
@@ -133,17 +133,37 @@ impl GarbageCollector {
         }
     }
 
+    fn collect_trail(&mut self, trail: &mut Trail) {
+        self.trail_map.clear();
+        self.trail_map.resize(trail.vars.len(), GC_UNMARKED);
+
+        let mut new_ptr = 0;
+        let mut old_ptr = 0;
+
+        while old_ptr < trail.vars.len() {
+            let ptr = trail.vars[old_ptr];
+
+            if self.map[ptr] != GC_UNMARKED {
+                trail.vars[new_ptr] = self.map[ptr];
+                self.trail_map[old_ptr] = new_ptr;
+                new_ptr += 1;
+            }
+
+            old_ptr += 1;
+        }
+
+        trail.vars.truncate(new_ptr);
+    }
+
     pub fn rewrite(
         &self,
         vars: &mut [(String, usize)],
         goals: &mut Goals,
         choice_points: &mut [ChoicePoint],
-        trail: &mut Trail,
     ) {
-        vars.rewrite(&self.map);
-        goals.rewrite(&self.map);
-        choice_points.rewrite(&self.map);
-        trail.rewrite(&self.map);
+        vars.rewrite(&self.map, &self.trail_map);
+        goals.rewrite(&self.map, &self.trail_map);
+        choice_points.rewrite(&self.map, &self.trail_map);
     }
 
     pub fn should_run(&mut self, heap: &Heap) -> bool {
@@ -152,7 +172,7 @@ impl GarbageCollector {
 }
 
 impl GCRewritable for [(String, usize)] {
-    fn rewrite(&mut self, map: &[usize]) {
+    fn rewrite(&mut self, map: &[usize], _: &[usize]) {
         for (_, ptr) in self.iter_mut() {
             *ptr = map[*ptr];
         }

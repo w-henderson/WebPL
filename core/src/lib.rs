@@ -340,10 +340,6 @@ impl Solver {
     pub(crate) fn max_choice_point_stack_height(&self) -> usize {
         self.choice_points.capacity()
     }
-
-    pub fn peak_heap_size(&self) -> usize {
-        self.heap.data.capacity() * std::mem::size_of::<HeapTerm>()
-    }
 }
 
 impl Iterator for Solver {
@@ -355,9 +351,10 @@ impl Iterator for Solver {
 }
 
 impl GCRewritable for [ChoicePoint] {
-    fn rewrite(&mut self, map: &[usize]) {
+    fn rewrite(&mut self, map: &[usize], trail_map: &[usize]) {
         for cp in self.iter_mut() {
             cp.heap_checkpoint = crate::heap::Checkpoint(map[cp.heap_checkpoint.0]);
+            cp.trail_checkpoint = crate::trail::Checkpoint(trail_map[cp.trail_checkpoint.0]);
         }
     }
 }

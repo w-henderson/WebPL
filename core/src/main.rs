@@ -25,6 +25,4 @@ fn main() {
     for solution in &mut solver {
         println!("{:?}", solution);
     }
-
-    println!("peak heap size: {} bytes", solver.peak_heap_size())
 }
