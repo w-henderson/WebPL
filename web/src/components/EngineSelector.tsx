@@ -3,17 +3,19 @@ import Prolog from "@/prolog";
 import styles from "./EngineSelector.module.css";
 
 import WebPL from "@/prolog/webpl";
+import WebPLGC from "@/prolog/webpl-gc";
 import SWIPL from "@/prolog/swipl";
 import TreallaProlog from "@/prolog/trealla-prolog";
 import TauProlog from "@/prolog/tau-prolog";
+
 import { InfoCircle } from "iconoir-react";
 
 const engines = [
-  { name: "WebPL", engine: () => new WebPL() },
-  { name: "WebPL (with GC)", engine: () => WebPL.with_gc() },
-  { name: "SWI-Prolog", engine: () => new SWIPL() },
-  { name: "Trealla Prolog", engine: () => new TreallaProlog() },
-  { name: "Tau Prolog", engine: () => new TauProlog() }
+  { name: "WebPL", engine: WebPL },
+  { name: "WebPL (with GC)", engine: WebPLGC },
+  { name: "SWI-Prolog", engine: SWIPL },
+  { name: "Trealla Prolog", engine: TreallaProlog },
+  { name: "Tau Prolog", engine: TauProlog }
 ];
 
 export default function EngineSelector(props: Readonly<{
@@ -30,7 +32,7 @@ export default function EngineSelector(props: Readonly<{
           className={props.prolog.name === name ? styles.selected : undefined}
           onClick={() => {
             props.setOpen(false);
-            props.setProlog(engine());
+            props.setProlog(new engine());
           }}>
           {name}
         </div>
