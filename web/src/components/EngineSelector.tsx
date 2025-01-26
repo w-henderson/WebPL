@@ -9,10 +9,11 @@ import TauProlog from "@/prolog/tau-prolog";
 import { InfoCircle } from "iconoir-react";
 
 const engines = [
-  { name: "WebPL", engine: WebPL },
-  { name: "SWI-Prolog", engine: SWIPL },
-  { name: "Trealla Prolog", engine: TreallaProlog },
-  { name: "Tau Prolog", engine: TauProlog }
+  { name: "WebPL", engine: () => new WebPL() },
+  { name: "WebPL (with GC)", engine: () => WebPL.with_gc() },
+  { name: "SWI-Prolog", engine: () => new SWIPL() },
+  { name: "Trealla Prolog", engine: () => new TreallaProlog() },
+  { name: "Tau Prolog", engine: () => new TauProlog() }
 ];
 
 export default function EngineSelector(props: Readonly<{
@@ -29,7 +30,7 @@ export default function EngineSelector(props: Readonly<{
           className={props.prolog.name === name ? styles.selected : undefined}
           onClick={() => {
             props.setOpen(false);
-            props.setProlog(new engine());
+            props.setProlog(engine());
           }}>
           {name}
         </div>

@@ -4,8 +4,15 @@ import init, { Solver } from "webpl";
 export default class WebPL extends Prolog {
   private solver?: Solver;
   private ready: boolean = false;
+  private gc: boolean = false;
 
   public name = "WebPL";
+
+  public static with_gc(): WebPL {
+    const webpl = new WebPL();
+    webpl.gc = true;
+    return webpl;
+  }
 
   public async init(): Promise<void> {
     if (this.ready) return;
@@ -14,7 +21,7 @@ export default class WebPL extends Prolog {
   }
 
   public async solve(program: string, query: string): Promise<void> {
-    this.solver = new Solver(program, query);
+    this.solver = this.gc ? Solver.new_with_gc(program, query) : new Solver(program, query);
   }
 
   public async next(): Promise<Solution | undefined> {

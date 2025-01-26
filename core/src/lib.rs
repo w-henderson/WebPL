@@ -100,6 +100,19 @@ pub struct ErrorLocation {
 
 impl Solver {
     pub fn new(program: impl AsRef<str>, query: impl AsRef<str>) -> Result<Self, Error> {
+        let (program, query) = Self::parse(program, query)?;
+        Ok(Self::from_ast(program, query, false))
+    }
+
+    pub fn new_with_gc(program: impl AsRef<str>, query: impl AsRef<str>) -> Result<Self, Error> {
+        let (program, query) = Self::parse(program, query)?;
+        Ok(Self::from_ast(program, query, true))
+    }
+
+    pub fn parse(
+        program: impl AsRef<str>,
+        query: impl AsRef<str>,
+    ) -> Result<(ast::Program, ast::Query), Error> {
         let program = grammar::ProgramParser::new()
             .parse(program.as_ref())
             .map_err(|e| ast::parse_error(program.as_ref(), false, e))?;
@@ -108,10 +121,10 @@ impl Solver {
             .parse(query.as_ref())
             .map_err(|e| ast::parse_error(query.as_ref(), true, e))?;
 
-        Ok(Self::from_ast(program, query))
+        Ok((program, query))
     }
 
-    pub fn from_ast(program: ast::Program, query: ast::Query) -> Self {
+    pub fn from_ast(program: ast::Program, query: ast::Query, gc: bool) -> Self {
         let mut string_map = StringMap::default();
 
         let program = compile(program, &mut string_map);
@@ -132,11 +145,15 @@ impl Solver {
             clause: 0,
             choice_points: Vec::new(),
             heap: vars,
-            gc: GarbageCollector::new(
-                GC_HEAP_SIZE_THRESHOLD,
-                GC_HEAP_PRESSURE_THRESHOLD,
-                GC_COOLDOWN,
-            ),
+            gc: if gc {
+                GarbageCollector::new(
+                    GC_HEAP_SIZE_THRESHOLD,
+                    GC_HEAP_PRESSURE_THRESHOLD,
+                    GC_COOLDOWN,
+                )
+            } else {
+                GarbageCollector::disabled()
+            },
             var_map,
             trail: Trail::new(),
         };

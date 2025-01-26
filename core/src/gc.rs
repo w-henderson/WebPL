@@ -37,6 +37,19 @@ impl GarbageCollector {
         }
     }
 
+    pub fn disabled() -> Self {
+        Self {
+            map: Vec::new(),
+            trail_map: Vec::new(),
+            scheduler: GCScheduler {
+                absolute_threshold: usize::MAX,
+                relative_threshold: 0.0,
+                cooldown: 0,
+                remaining_cooldown: 0,
+            },
+        }
+    }
+
     pub fn run(solver: &mut Solver) {
         let roots = solver
             .gc
