@@ -19,6 +19,7 @@ pub mod str {
     pub const DIV: usize = 12;
     pub const DOT: usize = 13;
     pub const NIL: usize = 14;
+    pub const STAT: usize = 15;
 }
 
 pub struct StringMap {
@@ -44,6 +45,7 @@ impl Default for StringMap {
             "/".to_string(),
             ".".to_string(),
             "[]".to_string(),
+            "statistics".to_string(),
         ];
 
         let map = reverse
