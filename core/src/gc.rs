@@ -148,7 +148,7 @@ impl GarbageCollector {
 
     fn collect_trail(&mut self, trail: &mut Trail) {
         self.trail_map.clear();
-        self.trail_map.resize(trail.vars.len(), GC_UNMARKED);
+        self.trail_map.resize(trail.vars.len() + 1, GC_UNMARKED);
 
         let mut new_ptr = 0;
         let mut old_ptr = 0;
@@ -164,6 +164,8 @@ impl GarbageCollector {
 
             old_ptr += 1;
         }
+
+        self.trail_map[old_ptr] = new_ptr;
 
         trail.vars.truncate(new_ptr);
     }

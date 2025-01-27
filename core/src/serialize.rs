@@ -5,7 +5,10 @@ use std::fmt::Write;
 
 impl Heap {
     pub fn serialize(&self, terms: &[(String, usize)]) -> Vec<(String, String)> {
-        let mut stacks = terms.iter().map(|(x, _)| (x.clone(), Vec::new())).collect();
+        let mut stacks: Vec<(String, Vec<HeapTermPtr>)> = terms
+            .iter()
+            .map(|(x, ptr)| (x.clone(), vec![*ptr]))
+            .collect();
 
         terms
             .iter()
