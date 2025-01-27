@@ -104,7 +104,7 @@ pub struct GoalIterator<'a> {
     current: Option<GoalPtr>,
 }
 
-impl<'a> Iterator for GoalIterator<'a> {
+impl Iterator for GoalIterator<'_> {
     type Item = HeapTermPtr;
 
     fn next(&mut self) -> Option<Self::Item> {
