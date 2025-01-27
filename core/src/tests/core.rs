@@ -1,14 +1,14 @@
-use crate::Solver;
+use crate::tests::SolverFn;
+use crate::{test, Solver};
 
 static APP_PROGRAM: &str = r#"
 app([], L2, L2).
 app([H|T], L2, [H|L3]) :- app(T, L2, L3).
 "#;
 
-#[test]
-fn app() {
+test!(app, |solver: SolverFn| {
     let query = "app([1, 2], [3, 4], L).";
-    let mut solver = Solver::new(APP_PROGRAM, query).unwrap();
+    let mut solver = solver(APP_PROGRAM, query);
 
     assert_eq!(
         solver.step().unwrap(),
@@ -16,12 +16,11 @@ fn app() {
     );
 
     assert_eq!(solver.step().unwrap(), None);
-}
+});
 
-#[test]
-fn recursive_solution() {
+test!(recursive_solution, |solver: SolverFn| {
     let query = "app([1, 2], L, L).";
-    let mut solver = Solver::new(APP_PROGRAM, query).unwrap();
+    let mut solver = solver(APP_PROGRAM, query);
 
     assert_eq!(
         solver.step().unwrap(),
@@ -29,14 +28,13 @@ fn recursive_solution() {
     );
 
     assert_eq!(solver.step().unwrap(), None);
-}
+});
 
-#[test]
-fn mutual_recursive_solution() {
+test!(mutual_recursive_solution, |solver: SolverFn| {
     let query_1 = "X = f(L), app([1, X], L, L).";
     let query_2 = "app([1, X], L, L), X = f(L).";
-    let mut solver_1 = Solver::new(APP_PROGRAM, query_1).unwrap();
-    let mut solver_2 = Solver::new(APP_PROGRAM, query_2).unwrap();
+    let mut solver_1 = solver(APP_PROGRAM, query_1);
+    let mut solver_2 = solver(APP_PROGRAM, query_2);
 
     assert_eq!(
         solver_1.step().unwrap(),
@@ -56,10 +54,9 @@ fn mutual_recursive_solution() {
 
     assert_eq!(solver_1.step().unwrap(), None);
     assert_eq!(solver_2.step().unwrap(), None);
-}
+});
 
-#[test]
-fn backtracking() {
+test!(backtracking, |solver: SolverFn| {
     let program = r#"
         generate(1).
         generate(2).
@@ -69,14 +66,13 @@ fn backtracking() {
 
     let query = "solve(X).";
 
-    let mut solver = Solver::new(program, query).unwrap();
+    let mut solver = solver(program, query);
 
     assert_eq!(solver.step().unwrap(), Some(vec![("X".into(), "2".into())]));
     assert_eq!(solver.step().unwrap(), None);
-}
+});
 
-#[test]
-fn multiple_goals() {
+test!(multiple_goals, |solver: SolverFn| {
     let program = r#"
         true.
         a :- false, true.
@@ -84,40 +80,37 @@ fn multiple_goals() {
 
     let query = "a.";
 
-    let mut solver = Solver::new(program, query).unwrap();
+    let mut solver = solver(program, query);
 
     assert_eq!(solver.step().unwrap(), None);
     assert_eq!(solver.step().unwrap(), None);
-}
+});
 
-#[test]
-fn operator_precedence() {
+test!(operator_precedence, |solver: SolverFn| {
     let query_1 = "X is 1 + 2 * 3.";
     let query_2 = "X is (1 + 2) * 3.";
     let query_3 = "X is 1 + 2 * 3 + 4 * 5.";
 
-    let mut solver_1 = Solver::new("", query_1).unwrap();
+    let mut solver_1 = solver("", query_1);
     assert_eq!(
         solver_1.step().unwrap(),
         Some(vec![("X".into(), "7".into())])
     );
 
-    let mut solver_2 = Solver::new("", query_2).unwrap();
+    let mut solver_2 = solver("", query_2);
     assert_eq!(
         solver_2.step().unwrap(),
         Some(vec![("X".into(), "9".into())])
     );
 
-    let mut solver_3 = Solver::new("", query_3).unwrap();
+    let mut solver_3 = solver("", query_3);
     assert_eq!(
         solver_3.step().unwrap(),
         Some(vec![("X".into(), "27".into())])
     );
-}
+});
 
-#[test]
-#[ignore = "long in debug"]
-fn n_queens() {
+test!(LONG n_queens, |solver: SolverFn| {
     let program = r#"
         take([H|T], H, T).
         take([H|T], R, [H|S]) :- take(T, R, S).
@@ -137,10 +130,10 @@ fn n_queens() {
 
     let query = "n_queens(8, Qs).";
 
-    let solver = Solver::new(program, query).unwrap();
+    let solver = solver(program, query);
 
     assert_eq!(solver.count(), 92);
-}
+});
 
 #[test]
 fn empty() {
