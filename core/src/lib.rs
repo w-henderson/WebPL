@@ -39,7 +39,7 @@ static GC_COOLDOWN: usize = 16;
 #[derive(Clone, Copy)]
 pub enum HeapTerm {
     Atom(Atom),
-    Var(HeapTermPtr),
+    Var(HeapTermPtr, bool), // ptr, shunted
     Compound(StringId, usize, Option<HeapTermPtr>),
     CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
     Cut(ChoicePointIdx),
@@ -257,7 +257,7 @@ impl Solver {
     fn pre_unify(&self, a_ptr: HeapTermPtr, b: &CodeTerm) -> bool {
         match (self.heap.get(a_ptr), b) {
             (HeapTerm::Atom(a), CodeTerm::Atom(b)) => a == b,
-            (HeapTerm::Var(_), _) | (_, CodeTerm::Var(_)) => true,
+            (HeapTerm::Var(_, _), _) | (_, CodeTerm::Var(_)) => true,
             (HeapTerm::Compound(f, a_arity, _), CodeTerm::Compound(g, b_args)) => {
                 f == g && *a_arity == b_args.len()
             }
@@ -270,9 +270,9 @@ impl Solver {
             (HeapTerm::Atom(a), HeapTerm::Atom(b)) => a == b,
 
             // Unify variables downwards (i.e. newer variables point to older ones)
-            (HeapTerm::Var(a), HeapTerm::Var(b)) if *a < b_ptr => self.unify_var(*b, a_ptr),
-            (HeapTerm::Var(a), _) => self.unify_var(*a, b_ptr),
-            (_, HeapTerm::Var(b)) => self.unify_var(*b, a_ptr),
+            (HeapTerm::Var(a, _), HeapTerm::Var(b, _)) if *a < b_ptr => self.unify_var(*b, a_ptr),
+            (HeapTerm::Var(a, _), _) => self.unify_var(*a, b_ptr),
+            (_, HeapTerm::Var(b, _)) => self.unify_var(*b, a_ptr),
 
             (HeapTerm::Compound(f, a_arity, a_next), HeapTerm::Compound(g, b_arity, b_next)) => {
                 if f != g || a_arity != b_arity {
@@ -310,6 +310,8 @@ impl Solver {
     fn unify_var(&mut self, a: HeapTermPtr, b: HeapTermPtr) -> bool {
         if a < self.choice_point_age.0 {
             self.trail.push(a);
+        } else {
+            self.heap.mark_shunted(a);
         }
 
         self.heap.unify(a, b);

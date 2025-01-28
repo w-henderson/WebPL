@@ -55,9 +55,9 @@ impl Heap {
             CodeTerm::Atom(atom) => self.data.push(HeapTerm::Atom(*atom)),
             CodeTerm::Var(id) => {
                 if let Some((_, unified)) = var_map.iter().find(|(x, _)| x == id) {
-                    self.data.push(HeapTerm::Var(*unified));
+                    self.data.push(HeapTerm::Var(*unified, false));
                 } else {
-                    self.data.push(HeapTerm::Var(result));
+                    self.data.push(HeapTerm::Var(result, false));
                     var_map.push((*id, result));
                 }
             }
@@ -95,22 +95,29 @@ impl Heap {
         // Follow the chain of variable bindings until we reach the root.
         loop {
             match &self.data[var] {
-                HeapTerm::Var(x) if *x != var => var = *x,
+                HeapTerm::Var(x, _) if *x != var => var = *x,
                 _ => return &self.data[var],
             }
         }
     }
 
-    pub fn unify(&mut self, a: usize, b: usize) {
+    pub fn unify(&mut self, a: HeapTermPtr, b: HeapTermPtr) {
         match &mut self.data[a] {
-            HeapTerm::Var(x) => *x = b,
+            HeapTerm::Var(x, _) => *x = b,
             _ => unreachable!(),
         }
     }
 
     pub fn unbind(&mut self, term: HeapTermPtr) {
         match &mut self.data[term] {
-            HeapTerm::Var(x) => *x = term,
+            HeapTerm::Var(x, _) => *x = term,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn mark_shunted(&mut self, term: HeapTermPtr) {
+        match &mut self.data[term] {
+            HeapTerm::Var(_, shunted) => *shunted = true,
             _ => unreachable!(),
         }
     }

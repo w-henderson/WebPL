@@ -4,7 +4,8 @@ use crate::trail::Trail;
 use crate::{ChoicePoint, HeapTerm, HeapTermPtr, Solver};
 
 const GC_MARKED: usize = 0;
-const GC_UNMARKED: usize = usize::MAX;
+const GC_SHUNTED: usize = 1 << (std::mem::size_of::<usize>() * 8 - 1);
+const GC_UNMARKED: usize = usize::MAX >> 1;
 
 pub struct GarbageCollector {
     map: Vec<usize>,
@@ -54,8 +55,9 @@ impl GarbageCollector {
         let roots = solver
             .gc
             .get_roots(&solver.var_map, &solver.goals, &solver.choice_points);
-        solver.gc.collect(&mut solver.heap, roots);
-        solver.gc.collect_trail(&mut solver.trail);
+        solver
+            .gc
+            .collect(&mut solver.heap, &mut solver.trail, roots);
         solver.gc.rewrite(
             &mut solver.var_map,
             &mut solver.goals,
@@ -79,7 +81,12 @@ impl GarbageCollector {
             }))
     }
 
-    pub fn collect(&mut self, heap: &mut Heap, roots: impl Iterator<Item = HeapTermPtr>) {
+    pub fn collect(
+        &mut self,
+        heap: &mut Heap,
+        trail: &mut Trail,
+        roots: impl Iterator<Item = HeapTermPtr>,
+    ) {
         self.map.clear();
         self.map.resize(heap.data.len(), GC_UNMARKED);
 
@@ -87,7 +94,8 @@ impl GarbageCollector {
             self.mark(heap, root);
         }
 
-        self.compact(heap);
+        self.shunt(heap);
+        self.compact(heap, trail);
     }
 
     fn mark(&mut self, heap: &Heap, ptr: HeapTermPtr) {
@@ -98,7 +106,7 @@ impl GarbageCollector {
         self.map[ptr] = GC_MARKED;
 
         match &heap.data[ptr] {
-            HeapTerm::Var(ptr) => self.mark(heap, *ptr),
+            HeapTerm::Var(ptr, _) => self.mark(heap, *ptr),
             HeapTerm::Compound(_, _, Some(next)) => self.mark(heap, *next),
             HeapTerm::CompoundCons(v, next) => {
                 self.mark(heap, *v);
@@ -110,7 +118,19 @@ impl GarbageCollector {
         }
     }
 
-    fn compact(&mut self, heap: &mut Heap) {
+    fn shunt(&mut self, heap: &Heap) {
+        for (i, term) in heap.data.iter().enumerate().rev() {
+            if let HeapTerm::Var(ptr, true) = term {
+                match self.map[*ptr] {
+                    GC_MARKED => self.map[i] = GC_SHUNTED | *ptr, // End of shunted chain
+                    GC_UNMARKED => (),                            // Dead variable
+                    next => self.map[i] = next,                   // Earlier in shunted chain
+                }
+            }
+        }
+    }
+
+    fn compact(&mut self, heap: &mut Heap, trail: &mut Trail) {
         let mut new_ptr: HeapTermPtr = 0;
 
         // Shuffle data down the heap, overwriting dead data
@@ -130,10 +150,21 @@ impl GarbageCollector {
 
         heap.data.truncate(new_ptr);
 
+        // Do the same on the trail stack
+        self.collect_trail(trail);
+
+        // Rewrite shunted pointers
+        for i in 0..self.map.len() {
+            if self.map[i] & GC_SHUNTED != 0 {
+                let old_ptr = self.map[i] ^ GC_SHUNTED;
+                self.map[i] = self.map[old_ptr];
+            }
+        }
+
         // Rewrite internal pointers
         for term in heap.data.iter_mut() {
             match term {
-                HeapTerm::Var(ptr) => *ptr = self.map[*ptr],
+                HeapTerm::Var(ptr, _) => *ptr = self.map[*ptr],
                 HeapTerm::Compound(_, _, Some(next)) => *next = self.map[*next],
                 HeapTerm::CompoundCons(head, tail) => {
                     *head = self.map[*head];
@@ -156,9 +187,10 @@ impl GarbageCollector {
         while old_ptr < trail.vars.len() {
             let ptr = trail.vars[old_ptr];
 
-            if self.map[ptr] != GC_UNMARKED {
+            self.trail_map[old_ptr] = new_ptr;
+
+            if self.map[ptr] < GC_UNMARKED {
                 trail.vars[new_ptr] = self.map[ptr];
-                self.trail_map[old_ptr] = new_ptr;
                 new_ptr += 1;
             }
 

@@ -46,7 +46,7 @@ impl Heap {
 
                     result.push_str(&atom.to_string(&self.string_map));
                 }
-                HeapTerm::Var(ptr) => {
+                HeapTerm::Var(ptr, _) => {
                     if *ptr == term {
                         // The variable is unbound
                         if continue_list {

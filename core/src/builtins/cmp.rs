@@ -23,8 +23,12 @@ macro_rules! impl_arithmetic_cmp {
                     (HeapTerm::Atom(Atom::Float(a)), HeapTerm::Atom(Atom::Integer(b))) => {
                         Ok(a.$method(&(*b as f64)))
                     }
-                    (HeapTerm::Var(_), _) => Err(BuiltinError::InsufficientlyInstantiated(args[0])),
-                    (_, HeapTerm::Var(_)) => Err(BuiltinError::InsufficientlyInstantiated(args[1])),
+                    (HeapTerm::Var(_, _), _) => {
+                        Err(BuiltinError::InsufficientlyInstantiated(args[0]))
+                    }
+                    (_, HeapTerm::Var(_, _)) => {
+                        Err(BuiltinError::InsufficientlyInstantiated(args[1]))
+                    }
                     (HeapTerm::Atom(Atom::Integer(_)), _) | (HeapTerm::Atom(Atom::Float(_)), _) => {
                         Err(BuiltinError::NotANumber(args[1]))
                     }
