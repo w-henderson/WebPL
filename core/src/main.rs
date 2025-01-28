@@ -17,12 +17,12 @@ safe_queens([], Y, X).
 safe_queens([Q|Qs], Q0, D0) :- Q0 =\= Q, Diff is Q0 - Q, abs(Diff, AbsDiff), AbsDiff =\= D0, D1 is D0 + 1, safe_queens(Qs, Q0, D1).
 "#;
 
-static QUERY: &str = r#"n_queens(8, Qs)."#;
+static QUERY: &str = r#"n_queens(8, Qs), statistics(memory, Used)."#;
 
 fn main() {
-    let solver = Solver::new(PROGRAM, QUERY).unwrap();
+    let mut solver = Solver::new_with_gc(PROGRAM, QUERY).unwrap();
 
-    for solution in solver {
-        println!("{:?}", solution);
+    for solution in &mut solver {
+        println!("{:?}", solution.unwrap());
     }
 }

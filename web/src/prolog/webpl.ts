@@ -2,7 +2,7 @@ import Prolog, { Solution, Error } from ".";
 import init, { Solver } from "webpl";
 
 export default class WebPL extends Prolog {
-  private solver?: Solver;
+  protected solver?: Solver;
   private ready: boolean = false;
 
   public name = "WebPL";

@@ -28,7 +28,7 @@ impl IsBuiltin {
                     Err(BuiltinError::NotANumber(term))
                 }
             }
-            HeapTerm::Var(_) => Err(BuiltinError::InsufficientlyInstantiated(term)),
+            HeapTerm::Var(_, _) => Err(BuiltinError::InsufficientlyInstantiated(term)),
             HeapTerm::Compound(f, arity, next) if *arity == 2 => {
                 let f = *f;
                 let args = args::<2>(solver, *next);

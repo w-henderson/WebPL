@@ -3,13 +3,16 @@ import Prolog from "@/prolog";
 import styles from "./EngineSelector.module.css";
 
 import WebPL from "@/prolog/webpl";
+import WebPLGC from "@/prolog/webpl-gc";
 import SWIPL from "@/prolog/swipl";
 import TreallaProlog from "@/prolog/trealla-prolog";
 import TauProlog from "@/prolog/tau-prolog";
+
 import { InfoCircle } from "iconoir-react";
 
 const engines = [
   { name: "WebPL", engine: WebPL },
+  { name: "WebPL (with GC)", engine: WebPLGC },
   { name: "SWI-Prolog", engine: SWIPL },
   { name: "Trealla Prolog", engine: TreallaProlog },
   { name: "Tau Prolog", engine: TauProlog }

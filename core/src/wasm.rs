@@ -18,6 +18,11 @@ impl Solver {
     }
 
     #[wasm_bindgen]
+    pub fn new_with_gc(program: &str, query: &str) -> Result<Solver, JsValue> {
+        Ok(Solver(crate::Solver::new_with_gc(program, query)?))
+    }
+
+    #[wasm_bindgen]
     pub fn next(&mut self) -> Result<Option<js_sys::Map>, Error> {
         self.0.step().map(|o| o.map(solution_to_js))
     }

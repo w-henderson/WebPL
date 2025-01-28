@@ -1,13 +1,13 @@
 use crate::heap::Heap;
 use crate::HeapTermPtr;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Trail {
-    vars: Vec<HeapTermPtr>,
+    pub(crate) vars: Vec<HeapTermPtr>,
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Checkpoint(usize);
+pub struct Checkpoint(pub(crate) usize);
 
 impl Trail {
     pub fn new() -> Self {

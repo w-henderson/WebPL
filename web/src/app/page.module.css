@@ -3,7 +3,7 @@ main.container {
   height: 100%;
 
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: calc(50% - 12px) calc(50% - 12px);
   grid-template-rows: auto 1fr 250px;
 
   padding: 24px;
@@ -35,6 +35,7 @@ div.program {
   grid-column: 1 / 2;
   grid-row: 2 / 4;
   overflow: auto;
+  border-radius: 16px;
 }
 
 div.results {
@@ -53,6 +54,12 @@ div.query {
   grid-column: 2 / 3;
   grid-row: 3 / 4;
   display: flex;
+}
+
+div.query>div:first-child {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
 }
 
 div.query>div:last-child {

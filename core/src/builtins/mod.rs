@@ -1,5 +1,6 @@
 mod cmp;
 mod is;
+mod statistics;
 mod unify;
 
 use crate::stringmap::str;
@@ -20,15 +21,17 @@ pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, Built
     match solver.heap.get(goal) {
         HeapTerm::Compound(functor, arity, next) => {
             if *arity == 2 {
+                let args = args(solver, *next);
                 match *functor {
-                    str::EQ => Some(unify::UnifyBuiltin::eval(solver, args(solver, *next))),
-                    str::IS => Some(is::IsBuiltin::eval(solver, args(solver, *next))),
-                    str::GT => Some(cmp::GtBuiltin::eval(solver, args(solver, *next))),
-                    str::GE => Some(cmp::GteBuiltin::eval(solver, args(solver, *next))),
-                    str::LT => Some(cmp::LtBuiltin::eval(solver, args(solver, *next))),
-                    str::LE => Some(cmp::LteBuiltin::eval(solver, args(solver, *next))),
-                    str::ANE => Some(cmp::NeqBuiltin::eval(solver, args(solver, *next))),
-                    str::AEQ => Some(cmp::EqBuiltin::eval(solver, args(solver, *next))),
+                    str::EQ => Some(unify::UnifyBuiltin::eval(solver, args)),
+                    str::IS => Some(is::IsBuiltin::eval(solver, args)),
+                    str::GT => Some(cmp::GtBuiltin::eval(solver, args)),
+                    str::GE => Some(cmp::GteBuiltin::eval(solver, args)),
+                    str::LT => Some(cmp::LtBuiltin::eval(solver, args)),
+                    str::LE => Some(cmp::LteBuiltin::eval(solver, args)),
+                    str::ANE => Some(cmp::NeqBuiltin::eval(solver, args)),
+                    str::AEQ => Some(cmp::EqBuiltin::eval(solver, args)),
+                    str::STAT => Some(statistics::StatisticsBuiltin::eval(solver, args)),
                     _ => None,
                 }
             } else {

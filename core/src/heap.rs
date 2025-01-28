@@ -2,15 +2,13 @@ use crate::atom::Atom;
 use crate::stringmap::StringMap;
 use crate::{ChoicePointIdx, ClauseName, CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
 
-use std::fmt::Write;
-
 pub struct Heap {
-    data: Vec<HeapTerm>,
-    string_map: StringMap,
+    pub(crate) data: Vec<HeapTerm>,
+    pub(crate) string_map: StringMap,
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Checkpoint(usize);
+pub struct Checkpoint(pub usize);
 
 impl Heap {
     pub fn new(
@@ -57,9 +55,9 @@ impl Heap {
             CodeTerm::Atom(atom) => self.data.push(HeapTerm::Atom(*atom)),
             CodeTerm::Var(id) => {
                 if let Some((_, unified)) = var_map.iter().find(|(x, _)| x == id) {
-                    self.data.push(HeapTerm::Var(*unified));
+                    self.data.push(HeapTerm::Var(*unified, false));
                 } else {
-                    self.data.push(HeapTerm::Var(result));
+                    self.data.push(HeapTerm::Var(result, false));
                     var_map.push((*id, result));
                 }
             }
@@ -97,22 +95,29 @@ impl Heap {
         // Follow the chain of variable bindings until we reach the root.
         loop {
             match &self.data[var] {
-                HeapTerm::Var(x) if *x != var => var = *x,
+                HeapTerm::Var(x, _) if *x != var => var = *x,
                 _ => return &self.data[var],
             }
         }
     }
 
-    pub fn unify(&mut self, a: usize, b: usize) {
+    pub fn unify(&mut self, a: HeapTermPtr, b: HeapTermPtr) {
         match &mut self.data[a] {
-            HeapTerm::Var(x) => *x = b,
+            HeapTerm::Var(x, _) => *x = b,
             _ => unreachable!(),
         }
     }
 
     pub fn unbind(&mut self, term: HeapTermPtr) {
         match &mut self.data[term] {
-            HeapTerm::Var(x) => *x = term,
+            HeapTerm::Var(x, _) => *x = term,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn mark_shunted(&mut self, term: HeapTermPtr) {
+        match &mut self.data[term] {
+            HeapTerm::Var(_, shunted) => *shunted = true,
             _ => unreachable!(),
         }
     }
@@ -130,132 +135,11 @@ impl Heap {
         }
     }
 
-    pub fn serialize(&self, terms: &[(String, usize)]) -> Vec<(String, String)> {
-        let mut stacks = terms.iter().map(|(x, _)| (x.clone(), Vec::new())).collect();
-
-        terms
-            .iter()
-            .enumerate()
-            .map(|(i, (name, term))| {
-                (
-                    name.clone(),
-                    self.serialize_inner(*term, Some(i), &mut stacks, false)
-                        .unwrap(),
-                )
-            })
-            .collect()
+    pub fn size(&self) -> usize {
+        self.data.len() * std::mem::size_of::<HeapTerm>()
     }
 
-    fn serialize_inner(
-        &self,
-        mut term: HeapTermPtr,
-        stack: Option<usize>,
-        stacks: &mut Vec<(String, Vec<HeapTermPtr>)>,
-        mut continue_list: bool,
-    ) -> Result<String, std::fmt::Error> {
-        let mut result = String::new();
-
-        loop {
-            match &self.data[term] {
-                HeapTerm::Atom(atom) => {
-                    if continue_list {
-                        if atom.is_nil() {
-                            result.push(']');
-                            return Ok(result);
-                        }
-
-                        result.push('|');
-                    }
-
-                    result.push_str(&atom.to_string(&self.string_map));
-                }
-                HeapTerm::Var(ptr) => {
-                    if *ptr == term {
-                        // The variable is unbound
-                        if continue_list {
-                            result.push('|');
-                        }
-                        write!(result, "_{}", ptr)?;
-                    } else if let Some(name) = stacks
-                        .iter()
-                        .find(|(_, stack)| stack.contains(ptr))
-                        .map(|(name, _)| name)
-                    {
-                        // We've found a cycle
-                        if continue_list {
-                            result.push('|');
-                        }
-                        result.push_str(name);
-                    } else {
-                        if let Some(stack) = stack {
-                            // Keep track of this variable to find future cycles
-                            stacks[stack].1.push(term);
-                        }
-                        term = *ptr;
-                        continue;
-                    }
-                }
-                HeapTerm::Compound(crate::stringmap::str::DOT, 2, next) => {
-                    if let Some(HeapTerm::CompoundCons(head, tail)) = next.map(|x| &self.data[x]) {
-                        let element = self.serialize_inner(*head, None, stacks, false)?;
-
-                        if element == "]" {
-                            match continue_list {
-                                true => write!(result, "]")?,
-                                false => write!(result, "[]")?,
-                            };
-                            return Ok(result);
-                        }
-
-                        if let Some(HeapTerm::CompoundCons(next_term, None)) =
-                            tail.map(|x| &self.data[x])
-                        {
-                            match continue_list {
-                                true => write!(result, ",{}", element)?,
-                                false => write!(result, "[{}", element)?,
-                            };
-
-                            term = *next_term;
-                            continue_list = true;
-                            continue;
-                        }
-                    }
-
-                    unreachable!();
-                }
-                HeapTerm::Compound(functor, arity, next) => {
-                    if continue_list {
-                        result.push('|');
-                    }
-
-                    write!(result, "{}(", self.get_atom(*functor))?;
-
-                    let mut arg = *next;
-                    for i in 0..*arity {
-                        if let Some(HeapTerm::CompoundCons(head, tail)) = arg.map(|x| &self.data[x])
-                        {
-                            result.push_str(&self.serialize_inner(*head, None, stacks, false)?);
-
-                            if i + 1 < *arity {
-                                result.push(',');
-                            }
-                            arg = *tail;
-                        } else {
-                            unreachable!();
-                        }
-                    }
-
-                    result.push(')');
-                }
-                HeapTerm::CompoundCons(_, _) => unreachable!(),
-                HeapTerm::Cut(_) => result.push('!'),
-            };
-
-            if continue_list {
-                result.push(']');
-            }
-
-            return Ok(result);
-        }
+    pub fn capacity(&self) -> usize {
+        self.data.capacity() * std::mem::size_of::<HeapTerm>()
     }
 }

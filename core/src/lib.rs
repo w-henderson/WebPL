@@ -2,8 +2,10 @@ pub mod ast;
 mod atom;
 mod builtins;
 mod compile;
+mod gc;
 mod goal;
 mod heap;
+mod serialize;
 mod stringmap;
 mod trail;
 mod wasm;
@@ -19,6 +21,7 @@ mod tests;
 
 use atom::Atom;
 use compile::compile;
+use gc::{GCRewritable, GarbageCollector};
 use goal::Goals;
 use heap::Heap;
 use stringmap::StringMap;
@@ -29,9 +32,14 @@ type ChoicePointIdx = usize;
 
 type StringId = usize;
 
+static GC_HEAP_SIZE_THRESHOLD: usize = 1024;
+static GC_HEAP_PRESSURE_THRESHOLD: f64 = 0.8;
+static GC_COOLDOWN: usize = 16;
+
+#[derive(Clone, Copy)]
 pub enum HeapTerm {
     Atom(Atom),
-    Var(HeapTermPtr),
+    Var(HeapTermPtr, bool), // ptr, shunted
     Compound(StringId, usize, Option<HeapTermPtr>),
     CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
     Cut(ChoicePointIdx),
@@ -62,11 +70,14 @@ pub struct Solver {
     group: Option<usize>,
     clause: usize,
     choice_points: Vec<ChoicePoint>,
+    choice_point_age: heap::Checkpoint,
     heap: Heap,
+    gc: GarbageCollector,
     var_map: Vec<(String, HeapTermPtr)>,
     trail: Trail,
 }
 
+#[derive(Copy, Clone)]
 struct ChoicePoint {
     group: Option<usize>,
     clause: usize,
@@ -91,6 +102,19 @@ pub struct ErrorLocation {
 
 impl Solver {
     pub fn new(program: impl AsRef<str>, query: impl AsRef<str>) -> Result<Self, Error> {
+        let (program, query) = Self::parse(program, query)?;
+        Ok(Self::from_ast(program, query, false))
+    }
+
+    pub fn new_with_gc(program: impl AsRef<str>, query: impl AsRef<str>) -> Result<Self, Error> {
+        let (program, query) = Self::parse(program, query)?;
+        Ok(Self::from_ast(program, query, true))
+    }
+
+    pub fn parse(
+        program: impl AsRef<str>,
+        query: impl AsRef<str>,
+    ) -> Result<(ast::Program, ast::Query), Error> {
         let program = grammar::ProgramParser::new()
             .parse(program.as_ref())
             .map_err(|e| ast::parse_error(program.as_ref(), false, e))?;
@@ -99,10 +123,10 @@ impl Solver {
             .parse(query.as_ref())
             .map_err(|e| ast::parse_error(query.as_ref(), true, e))?;
 
-        Ok(Self::from_ast(program, query))
+        Ok((program, query))
     }
 
-    pub fn from_ast(program: ast::Program, query: ast::Query) -> Self {
+    pub fn from_ast(program: ast::Program, query: ast::Query, gc: bool) -> Self {
         let mut string_map = StringMap::default();
 
         let program = compile(program, &mut string_map);
@@ -122,7 +146,17 @@ impl Solver {
             group: None,
             clause: 0,
             choice_points: Vec::new(),
+            choice_point_age: heap::Checkpoint(0),
             heap: vars,
+            gc: if gc {
+                GarbageCollector::new(
+                    GC_HEAP_SIZE_THRESHOLD,
+                    GC_HEAP_PRESSURE_THRESHOLD,
+                    GC_COOLDOWN,
+                )
+            } else {
+                GarbageCollector::disabled()
+            },
             var_map,
             trail: Trail::new(),
         };
@@ -140,6 +174,10 @@ impl Solver {
         let mut var_map = Vec::new();
 
         'solve: loop {
+            if self.gc.should_run(&self.heap) {
+                GarbageCollector::run(self);
+            }
+
             let goal: HeapTermPtr = self.goals.current()?;
 
             match builtins::eval(self, goal) {
@@ -173,6 +211,10 @@ impl Solver {
                 if self.pre_unify(goal, head) {
                     let choice_point = self.enter();
 
+                    if self.clause + 1 < self.program[group].1.len() {
+                        self.choice_point_age = choice_point.heap_checkpoint;
+                    }
+
                     let head = self
                         .heap
                         .alloc(head, &mut var_map, self.choice_points.len());
@@ -180,7 +222,7 @@ impl Solver {
                     if self.unify(goal, head) {
                         // If this was the only choice, don't push a choice point
                         if self.clause + 1 < self.program[group].1.len() {
-                            self.choice_points.push(choice_point);
+                            self.push_choice_point(choice_point);
                         }
 
                         self.goals.pop();
@@ -215,7 +257,7 @@ impl Solver {
     fn pre_unify(&self, a_ptr: HeapTermPtr, b: &CodeTerm) -> bool {
         match (self.heap.get(a_ptr), b) {
             (HeapTerm::Atom(a), CodeTerm::Atom(b)) => a == b,
-            (HeapTerm::Var(_), _) | (_, CodeTerm::Var(_)) => true,
+            (HeapTerm::Var(_, _), _) | (_, CodeTerm::Var(_)) => true,
             (HeapTerm::Compound(f, a_arity, _), CodeTerm::Compound(g, b_args)) => {
                 f == g && *a_arity == b_args.len()
             }
@@ -226,16 +268,12 @@ impl Solver {
     fn unify(&mut self, a_ptr: HeapTermPtr, b_ptr: HeapTermPtr) -> bool {
         match (self.heap.get(a_ptr), self.heap.get(b_ptr)) {
             (HeapTerm::Atom(a), HeapTerm::Atom(b)) => a == b,
-            (HeapTerm::Var(a), _) => {
-                self.trail.push(*a);
-                self.heap.unify(*a, b_ptr);
-                true
-            }
-            (_, HeapTerm::Var(b)) => {
-                self.trail.push(*b);
-                self.heap.unify(*b, a_ptr);
-                true
-            }
+
+            // Unify variables downwards (i.e. newer variables point to older ones)
+            (HeapTerm::Var(a, _), HeapTerm::Var(b, _)) if *a < b_ptr => self.unify_var(*b, a_ptr),
+            (HeapTerm::Var(a, _), _) => self.unify_var(*a, b_ptr),
+            (_, HeapTerm::Var(b, _)) => self.unify_var(*b, a_ptr),
+
             (HeapTerm::Compound(f, a_arity, a_next), HeapTerm::Compound(g, b_arity, b_next)) => {
                 if f != g || a_arity != b_arity {
                     return false;
@@ -269,6 +307,18 @@ impl Solver {
     }
 
     #[inline]
+    fn unify_var(&mut self, a: HeapTermPtr, b: HeapTermPtr) -> bool {
+        if a < self.choice_point_age.0 {
+            self.trail.push(a);
+        } else {
+            self.heap.mark_shunted(a);
+        }
+
+        self.heap.unify(a, b);
+        true
+    }
+
+    #[inline]
     fn enter(&self) -> ChoicePoint {
         ChoicePoint {
             group: self.group,
@@ -290,10 +340,21 @@ impl Solver {
     }
 
     #[inline]
+    fn push_choice_point(&mut self, choice_point: ChoicePoint) {
+        self.choice_point_age = choice_point.heap_checkpoint;
+        self.choice_points.push(choice_point);
+    }
+
+    #[inline]
     fn pop_choice_point(&mut self) -> Option<()> {
-        self.choice_points
-            .pop()
-            .map(|choice_point| self.undo(choice_point))
+        self.choice_points.pop().map(|choice_point| {
+            self.choice_point_age = self
+                .choice_points
+                .last()
+                .map(|cp| cp.heap_checkpoint)
+                .unwrap_or(heap::Checkpoint(0));
+            self.undo(choice_point)
+        })
     }
 
     #[inline]
@@ -314,7 +375,7 @@ impl Solver {
     }
 
     #[inline]
-    pub(crate) fn serialize_solution(&self) -> Solution {
+    pub(crate) fn serialize_solution(&mut self) -> Solution {
         self.heap.serialize(&self.var_map)
     }
 
@@ -329,5 +390,14 @@ impl Iterator for Solver {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.step_inner()
+    }
+}
+
+impl GCRewritable for [ChoicePoint] {
+    fn rewrite(&mut self, map: &[usize], trail_map: &[usize]) {
+        for cp in self.iter_mut() {
+            cp.heap_checkpoint = crate::heap::Checkpoint(map[cp.heap_checkpoint.0]);
+            cp.trail_checkpoint = crate::trail::Checkpoint(trail_map[cp.trail_checkpoint.0]);
+        }
     }
 }

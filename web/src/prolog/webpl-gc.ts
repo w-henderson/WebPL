@@ -1,0 +1,10 @@
+import { Solver } from "webpl";
+import WebPL from "./webpl";
+
+export default class WebPLGC extends WebPL {
+  public name: string = "WebPL (with GC)";
+
+  public async solve(program: string, query: string): Promise<void> {
+    this.solver = Solver.new_with_gc(program, query);
+  }
+}

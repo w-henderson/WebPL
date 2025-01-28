@@ -16,10 +16,13 @@ export default function Query(props: Readonly<{
 }>) {
   return (
     <div className={props.className}>
-      <TextContainer
-        placeholder="Write your query here"
-        text={props.query}
-        update={props.updateQuery} />
+      <div>
+        <TextContainer
+          placeholder="Write your query here"
+          text={props.query}
+          update={props.updateQuery}
+          scrollable={true} />
+      </div>
 
       <div>
         {props.loading ? (
