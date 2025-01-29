@@ -14,7 +14,7 @@ export default class WebPL extends Prolog {
   }
 
   public async solve(program: string, query: string): Promise<void> {
-    this.solver = new Solver(program, query);
+    this.solver = await Solver.solve(program, query);
   }
 
   public async next(): Promise<Solution | undefined> {
