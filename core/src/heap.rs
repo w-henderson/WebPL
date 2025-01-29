@@ -78,6 +78,22 @@ impl Heap {
                 }
             }
             CodeTerm::Cut => self.data.push(HeapTerm::Cut(choice_point_idx)),
+            CodeTerm::Lambda(js, args) => {
+                let arity = args.len();
+
+                self.data.push(HeapTerm::Lambda(*js, arity, None));
+
+                let mut next = None;
+                for arg in args.iter().rev() {
+                    let head = self.alloc(arg, var_map, choice_point_idx);
+                    let tail = next.replace(self.data.len());
+                    self.data.push(HeapTerm::CompoundCons(head, tail));
+                }
+
+                if let HeapTerm::Lambda(_, _, arg) = &mut self.data[result] {
+                    *arg = next;
+                }
+            }
         }
 
         result
@@ -131,6 +147,7 @@ impl Heap {
             HeapTerm::Atom(Atom::String(name)) => ClauseName(*name, 0),
             HeapTerm::Compound(functor, arity, _) => ClauseName(*functor, *arity),
             HeapTerm::Cut(_) => ClauseName(crate::stringmap::str::EXCL, 0),
+            HeapTerm::Lambda(code, arity, _) => ClauseName(*code, *arity),
             _ => unreachable!(),
         }
     }

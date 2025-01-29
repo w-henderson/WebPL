@@ -43,6 +43,7 @@ pub enum HeapTerm {
     Compound(StringId, usize, Option<HeapTermPtr>),
     CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
     Cut(ChoicePointIdx),
+    Lambda(StringId, usize, Option<HeapTermPtr>),
 }
 
 pub enum CodeTerm {
@@ -50,6 +51,7 @@ pub enum CodeTerm {
     Var(StringId),
     Compound(StringId, Vec<CodeTerm>),
     Cut,
+    Lambda(StringId, Vec<CodeTerm>),
 }
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]
@@ -118,6 +120,8 @@ impl Solver {
         let program = grammar::ProgramParser::new()
             .parse(program.as_ref())
             .map_err(|e| ast::parse_error(program.as_ref(), false, e))?;
+
+        println!("{:?}", program);
 
         let query = grammar::QueryParser::new()
             .parse(query.as_ref())

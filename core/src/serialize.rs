@@ -126,6 +126,7 @@ impl Heap {
                 }
                 HeapTerm::CompoundCons(_, _) => unreachable!(),
                 HeapTerm::Cut(_) => result.push('!'),
+                HeapTerm::Lambda(_, _, _) => result.push_str("<js_function>"),
             };
 
             if continue_list {

@@ -4,13 +4,14 @@ mod statistics;
 mod unify;
 
 use crate::stringmap::str;
-use crate::{Error, HeapTerm, HeapTermPtr, Solver, StringId};
+use crate::{Error, Heap, HeapTerm, HeapTermPtr, Solver, StringId};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BuiltinError {
     NotANumber(HeapTermPtr),
     InsufficientlyInstantiated(HeapTermPtr),
     UnsupportedOperation(StringId),
+    UnsupportedPlatform,
 }
 
 pub trait Builtin<const ARITY: usize> {
@@ -42,6 +43,10 @@ pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, Built
             solver.cut(*choice_point_idx);
             Some(Ok(true))
         }
+        HeapTerm::Lambda(js, arity, next) => {
+            let args = dyn_args(&solver.heap, *arity, *next);
+            Some(crate::wasm::inline_js::eval(solver, *js, args))
+        }
         _ => None,
     }
 }
@@ -67,6 +72,25 @@ pub fn args<const N: usize>(solver: &Solver, next: Option<HeapTermPtr>) -> [Heap
     args
 }
 
+pub fn dyn_args(heap: &Heap, arity: usize, next: Option<HeapTermPtr>) -> Vec<HeapTermPtr> {
+    let mut args = Vec::with_capacity(arity);
+    let mut next = next;
+
+    while let Some(arg) = next {
+        match heap.get(arg) {
+            HeapTerm::CompoundCons(head, tail) => {
+                args.push(*head);
+                next = *tail;
+            }
+            _ => break,
+        }
+    }
+
+    debug_assert_eq!(args.len(), arity);
+
+    args
+}
+
 pub fn error(solver: &Solver, error: BuiltinError) -> Error {
     Error {
         location: None,
@@ -84,6 +108,7 @@ pub fn error(solver: &Solver, error: BuiltinError) -> Error {
             BuiltinError::UnsupportedOperation(s) => {
                 format!("Unsupported operation `{}`", solver.heap.get_atom(s))
             }
+            BuiltinError::UnsupportedPlatform => "Unsupported platform, requires WASM".to_string(),
         },
     }
 }
