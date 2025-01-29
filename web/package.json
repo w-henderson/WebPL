@@ -18,7 +18,7 @@
     "swipl-wasm": "^4.0.18",
     "tau-prolog": "^0.3.4",
     "trealla": "^0.21.14",
-    "webpl": "file:../core/pkg"
+    "webpl": "file:../lib"
   },
   "devDependencies": {
     "@types/node": "^20",

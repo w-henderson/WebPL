@@ -1,4 +1,4 @@
 #!/bin/bash
-wasm-pack build --target web ./core
-rm -r ./web/public/webpl
-cp -r ./core/pkg ./web/public/webpl
+wasm-pack build --target web ./core --out-dir ../lib/wasm
+rm -rf ./web/public/webpl
+cp -r ./lib/wasm ./web/public/webpl
