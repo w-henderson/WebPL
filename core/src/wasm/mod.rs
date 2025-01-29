@@ -24,12 +24,13 @@ pub fn init() {
 
 #[wasm_bindgen(module = "/src/wasm/inline_js_handler.js")]
 extern "C" {
+    #[wasm_bindgen(catch)]
     fn eval_js(
         js: &str,
         args: Vec<JsValue>,
         unify_wasm: &mut dyn FnMut(HeapTermPtr, HeapTermPtr) -> bool,
-        alloc_wasm: &mut dyn FnMut(JsValue) -> HeapTermPtr,
-    ) -> bool;
+        alloc_wasm: &mut dyn FnMut(JsValue) -> Result<HeapTermPtr, String>,
+    ) -> Result<bool, JsValue>;
 }
 
 pub enum Term {

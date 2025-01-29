@@ -9,6 +9,11 @@ export function eval_js(js, args, unify_wasm, alloc_wasm) {
     return unify_wasm(a_ptr, b_ptr);
   };
 
-  let fn = eval(js);
-  return fn(...args);
+  try {
+    console.log(js);
+    let fn = eval(js);
+    return fn(...args);
+  } catch (e) {
+    throw e.toString();
+  }
 }

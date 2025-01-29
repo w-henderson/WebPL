@@ -23,18 +23,20 @@ pub fn eval(solver: &mut Solver, js: usize, args: Vec<HeapTermPtr>) -> Result<bo
         &mut |a| {
             if let Some(a) = a.as_f64() {
                 if a == a as i64 as f64 {
-                    solver.borrow_mut().heap.alloc_atom(Atom::Integer(a as i64))
+                    Ok(solver.borrow_mut().heap.alloc_atom(Atom::Integer(a as i64)))
                 } else {
-                    solver.borrow_mut().heap.alloc_atom(Atom::Float(a))
+                    Ok(solver.borrow_mut().heap.alloc_atom(Atom::Float(a)))
                 }
             } else if let Some(a) = a.as_string() {
                 let a = solver.borrow_mut().heap.string_map.alloc(&a);
-                solver.borrow_mut().heap.alloc_atom(Atom::String(a))
+                Ok(solver.borrow_mut().heap.alloc_atom(Atom::String(a)))
             } else {
-                panic!("Invalid term")
+                Err("Can only allocate numbers and strings".to_string())
             }
         },
     );
 
-    Ok(result)
+    result.map_err(|e| {
+        BuiltinError::JavaScriptError(e.as_string().unwrap_or_else(|| "<js error>".to_string()))
+    })
 }

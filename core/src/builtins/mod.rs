@@ -12,6 +12,7 @@ pub enum BuiltinError {
     InsufficientlyInstantiated(HeapTermPtr),
     UnsupportedOperation(StringId),
     UnsupportedPlatform,
+    JavaScriptError(String),
 }
 
 pub trait Builtin<const ARITY: usize> {
@@ -109,6 +110,7 @@ pub fn error(solver: &Solver, error: BuiltinError) -> Error {
                 format!("Unsupported operation `{}`", solver.heap.get_atom(s))
             }
             BuiltinError::UnsupportedPlatform => "Unsupported platform, requires WASM".to_string(),
+            BuiltinError::JavaScriptError(e) => format!("JS: {}", e),
         },
     }
 }
