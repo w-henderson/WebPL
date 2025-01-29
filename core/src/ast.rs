@@ -3,19 +3,24 @@ use crate::{atom, ClauseName, CodeTerm, Error, ErrorLocation};
 
 use lalrpop_util::lexer::Token;
 
+#[derive(Debug)]
 pub struct Program(pub Vec<Clause>);
 
 pub struct Query(pub Vec<Term>);
 
+#[derive(Debug)]
 pub struct Clause(pub Term, pub Vec<Term>);
 
+#[derive(Debug)]
 pub enum Term {
     Atom(Atom),
     Variable(String),
     Compound(String, Vec<Term>),
     Cut,
+    Lambda(String, Vec<Term>),
 }
 
+#[derive(Debug)]
 pub enum Atom {
     String(String),
     Integer(i64),
@@ -57,8 +62,92 @@ impl Term {
                     Some(ClauseName(functor, args.len())),
                 )
             }
+            Term::Lambda(js, args) => {
+                let js = string_map.alloc(js);
+                (
+                    CodeTerm::Lambda(
+                        js,
+                        args.iter()
+                            .map(|arg| arg.to_code_term(string_map).0)
+                            .collect(),
+                    ),
+                    None,
+                )
+            }
             Term::Cut => (CodeTerm::Cut, None),
         }
+    }
+
+    pub fn parse_lambda(js_str: &str) -> Result<Term, &'static str> {
+        let js = js_str.as_bytes();
+
+        let mut vars = Vec::new();
+
+        let consume_whitespace = |mut start: usize| -> usize {
+            while let Some(c) = js.get(start) {
+                if !c.is_ascii_whitespace() {
+                    break;
+                }
+                start += 1;
+            }
+
+            start
+        };
+
+        let read_var = |start: usize| -> Option<(String, usize)> {
+            if !js.get(start)?.is_ascii_uppercase() {
+                return None;
+            }
+
+            let mut end = start + 1;
+
+            while js
+                .get(end)
+                .map(|c| c.is_ascii_alphanumeric() || *c == b'_')
+                .unwrap_or(false)
+            {
+                end += 1;
+            }
+
+            Some((js_str[start..end].to_string(), end))
+        };
+
+        let mut i = consume_whitespace(2);
+
+        if js.get(i) == Some(&b'(') {
+            i = consume_whitespace(i + 1);
+            while let Some((var, new_i)) = read_var(i) {
+                vars.push(Term::Variable(var));
+                i = consume_whitespace(new_i);
+                if *js.get(i).ok_or("Unexpected EOF")? == b',' {
+                    i = consume_whitespace(i + 1);
+                } else {
+                    i = consume_whitespace(i);
+                    break;
+                }
+            }
+
+            if *js.get(i).ok_or("Unexpected EOF")? != b')' {
+                return Err("Expected )");
+            }
+
+            i = consume_whitespace(i + 1);
+        } else if let Some((var, new_i)) = read_var(i) {
+            vars.push(Term::Variable(var));
+            i = consume_whitespace(new_i);
+        } else {
+            return Err("Expected ( or variable name");
+        }
+
+        if *js.get(i).ok_or("Unexpected EOF")? != b'='
+            || *js.get(i + 1).ok_or("Unexpected EOF")? != b'>'
+        {
+            return Err("Expected =>");
+        }
+
+        let js = js_str[2..js_str.len() - 2].trim().to_string();
+
+        Ok(Term::Lambda(js, vars))
     }
 }
 
