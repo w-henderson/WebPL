@@ -60,7 +60,7 @@ Op2: String = r"\+|-" => <>.to_string();
 Op3: String = r"=|>|<|>=|<=|=\\=|=:=| is " => <>.trim().to_string();
 
 AtomStr: String = r"[a-z][a-zA-Z0-9_]*" => <>.to_string();
-VarStr: String = r"[A-Z][a-zA-Z0-9_]*" => <>.to_string();
+VarStr: String = r"[A-Z_][a-zA-Z0-9_]*" => <>.to_string();
 Integer: i64 = r"-?[0-9]+" => <>.parse().unwrap();
 Float: f64 = r"-?[0-9]+\.[0-9]+" => <>.parse().unwrap();
 

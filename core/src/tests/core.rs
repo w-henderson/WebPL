@@ -145,6 +145,12 @@ test!(comment, |solver: SolverFn| {
     assert_eq!(solver.step().unwrap(), None);
 });
 
+test!(underscore, |solver: SolverFn| {
+    let mut solver = solver("a(2, 3).", "a(_, _).");
+    assert_eq!(solver.step().unwrap(), Some(vec![]));
+    assert_eq!(solver.step().unwrap(), None);
+});
+
 #[test]
 fn empty() {
     assert!(Solver::new("", "a.").is_ok());
