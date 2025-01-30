@@ -2,7 +2,7 @@ use crate::builtins::{args, BuiltinError};
 use crate::stringmap::str;
 use crate::{Atom, HeapTerm, HeapTermPtr, Solver};
 
-use std::ops::{Add, Div, Mul, Rem, Sub};
+use std::ops::{Add, Div, Mul, Rem, Shl, Shr, Sub};
 
 pub fn eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Atom, BuiltinError> {
     match solver.heap.get(term) {
@@ -27,6 +27,8 @@ pub fn eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Atom, BuiltinError
                 str::DIV => div(&a, &b),
                 str::INTDIV => div_euclid(&a, &b),
                 str::MOD => rem(&a, &b),
+                str::RSHIFT => shr(&a, &b),
+                str::LSHIFT => shl(&a, &b),
                 _ => Err(()),
             }
             .map_err(|_| BuiltinError::UnsupportedOperation(f))
@@ -47,6 +49,14 @@ macro_rules! impl_arithmetic_op {
             }
         }
     };
+    (NO FLOAT $op:ident) => {
+        fn $op(a: &Atom, b: &Atom) -> Result<Atom, ()> {
+            match (a, b) {
+                (Atom::Integer(a), Atom::Integer(b)) => Ok(Atom::Integer(a.$op(*b))),
+                _ => Err(()),
+            }
+        }
+    };
 }
 
 impl_arithmetic_op!(add);
@@ -55,3 +65,5 @@ impl_arithmetic_op!(mul);
 impl_arithmetic_op!(div);
 impl_arithmetic_op!(div_euclid);
 impl_arithmetic_op!(rem);
+impl_arithmetic_op!(NO FLOAT shl);
+impl_arithmetic_op!(NO FLOAT shr);

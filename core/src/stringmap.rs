@@ -23,6 +23,8 @@ pub mod str {
     pub const UNDERSCORE: usize = 16;
     pub const INTDIV: usize = 17;
     pub const MOD: usize = 18;
+    pub const RSHIFT: usize = 19;
+    pub const LSHIFT: usize = 20;
 }
 
 pub struct StringMap {
@@ -52,6 +54,8 @@ impl Default for StringMap {
             "_".to_string(),
             "//".to_string(),
             "mod".to_string(),
+            ">>".to_string(),
+            "<<".to_string(),
         ];
 
         let map = reverse

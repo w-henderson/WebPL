@@ -20,25 +20,37 @@ Term: Term = {
     #[precedence(level="0")]
     <a:Atom> => Term::Atom(a),
     <v:VarStr> => Term::Variable(v),
-    <f:AtomStr> "(" <a:Comma<Term>> ")" => Term::Compound(f, a),
+    <f:AtomStr> "(" <a:Comma<BracketedTerm>> ")" => Term::Compound(f, a),
     "(" <t:BracketedTerm> ")" => t,
 
-    "[" <a:Comma<Term>> "|" <t:Term> "]" => Term::list(a, Some(t)),
-    "[" <a:Comma<Term>> "]" => Term::list(a, None),
+    "[" <a:Comma<BracketedTerm>> "|" <t:BracketedTerm> "]" => Term::list(a, Some(t)),
+    "[" <a:Comma<BracketedTerm>> "]" => Term::list(a, None),
     "[]" => Term::list(vec![], None),
 
     <t:LambdaTerm> => t,
 
     "!" => Term::Cut,
 
+    // Disambiguate +/- applied to numbers as opposed to ordinary unary operators
+    <o:AddOp> <t:Term> => match (o.as_str(), &t) {
+        ("+", Term::Atom(Atom::Integer(_))) => t,
+        ("+", Term::Atom(Atom::Float(_))) => t,
+        ("-", Term::Atom(Atom::Integer(i))) => Term::Atom(Atom::Integer(-i)),
+        ("-", Term::Atom(Atom::Float(f))) => Term::Atom(Atom::Float(-f)),
+        _ => Term::Compound(o, vec![t])
+    },
+
     #[precedence(level="1")] #[assoc(side="left")]
-    <t1:Term> <o:Op1> <t2:Term> => Term::Compound(o, vec![t1, t2]),
+    <t1:Term> <o:MulOp> <t2:Term> => Term::Compound(o, vec![t1, t2]),
 
     #[precedence(level="2")] #[assoc(side="left")]
-    <t1:Term> <o:Op2> <t2:Term> => Term::Compound(o, vec![t1, t2]),
+    <t1:Term> <o:AddOp> <t2:Term> => Term::Compound(o, vec![t1, t2]),
 
     #[precedence(level="3")] #[assoc(side="left")]
-    <t1:Term> <o:Op3> <t2:Term> => Term::Compound(o, vec![t1, t2]),
+    <t1:Term> <o:ShfOp> <t2:Term> => Term::Compound(o, vec![t1, t2]),
+
+    #[precedence(level="4")] #[assoc(side="left")]
+    <t1:Term> <o:CmpOp> <t2:Term> => Term::Compound(o, vec![t1, t2]),
 }
 
 LambdaTerm: Term = {
@@ -51,18 +63,22 @@ BracketedTerm: Term = <Term>;
 
 Atom: Atom = {
     <s:AtomStr> => Atom::String(s),
+    <s:StringLiteral> => Atom::String(s),
     <i:Integer> => Atom::Integer(i),
     <f:Float>   => Atom::Float(f),
 }
 
-Op1: String = r"\*|\/|\/\/| mod " => <>.trim().to_string();
-Op2: String = r"\+|-" => <>.trim().to_string();
-Op3: String = r"=|>|<|>=|=<|=\\=|=:=| is " => <>.trim().to_string();
+MulOp: String = r"\*|\/|\/\/| mod " => <>.trim().to_string();
+AddOp: String = r"\+|-" => <>.trim().to_string();
+ShfOp: String = r"<<|>>" => <>.trim().to_string();
+CmpOp: String = r"=|>|<|>=|=<|=\\=|=:=| is " => <>.trim().to_string();
 
 AtomStr: String = r"[a-z][a-zA-Z0-9_]*" => <>.to_string();
 VarStr: String = r"[A-Z_][a-zA-Z0-9_]*" => <>.to_string();
-Integer: i64 = r"-?[0-9]+" => <>.parse().unwrap();
-Float: f64 = r"-?[0-9]+\.[0-9]+" => <>.parse().unwrap();
+Integer: i64 = r"[0-9]+" => <>.parse().unwrap();
+Float: f64 = r"[0-9]+\.[0-9]+" => <>.parse().unwrap();
+
+StringLiteral: String = r#"("(\\\\|\\"|[^"\\])*")|('(\\\\|\\'|[^'\\])*')"# => <>.to_string();
 
 Comma<T>: Vec<T> = {
     <t:T> => vec![t],

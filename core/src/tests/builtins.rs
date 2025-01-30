@@ -62,16 +62,30 @@ test!(cut_failure, |solver: SolverFn| {
 });
 
 test!(is, |solver: SolverFn| {
-    let query = "Y = 3, X is Y + (2 * 5.1).";
-
-    let mut solver = solver("", query);
-
+    let query_1 = "Y = 3, X is Y + (2 * 5.1).";
+    let mut solver_1 = solver("", query_1);
     assert_eq!(
-        solver.step().unwrap(),
+        solver_1.step().unwrap(),
         Some(vec![("Y".into(), "3".into()), ("X".into(), "13.2".into())])
     );
+    assert_eq!(solver_1.step().unwrap(), None);
 
-    assert_eq!(solver.step().unwrap(), None);
+    let program_2 = "f(X, Y) :- X is Y.";
+    let query_2 = "f(X, 3-4).";
+    let mut solver_2 = solver(program_2, query_2);
+    assert_eq!(
+        solver_2.step().unwrap(),
+        Some(vec![("X".into(), "-1".into())])
+    );
+    assert_eq!(solver_2.step().unwrap(), None);
+
+    let query_3 = "X is 1 << 8.";
+    let mut solver_3 = solver("", query_3);
+    assert_eq!(
+        solver_3.step().unwrap(),
+        Some(vec![("X".into(), "256".into())])
+    );
+    assert_eq!(solver_3.step().unwrap(), None);
 });
 
 test!(intdiv, |solver: SolverFn| {
