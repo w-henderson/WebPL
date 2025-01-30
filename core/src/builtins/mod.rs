@@ -1,3 +1,4 @@
+mod arithmetic;
 mod cmp;
 mod is;
 mod statistics;

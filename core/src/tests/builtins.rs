@@ -83,6 +83,7 @@ test!(intdiv, |solver: SolverFn| {
 test!(cmp, |solver: SolverFn| {
     let query_1 = "4 > 3.";
     let query_2 = "3 > 4.";
+    let query_3 = "5 > 2 + 2.";
 
     let mut solver_1 = solver("", query_1);
     assert_eq!(solver_1.step().unwrap(), Some(vec![]));
@@ -90,6 +91,10 @@ test!(cmp, |solver: SolverFn| {
 
     let mut solver_2 = solver("", query_2);
     assert_eq!(solver_2.step().unwrap(), None);
+
+    let mut solver_3 = solver("", query_3);
+    assert_eq!(solver_3.step().unwrap(), Some(vec![]));
+    assert_eq!(solver_3.step().unwrap(), None);
 });
 
 test!(insufficient_instantiation, |solver: SolverFn| {
