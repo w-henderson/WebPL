@@ -25,6 +25,12 @@ pub mod str {
     pub const MOD: usize = 18;
     pub const RSHIFT: usize = 19;
     pub const LSHIFT: usize = 20;
+    pub const VAR: usize = 21;
+    pub const INTEGER: usize = 22;
+    pub const FLOAT: usize = 23;
+    pub const ATOM: usize = 24;
+    pub const COMPOUND: usize = 25;
+    pub const NUMBER: usize = 26;
 }
 
 pub struct StringMap {
@@ -56,6 +62,12 @@ impl Default for StringMap {
             "mod".to_string(),
             ">>".to_string(),
             "<<".to_string(),
+            "var".to_string(),
+            "integer".to_string(),
+            "float".to_string(),
+            "atom".to_string(),
+            "compound".to_string(),
+            "number".to_string(),
         ];
 
         let map = reverse

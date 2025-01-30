@@ -135,3 +135,30 @@ test!(insufficient_instantiation, |solver: SolverFn| {
         panic!("Expected an error");
     }
 });
+
+test!(typecheck, |solver: SolverFn| {
+    let mut solver_1 = solver("", "X is 1, integer(X).");
+    let mut solver_2 = solver("", "X is 1.1, float(X).");
+    let mut solver_3 = solver("", "var(X).");
+    let mut solver_4 = solver("", "X = 1, var(X).");
+
+    assert_eq!(
+        solver_1.step().unwrap(),
+        Some(vec![("X".into(), "1".into())])
+    );
+    assert_eq!(solver_1.step().unwrap(), None);
+
+    assert_eq!(
+        solver_2.step().unwrap(),
+        Some(vec![("X".into(), "1.1".into())])
+    );
+    assert_eq!(solver_2.step().unwrap(), None);
+
+    assert_eq!(
+        solver_3.step().unwrap(),
+        Some(vec![("X".into(), "_1".into())])
+    );
+    assert_eq!(solver_3.step().unwrap(), None);
+
+    assert_eq!(solver_4.step().unwrap(), None);
+});

@@ -57,19 +57,28 @@ test!(mutual_recursive_solution, |solver: SolverFn| {
 });
 
 test!(backtracking, |solver: SolverFn| {
-    let program = r#"
+    let program_1 = r#"
         generate(1).
         generate(2).
         test(2).
         solve(X) :- generate(X), test(X).
     "#;
+    let query_1 = "solve(X).";
+    let mut solver_1 = solver(program_1, query_1);
+    assert_eq!(
+        solver_1.step().unwrap(),
+        Some(vec![("X".into(), "2".into())])
+    );
+    assert_eq!(solver_1.step().unwrap(), None);
 
-    let query = "solve(X).";
-
-    let mut solver = solver(program, query);
-
-    assert_eq!(solver.step().unwrap(), Some(vec![("X".into(), "2".into())]));
-    assert_eq!(solver.step().unwrap(), None);
+    let program_2 = r#"
+        a :- fail.
+        a.
+    "#;
+    let query_2 = "a.";
+    let mut solver_2 = solver(program_2, query_2);
+    assert_eq!(solver_2.step().unwrap(), Some(vec![]));
+    assert_eq!(solver_2.step().unwrap(), None);
 });
 
 test!(multiple_goals, |solver: SolverFn| {

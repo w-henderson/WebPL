@@ -121,8 +121,6 @@ impl Solver {
             .parse(program.as_ref())
             .map_err(|e| ast::parse_error(program.as_ref(), false, e))?;
 
-        println!("{:?}", program);
-
         let query = grammar::QueryParser::new()
             .parse(query.as_ref())
             .map_err(|e| ast::parse_error(query.as_ref(), true, e))?;
@@ -205,52 +203,52 @@ impl Solver {
                 None => {} // This goal is not a built-in predicate
             };
 
-            let group = self.group?;
+            if let Some(group) = self.group {
+                while self.clause < self.program[group].1.len() {
+                    var_map.clear();
 
-            while self.clause < self.program[group].1.len() {
-                var_map.clear();
+                    let head = &self.program[group].1[self.clause].head;
 
-                let head = &self.program[group].1[self.clause].head;
+                    if self.pre_unify(goal, head) {
+                        let choice_point = self.enter();
 
-                if self.pre_unify(goal, head) {
-                    let choice_point = self.enter();
-
-                    if self.clause + 1 < self.program[group].1.len() {
-                        self.choice_point_age = choice_point.heap_checkpoint;
-                    }
-
-                    let head = self
-                        .heap
-                        .alloc(head, &mut var_map, self.choice_points.len());
-
-                    if self.unify(goal, head) {
-                        // If this was the only choice, don't push a choice point
                         if self.clause + 1 < self.program[group].1.len() {
-                            self.push_choice_point(choice_point);
+                            self.choice_point_age = choice_point.heap_checkpoint;
                         }
 
-                        self.goals.pop();
-                        let body = &self.program[group].1[self.clause].body;
-                        for goal in body.iter().rev() {
-                            self.goals.push(self.heap.alloc(
-                                goal,
-                                &mut var_map,
-                                self.choice_points.len().saturating_sub(1),
-                            ));
+                        let head = self
+                            .heap
+                            .alloc(head, &mut var_map, self.choice_points.len());
+
+                        if self.unify(goal, head) {
+                            // If this was the only choice, don't push a choice point
+                            if self.clause + 1 < self.program[group].1.len() {
+                                self.push_choice_point(choice_point);
+                            }
+
+                            self.goals.pop();
+                            let body = &self.program[group].1[self.clause].body;
+                            for goal in body.iter().rev() {
+                                self.goals.push(self.heap.alloc(
+                                    goal,
+                                    &mut var_map,
+                                    self.choice_points.len().saturating_sub(1),
+                                ));
+                            }
+
+                            self.find_clause_group();
+
+                            if self.goals.is_complete() {
+                                let solution = self.serialize_solution();
+                                self.pop_choice_point();
+                                return Some(Ok(solution));
+                            }
+
+                            continue 'solve;
                         }
 
-                        self.find_clause_group();
-
-                        if self.goals.is_complete() {
-                            let solution = self.serialize_solution();
-                            self.pop_choice_point();
-                            return Some(Ok(solution));
-                        }
-
-                        continue 'solve;
+                        self.undo(choice_point);
                     }
-
-                    self.undo(choice_point);
                 }
             }
 
