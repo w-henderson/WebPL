@@ -55,7 +55,7 @@ Atom: Atom = {
     <f:Float>   => Atom::Float(f),
 }
 
-Op1: String = r"\*|\/" => <>.to_string();
+Op1: String = r"\*|\/|\/\/" => <>.to_string();
 Op2: String = r"\+|-" => <>.to_string();
 Op3: String = r"=|>|<|>=|=<|=\\=|=:=| is " => <>.trim().to_string();
 

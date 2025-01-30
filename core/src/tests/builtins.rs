@@ -74,6 +74,12 @@ test!(is, |solver: SolverFn| {
     assert_eq!(solver.step().unwrap(), None);
 });
 
+test!(intdiv, |solver: SolverFn| {
+    let mut solver = solver("", "X is 10 // 3.");
+    assert_eq!(solver.step().unwrap(), Some(vec![("X".into(), "3".into())]));
+    assert_eq!(solver.step().unwrap(), None);
+});
+
 test!(cmp, |solver: SolverFn| {
     let query_1 = "4 > 3.";
     let query_2 = "3 > 4.";
