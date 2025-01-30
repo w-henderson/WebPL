@@ -138,6 +138,8 @@ test!(LONG n_queens, |solver: SolverFn| {
 test!(comment, |solver: SolverFn| {
     let query = r#"
         % this is a comment!
+        /* this is also
+        a comment! */
         X is 3.
     "#;
     let mut solver = solver("", query);

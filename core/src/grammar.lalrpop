@@ -73,7 +73,8 @@ Comma<T>: Vec<T> = {
 }
 
 match {
-    r"\s*" => { },              // Skip whitespace
-    r"%[^\n\r]*[\n\r]*" => { }, // Skip comments
+    r"\s*" => { },                                   // Skip whitespace
+    r"%[^\n\r]*[\n\r]*" => { },                      // Skip `%` comments
+    r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/" => { },        // Skip `/* */` comments
     _
 }
