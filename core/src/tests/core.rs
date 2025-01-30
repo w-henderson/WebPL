@@ -135,6 +135,16 @@ test!(LONG n_queens, |solver: SolverFn| {
     assert_eq!(solver.count(), 92);
 });
 
+test!(comment, |solver: SolverFn| {
+    let query = r#"
+        % this is a comment!
+        X is 3.
+    "#;
+    let mut solver = solver("", query);
+    assert_eq!(solver.step().unwrap(), Some(vec![("X".into(), "3".into())]));
+    assert_eq!(solver.step().unwrap(), None);
+});
+
 #[test]
 fn empty() {
     assert!(Solver::new("", "a.").is_ok());

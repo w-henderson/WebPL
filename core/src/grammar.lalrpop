@@ -71,3 +71,9 @@ Comma<T>: Vec<T> = {
         ts
     },
 }
+
+match {
+    r"\s*" => { },              // Skip whitespace
+    r"%[^\n\r]*[\n\r]*" => { }, // Skip comments
+    _
+}
