@@ -162,6 +162,29 @@ test!(underscore, |solver: SolverFn| {
     assert_eq!(solver.step().unwrap(), None);
 });
 
+test!(LONG tak, |solver: SolverFn| {
+    let program = r#"
+        tak(X,Y,Z,A) :-
+                X =< Y,
+                Z = A.
+        tak(X,Y,Z,A) :-
+            X > Y,
+                X1 is X - 1,
+                tak(X1,Y,Z,A1),
+                Y1 is Y - 1,
+                tak(Y1,Z,X,A2),
+                Z1 is Z - 1,
+                tak(Z1,X,Y,A3),
+                tak(A1,A2,A3,A).
+    "#;
+
+    let query = "tak(18,12,6,_).";
+
+    let mut solver = solver(program, query);
+    assert_eq!(solver.step().unwrap(), Some(vec![]));
+    assert_eq!(solver.step().unwrap(), None);
+});
+
 #[test]
 fn empty() {
     assert!(Solver::new("", "a.").is_ok());
