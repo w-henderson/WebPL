@@ -75,9 +75,19 @@ test!(is, |solver: SolverFn| {
 });
 
 test!(intdiv, |solver: SolverFn| {
-    let mut solver = solver("", "X is 10 // 3.");
-    assert_eq!(solver.step().unwrap(), Some(vec![("X".into(), "3".into())]));
-    assert_eq!(solver.step().unwrap(), None);
+    let mut solver_1 = solver("", "X is 10 // 3.");
+    assert_eq!(
+        solver_1.step().unwrap(),
+        Some(vec![("X".into(), "3".into())])
+    );
+    assert_eq!(solver_1.step().unwrap(), None);
+
+    let mut solver_2 = solver("", "X is 10 mod 3.");
+    assert_eq!(
+        solver_2.step().unwrap(),
+        Some(vec![("X".into(), "1".into())])
+    );
+    assert_eq!(solver_2.step().unwrap(), None);
 });
 
 test!(cmp, |solver: SolverFn| {

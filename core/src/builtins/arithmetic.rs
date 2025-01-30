@@ -2,7 +2,7 @@ use crate::builtins::{args, BuiltinError};
 use crate::stringmap::str;
 use crate::{Atom, HeapTerm, HeapTermPtr, Solver};
 
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Rem, Sub};
 
 pub fn eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Atom, BuiltinError> {
     match solver.heap.get(term) {
@@ -26,6 +26,7 @@ pub fn eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Atom, BuiltinError
                 str::MUL => mul(&a, &b),
                 str::DIV => div(&a, &b),
                 str::INTDIV => div_euclid(&a, &b),
+                str::MOD => rem(&a, &b),
                 _ => Err(()),
             }
             .map_err(|_| BuiltinError::UnsupportedOperation(f))
@@ -53,3 +54,4 @@ impl_arithmetic_op!(sub);
 impl_arithmetic_op!(mul);
 impl_arithmetic_op!(div);
 impl_arithmetic_op!(div_euclid);
+impl_arithmetic_op!(rem);
