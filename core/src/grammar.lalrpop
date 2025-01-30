@@ -57,7 +57,7 @@ Atom: Atom = {
 
 Op1: String = r"\*|\/" => <>.to_string();
 Op2: String = r"\+|-" => <>.to_string();
-Op3: String = r"=|>|<|>=|<=|=\\=|=:=| is " => <>.trim().to_string();
+Op3: String = r"=|>|<|>=|=<|=\\=|=:=| is " => <>.trim().to_string();
 
 AtomStr: String = r"[a-z][a-zA-Z0-9_]*" => <>.to_string();
 VarStr: String = r"[A-Z_][a-zA-Z0-9_]*" => <>.to_string();
