@@ -1,1 +1,40 @@
 \chapter{Evaluation}
+
+{\sisetup{
+  round-mode=places,
+  round-precision=2,
+  table-format=3.2
+}
+\begin{table}[h]
+\centering
+\csvreader[
+    tabular={llllll},
+    table head=\hline\addlinespace
+        Benchmark & WebPL & WebPL-GC & SWI & Trealla & Tau\\\addlinespace\hline\addlinespace,
+    table foot=\addlinespace\hline,
+    late after line=\\
+]{data/results_250131_2024_chrome.time.csv}{}%
+{\csvcoli & \num{\csvcolii} & \num{\csvcoliii} & \num{\csvcoliv} & \num{\csvcolv} & \num{\csvcolvi}}
+\caption{Time to run each benchmark in Chrome 132 (milliseconds)}
+\label{tab:chrome-time}
+\end{table}}
+
+{\sisetup{
+  round-mode=places,
+  round-precision=0,
+  group-separator={\ },
+  table-format=6.0
+}
+\begin{table}[h]
+\centering
+\csvreader[
+    tabular={llll},
+    table head=\hline\addlinespace
+        Benchmark & WebPL & WebPL-GC & SWI\\\addlinespace\hline\addlinespace,
+    table foot=\addlinespace\hline,
+    late after line=\\
+]{data/results_250131_2024_chrome.memory.csv}{}%
+{\csvcoli & \num{\csvcolii} & \num{\csvcoliii} & \num{\csvcoliv}}
+\caption{Peak memory usage of each benchmark in Chrome 132 (bytes)}
+\label{tab:chrome-mem}
+\end{table}}
