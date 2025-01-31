@@ -14,7 +14,7 @@ import TauProlog from "@/prolog/tau-prolog";
 
 const WEBPL = new WebPL();
 const WEBPL_GC = new WebPLGC();
-const SWIPL_ = new SWIPL();
+let SWIPL_ = new SWIPL();
 const TREALLA_PROLOG = new TreallaProlog();
 const TAU_PROLOG = new TauProlog();
 
@@ -44,12 +44,50 @@ export default function BenchPage() {
 
     const results: any = {};
 
-    for (const engine of [WEBPL, WEBPL_GC, SWIPL_, TREALLA_PROLOG, TAU_PROLOG]) {
-      results[engine.name] = await run(engine.name, async (program: string, query: string) => {
-        await engine.solve(program, query);
-        return (await engine.all()).length > 0;
-      }, s => setLog(log => log + s));
+    for (const engine of [WEBPL, WEBPL_GC]) {
+      results[engine.name] = await run(engine.name, {
+        solve: async (program: string, query: string) => {
+          await engine.solve(program, query.slice(0, -1) + ", statistics(allocated, Mem).");
+          const result = await engine.next();
+          return {
+            ok: result !== undefined,
+            memory: result ? parseInt(result.get("Mem")!) : undefined
+          }
+        },
+        log: s => setLog(log => log + s),
+        clean: undefined
+      });
     }
+
+    /*results["SWI-Prolog"] = await run("SWI-Prolog", {
+      solve: async (program: string, query: string) => {
+        await SWIPL_.solve(program, query.slice(0, -1) + ", statistics(stack, Mem).");
+        const result = await SWIPL_.next();
+        return {
+          ok: result !== undefined,
+          memory: result ? parseInt(result.get("Mem")!) : undefined
+        }
+      },
+      log: s => setLog(log => log + s),
+      clean: async () => {
+        SWIPL_ = new SWIPL();
+        await SWIPL_.init();
+      }
+    });
+
+    for (const engine of [TREALLA_PROLOG, TAU_PROLOG]) {
+      results[engine.name] = await run(engine.name, {
+        solve: async (program: string, query: string) => {
+          await engine.solve(program, query);
+          return {
+            ok: (await engine.all()).length > 0,
+            memory: undefined as number | undefined
+          }
+        },
+        log: s => setLog(log => log + s),
+        clean: undefined,
+      });
+    }*/
 
     setState("complete");
     setResults(results);

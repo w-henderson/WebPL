@@ -5,18 +5,18 @@ const MIN_ITERS = 10;
 const MAX_ITERS = 1000;
 
 /**
- * @param {async () => void} fn
+ * @param {() => Promise<void>} fn
  */
 async function warmup(fn) {
   let ok = true;
 
   let start = performance.now();
-  ok &= await fn();
+  ok &= (await fn()).ok;
   let end = performance.now();
 
   if (end - start < 100) {
     for (let i = 0; i < 20; i++) {
-      ok &= await fn();
+      ok &= (await fn()).ok;
     }
   }
 
@@ -27,47 +27,68 @@ async function warmup(fn) {
 
 /**
  * @param {string} name
- * @param {async (program: string, query: string) => bool} solve
- * @param {(s: string) => void} log
+ * @param { {
+ *   solve: (program: string, query: string) => Promise<{ ok: boolean, memory: number | undefined }>,
+ *   clean: (() => Promise<void>) | undefined,
+ *   log: (s: string) => void
+ * }} fns
  */
-export async function run(solverName, solve, log) {
+export async function run(solverName, fns) {
   let results = [];
 
-  log(`=== ${solverName} ===\n`);
+  fns.log(`=== ${solverName} ===\n`);
 
   for (const name in benchmarks) {
     try {
-      log(`${name}... `);
+      fns.log(`${name}...`);
 
-      let fn = async () => await solve(benchmarks[name], "top.");
+      if (fns.clean) await fns.clean();
+      let fn = async () => await fns.solve(benchmarks[name], "top.");
       await warmup(fn);
-      let samples = [];
+      let timeSamples = [];
+      let memorySamples = [];
+
+      fns.log(" ... ");
 
       let benchmarkStart = performance.now();
       for (let i = 0; i < MAX_ITERS; i++) {
         let start = performance.now();
-        await fn();
+        let memory = (await fn()).memory;
         let end = performance.now();
 
-        samples.push(end - start);
+        timeSamples.push(end - start);
+
+        if (memory !== undefined) {
+          memorySamples.push(memory);
+        }
 
         if (end - benchmarkStart > TARGET_TIME_PER_BENCHMARK && i > MIN_ITERS) {
           break;
         }
       }
 
-      let avg = Math.round((samples.reduce((a, b) => a + b, 0) / samples.length) * 100) / 100;
-      log(`${avg}ms\n`);
+      let avgTime = Math.round((timeSamples.reduce((a, b) => a + b, 0) / timeSamples.length) * 100) / 100;
+      if (memorySamples.length > 0) {
+        let avgMemory = memorySamples.reduce((a, b) => a + b, 0) / memorySamples.length
+        fns.log(`${avgTime}ms, ${avgMemory} bytes\n`);
+      } else {
+        fns.log(`${avgTime}ms\n`);
+      }
 
-      results.push({ solverName, samples });
+      results.push({
+        solverName,
+        timeSamples,
+        memorySamples
+      });
     } catch (e) {
-      log(`error: ${e.toString()}\n`);
+      fns.log(`error: ${e.toString()}\n`);
+      console.error(e);
 
       results.push({ solverName, samples: [] });
     }
   }
 
-  log("Complete\n\n");
+  fns.log("Complete\n\n");
 
   return results;
 }

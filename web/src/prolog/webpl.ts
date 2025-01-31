@@ -18,13 +18,13 @@ export default class WebPL extends Prolog {
   }
 
   public async next(): Promise<Solution | undefined> {
-    const solution = this.solver?.next();
+    const solution = await this.solver?.next();
     if (solution === undefined) return undefined;
     return solution;
   }
 
   public async all(): Promise<Solution[]> {
-    const solutions = this.solver?.all();
+    const solutions = await this.solver?.all();
     if (solutions === undefined) return [];
     return solutions;
   }
