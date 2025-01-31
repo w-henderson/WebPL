@@ -1,0 +1,51 @@
+\documentclass{article}
+
+\usepackage[a4paper, total={7in, 11in}]{geometry}
+
+\setlength\parskip{1em}
+\setlength\parindent{0pt}
+\pagenumbering{gobble}
+
+\title{Part II Project Progress Report:\\
+{\bf A Prolog interpreter for the browser}}
+\author{William Henderson \\
+University of Cambridge \\
+\texttt{wh364@cam.ac.uk}}
+\date{January 2025}
+
+\begin{document}
+
+\maketitle
+
+{\bf Supervisor}: Alan Mycroft \\
+{\bf Director of Studies}: John Fawcett \\
+{\bf Project Checkers}: Hatice Gunes, Neel Krishnaswami
+
+\section*{Project Status}
+
+The project, to implement a Prolog interpreter for the browser, is on schedule, with the core of the project completed, alongside a number of extensions.
+
+\section*{Work Completed}
+
+The success criteria have been met. This comprises a pure Prolog interpreter written in Rust (including a parser), which was compiled to WebAssembly and is able to run in the browser. I evaluated its performance against other Prolog interpreters which support the browser environment (SWI-Prolog, Trealla Prolog, and Tau Prolog) with a widely used set of benchmarks, and found its performance to be equivalent or better than the others in the majority of cases in both execution time and memory usage.
+
+I also implemented a simple web-based IDE for the interpreter, which supports a number of other interpreters as plug-in modules (including SWI-Prolog, Trealla Prolog, and Tau Prolog). It includes syntax highlighting, benchmarking, and runs in all major browsers.
+
+To better integrate the interpreter with the browser environment, I added support for inline JavaScript calls from Prolog via some new syntax:
+\begin{center}
+\texttt{add(X, Y, Z) :- <\{ (X, Y) => unify(Z, X + Y) \}>}
+\end{center}
+
+Optimisations I made include:
+
+\begin{itemize}
+\item A region-based memory allocator to exploit WebAssembly's linear memory model.
+\item Choice point elimination, subsuming last call optimisation. This avoids pushing unnecessary choice points based on static analysis of the program structure.
+\item Variable shunting, collapsing chains of irreversible variable bindings and reducing the size of the trail stack.
+\item String interning, which reduces memory usage by storing only one copy of each unique string. I further specified fixed identifiers for built-in predicate names such as \texttt{is} to avoid string comparisons.
+\item Avoiding blocking the main JavaScript thread by running WebAssembly code in a separate Web Worker.
+\end{itemize}
+
+As the browser is a memory-constrained environment, I also implemented a mark-and-sweep garbage collector for the interpreter, which improves the memory usage of long-running Prolog programs which do little backtracking.
+
+\end{document}
