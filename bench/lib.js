@@ -76,7 +76,7 @@ export async function run(solverName, fns) {
       }
 
       results.push({
-        solverName,
+        name,
         timeSamples,
         memorySamples
       });
@@ -84,7 +84,7 @@ export async function run(solverName, fns) {
       fns.log(`error: ${e.toString()}\n`);
       console.error(e);
 
-      results.push({ solverName, samples: [] });
+      results.push({ name, samples: [] });
     }
   }
 
