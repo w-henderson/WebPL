@@ -59,7 +59,7 @@ export default function BenchPage() {
       });
     }
 
-    /*results["SWI-Prolog"] = await run("SWI-Prolog", {
+    results["SWI-Prolog"] = await run("SWI-Prolog", {
       solve: async (program: string, query: string) => {
         await SWIPL_.solve(program, query.slice(0, -1) + ", statistics(stack, Mem).");
         const result = await SWIPL_.next();
@@ -87,7 +87,7 @@ export default function BenchPage() {
         log: s => setLog(log => log + s),
         clean: undefined,
       });
-    }*/
+    }
 
     setState("complete");
     setResults(results);
