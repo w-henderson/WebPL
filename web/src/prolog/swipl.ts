@@ -30,7 +30,7 @@ export default class SWIPL extends Prolog {
     do {
       solutions.push(this.encodeSolution(solution)!);
       solution = this.query!.next();
-    } while (!solution.done);
+    } while (!solution.done || solution.value);
     return solutions;
   }
 

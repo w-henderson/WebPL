@@ -40,6 +40,29 @@ test!(cut, |solver: SolverFn| {
     let mut solver_3 = solver(program, query_3);
     assert_eq!(solver_3.step().unwrap(), Some(vec![]));
     assert_eq!(solver_3.step().unwrap(), None);
+
+    let program_4 = r#"
+        a(1).
+        a(2).
+        
+        b(X) :- !.
+        
+        c(X) :- a(X), b(X).
+    "#;
+    let query_4 = "c(X).";
+
+    println!("end");
+
+    let mut solver_4 = solver(program_4, query_4);
+    assert_eq!(
+        solver_4.step().unwrap(),
+        Some(vec![("X".into(), "1".into())])
+    );
+    assert_eq!(
+        solver_4.step().unwrap(),
+        Some(vec![("X".into(), "2".into())])
+    );
+    assert_eq!(solver_4.step().unwrap(), None);
 });
 
 test!(cut_failure, |solver: SolverFn| {

@@ -211,14 +211,13 @@ impl Solver {
 
                     if self.pre_unify(goal, head) {
                         let choice_point = self.enter();
+                        let choice_point_idx = self.choice_points.len();
 
                         if self.clause + 1 < self.program[group].1.len() {
                             self.choice_point_age = choice_point.heap_checkpoint;
                         }
 
-                        let head = self
-                            .heap
-                            .alloc(head, &mut var_map, self.choice_points.len());
+                        let head = self.heap.alloc(head, &mut var_map, choice_point_idx);
 
                         if self.unify(goal, head) {
                             // If this was the only choice, don't push a choice point
@@ -232,7 +231,7 @@ impl Solver {
                                 self.goals.push(self.heap.alloc(
                                     goal,
                                     &mut var_map,
-                                    self.choice_points.len().saturating_sub(1),
+                                    choice_point_idx,
                                 ));
                             }
 
