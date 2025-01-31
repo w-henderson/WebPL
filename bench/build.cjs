@@ -17,4 +17,7 @@ fs.readdirSync(dir).forEach(file => {
 
 output += "};\n";
 
+if (!fs.existsSync(outDir)) {
+  fs.mkdirSync(outDir);
+}
 fs.writeFileSync(path.join(outDir, "benchmarks.js"), output);
