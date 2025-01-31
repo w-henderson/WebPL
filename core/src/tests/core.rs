@@ -57,19 +57,28 @@ test!(mutual_recursive_solution, |solver: SolverFn| {
 });
 
 test!(backtracking, |solver: SolverFn| {
-    let program = r#"
+    let program_1 = r#"
         generate(1).
         generate(2).
         test(2).
         solve(X) :- generate(X), test(X).
     "#;
+    let query_1 = "solve(X).";
+    let mut solver_1 = solver(program_1, query_1);
+    assert_eq!(
+        solver_1.step().unwrap(),
+        Some(vec![("X".into(), "2".into())])
+    );
+    assert_eq!(solver_1.step().unwrap(), None);
 
-    let query = "solve(X).";
-
-    let mut solver = solver(program, query);
-
-    assert_eq!(solver.step().unwrap(), Some(vec![("X".into(), "2".into())]));
-    assert_eq!(solver.step().unwrap(), None);
+    let program_2 = r#"
+        a :- fail.
+        a.
+    "#;
+    let query_2 = "a.";
+    let mut solver_2 = solver(program_2, query_2);
+    assert_eq!(solver_2.step().unwrap(), Some(vec![]));
+    assert_eq!(solver_2.step().unwrap(), None);
 });
 
 test!(multiple_goals, |solver: SolverFn| {
@@ -133,6 +142,47 @@ test!(LONG n_queens, |solver: SolverFn| {
     let solver = solver(program, query);
 
     assert_eq!(solver.count(), 92);
+});
+
+test!(comment, |solver: SolverFn| {
+    let query = r#"
+        % this is a comment!
+        /* this is also
+        a comment! */
+        X is 3.
+    "#;
+    let mut solver = solver("", query);
+    assert_eq!(solver.step().unwrap(), Some(vec![("X".into(), "3".into())]));
+    assert_eq!(solver.step().unwrap(), None);
+});
+
+test!(underscore, |solver: SolverFn| {
+    let mut solver = solver("a(2, 3).", "a(_, _).");
+    assert_eq!(solver.step().unwrap(), Some(vec![]));
+    assert_eq!(solver.step().unwrap(), None);
+});
+
+test!(LONG tak, |solver: SolverFn| {
+    let program = r#"
+        tak(X,Y,Z,A) :-
+                X =< Y,
+                Z = A.
+        tak(X,Y,Z,A) :-
+            X > Y,
+                X1 is X - 1,
+                tak(X1,Y,Z,A1),
+                Y1 is Y - 1,
+                tak(Y1,Z,X,A2),
+                Z1 is Z - 1,
+                tak(Z1,X,Y,A3),
+                tak(A1,A2,A3,A).
+    "#;
+
+    let query = "tak(18,12,6,_).";
+
+    let mut solver = solver(program, query);
+    assert_eq!(solver.step().unwrap(), Some(vec![]));
+    assert_eq!(solver.step().unwrap(), None);
 });
 
 #[test]

@@ -20,6 +20,7 @@ impl Heap {
                         .unwrap(),
                 )
             })
+            .filter(|(x, _)| x != "_")
             .collect()
     }
 

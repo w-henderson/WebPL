@@ -5,6 +5,7 @@ use crate::{ChoicePointIdx, ClauseName, CodeTerm, HeapTerm, HeapTermPtr, Query, 
 pub struct Heap {
     pub(crate) data: Vec<HeapTerm>,
     pub(crate) string_map: StringMap,
+    pub(crate) initialised: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -18,6 +19,7 @@ impl Heap {
         let mut heap = Self {
             data: Vec::new(),
             string_map,
+            initialised: false,
         };
 
         let mut var_map = Vec::new();
@@ -31,6 +33,8 @@ impl Heap {
             .into_iter()
             .map(|(id, ptr)| (heap.string_map.get(id).unwrap().to_string(), ptr))
             .collect();
+
+        heap.initialised = true;
 
         (heap, heap_query, var_map)
     }
@@ -53,6 +57,12 @@ impl Heap {
 
         match term {
             CodeTerm::Atom(atom) => self.data.push(HeapTerm::Atom(*atom)),
+            CodeTerm::Var(crate::stringmap::str::UNDERSCORE) => {
+                self.data.push(HeapTerm::Var(result, false));
+                if !self.initialised {
+                    var_map.push((crate::stringmap::str::UNDERSCORE, result)); // to provide GC root
+                }
+            }
             CodeTerm::Var(id) => {
                 if let Some((_, unified)) = var_map.iter().find(|(x, _)| x == id) {
                     self.data.push(HeapTerm::Var(*unified, false));

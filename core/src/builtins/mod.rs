@@ -1,6 +1,8 @@
+mod arithmetic;
 mod cmp;
 mod is;
 mod statistics;
+mod types;
 mod unify;
 
 use crate::stringmap::str;
@@ -22,7 +24,18 @@ pub trait Builtin<const ARITY: usize> {
 pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, BuiltinError>> {
     match solver.heap.get(goal) {
         HeapTerm::Compound(functor, arity, next) => {
-            if *arity == 2 {
+            if *arity == 1 {
+                let args = args(solver, *next);
+                match *functor {
+                    str::INTEGER => Some(types::IsIntegerBuiltin::eval(solver, args)),
+                    str::FLOAT => Some(types::IsFloatBuiltin::eval(solver, args)),
+                    str::ATOM => Some(types::IsAtomBuiltin::eval(solver, args)),
+                    str::COMPOUND => Some(types::IsCompoundBuiltin::eval(solver, args)),
+                    str::NUMBER => Some(types::IsNumberBuiltin::eval(solver, args)),
+                    str::VAR => Some(types::IsVarBuiltin::eval(solver, args)),
+                    _ => None,
+                }
+            } else if *arity == 2 {
                 let args = args(solver, *next);
                 match *functor {
                     str::EQ => Some(unify::UnifyBuiltin::eval(solver, args)),

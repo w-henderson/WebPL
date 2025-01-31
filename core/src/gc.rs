@@ -18,6 +18,7 @@ pub struct GCScheduler {
     relative_threshold: f64,
     cooldown: usize,
     remaining_cooldown: usize,
+    last_live_percentage: f64,
 }
 
 pub trait GCRewritable {
@@ -34,6 +35,7 @@ impl GarbageCollector {
                 relative_threshold,
                 cooldown,
                 remaining_cooldown: 0,
+                last_live_percentage: 0.0,
             },
         }
     }
@@ -47,6 +49,7 @@ impl GarbageCollector {
                 relative_threshold: 0.0,
                 cooldown: 0,
                 remaining_cooldown: 0,
+                last_live_percentage: 0.0,
             },
         }
     }
@@ -96,6 +99,8 @@ impl GarbageCollector {
 
         self.shunt(heap);
         self.compact(heap, trail);
+
+        self.scheduler.last_live_percentage = (heap.data.len() as f64) / (self.map.len() as f64)
     }
 
     fn mark(&mut self, heap: &Heap, ptr: HeapTermPtr) {
@@ -233,7 +238,8 @@ impl GCScheduler {
             && self.remaining_cooldown == 0;
 
         if should_run {
-            self.remaining_cooldown = self.cooldown;
+            self.remaining_cooldown =
+                (self.cooldown as f64 * (1.0 / (1.0 - self.last_live_percentage))) as usize;
         } else {
             self.remaining_cooldown = self.remaining_cooldown.saturating_sub(1);
         }

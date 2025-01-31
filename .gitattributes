@@ -1,1 +1,2 @@
 web/vendor/* linguist-vendored
+bench/suite/* linguist-vendored
