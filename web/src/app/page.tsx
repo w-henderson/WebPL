@@ -159,23 +159,27 @@ export default function Home() {
         loading={loading}
         settingsOpen={settingsOpen}
         setSettingsOpen={setSettingsOpen}
-        solve={() => solve(false)}
+        solve={() => { if (!loading) solve(false) }}
         one={() => {
-          if (results.length > 0
-            && results[results.length - 1].query === query
-            && !results[results.length - 1].complete) {
-            one();
-          } else {
-            solve(false);
+          if (!loading) {
+            if (results.length > 0
+              && results[results.length - 1].query === query
+              && !results[results.length - 1].complete) {
+              one();
+            } else {
+              solve(false);
+            }
           }
         }}
         all={() => {
-          if (results.length > 0
-            && results[results.length - 1].query === query
-            && !results[results.length - 1].complete) {
-            all();
-          } else {
-            solve(true);
+          if (!loading) {
+            if (results.length > 0
+              && results[results.length - 1].query === query
+              && !results[results.length - 1].complete) {
+              all();
+            } else {
+              solve(true);
+            }
           }
         }} />
 
