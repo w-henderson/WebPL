@@ -1,20 +1,27 @@
 \documentclass[oneside, 12pt]{book}
 
 \usepackage[utf8]{inputenc}
-\usepackage[a4paper, margin=1in]{geometry}
+\usepackage[a4paper, top=1.5in, bottom=1.5in, left=1in, right=1in]{geometry}
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage[hidelinks]{hyperref}
 \usepackage{csvsimple}
 \usepackage{booktabs}
 \usepackage{siunitx}
+\usepackage{setspace}
+\usepackage[toc,page]{appendix}
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{1em}
+\setstretch{1.25}
+\hyphenation{Prolog}
+\hyphenation{WebAssembly}
 
 \begin{document}
 
+\newgeometry{top=1in, bottom=1in, left=1in, right=1in}
 \input{01cover}
+\restoregeometry
 
 \frontmatter
 
@@ -36,7 +43,10 @@
 
 \input{09conclusions}
 
-\bibliographystyle{plain}
+\addcontentsline{toc}{chapter}{Bibliography}
+\bibliographystyle{apalike}
 \bibliography{refs}
+
+\input{10appendices}
 
 \end{document}
