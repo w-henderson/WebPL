@@ -1,6 +1,6 @@
 \chapter{Introduction}
 
-% TODO overview
+This dissertation explores the use of Prolog in the browser by building a Prolog interpreter, WebPL, with a particular focus on performance and browser integration. This chapter introduces the motivation for the project, briefly discussing the existing landscape of Prolog implementations for the browser, and outlines the aims of the project.
 
 \section{Motivation}
 
@@ -16,11 +16,9 @@ Web-native implementations, on the other hand, are more tightly integrated with 
 
 There is a third approach, taken by some browser-based Prolog systems, which is to run the Prolog engine on a server and communicate with it through a client-server model. The browser-based Prolog development environment SWISH is one such system \cite{wielemakerSWISHSWIPrologSharing2015}. SWI-Prolog runs on the server, communicating with the browser using Pengines, a library for exchanging Prolog queries and results over HTTP \cite{lagerPenginesWebLogic2014}. This has similar performance to web-ported implementations, albeit with greater latency, but has the added complexity and failure modes of a client-server architecture.
 
-I hypothesise that \textbf{a web-native Prolog implementation using WebAssembly, guided by the constraints of the browser environment, may be able to achieve superior performance compared to existing implementations while preserving tight integration with the browser}.
+I hypothesise that \textbf{a web-native Prolog implementation using WebAssembly, with design guided by the constraints of the browser environment, may be able to achieve superior performance compared to existing implementations while preserving tight integration with the browser}.
 
 The project aims to explore this hypothesis by building such a Prolog implementation.
-
-\newpage
 
 \section{Project Aims}
 
@@ -32,14 +30,14 @@ The aims of the project are as follows:
 \item a \textbf{lexer} and \textbf{parser} for \emph{pure Prolog}\footnote{So as not to distract from the focus of performance and browser integration, the project considers a subset of Prolog, roughly equivalent to the content of the Cambridge Computer Science Part IB Prolog course. Appendix \ref{appendix:pure-prolog} comprises a detailed definition of the subset.} programs, and
 \item an \textbf{interpreter} for the parsed programs,
 \end{itemize}
-\item to \textbf{make optimisations} to the implementation to improve performance, including both traditional Prolog optimisations and those that specifically exploit the browser environment, and
+\item to \textbf{make optimisations} to improve performance, including both traditional Prolog optimisations and those that specifically target the browser environment, and
 \item to \textbf{evaluate its performance}, both in terms of execution time and memory usage, against existing web-ported and web-native Prolog implementations, exploring which factors contribute to the performance differences.
 \end{itemize}
 
 As extensions, the project has the following additional aims:
 
 \begin{itemize}
-\item to \textbf{build a development environment} for the Prolog implementation, similar to SWISH, which supports \textbf{plugins} for other Prolog implementations to facilitate comparison,
+\item to \textbf{build a browser-based development environment} for the Prolog implementation, similar to SWISH, which supports \textbf{plugins} for other Prolog implementations to facilitate comparison,
 \item to \textbf{implement a garbage collector} to make more efficient use of memory, and
 \item to \textbf{develop a foreign function interface}, extending the Prolog syntax to support \textbf{inline JavaScript code}, to integrate with the browser environment.
 \end{itemize}
