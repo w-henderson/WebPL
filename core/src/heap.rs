@@ -59,13 +59,10 @@ impl Heap {
             CodeTerm::Atom(atom) => self.data.push(HeapTerm::Atom(*atom)),
             CodeTerm::Var(crate::stringmap::str::UNDERSCORE) => {
                 self.data.push(HeapTerm::Var(result, false));
-                if !self.initialised {
-                    var_map.push((crate::stringmap::str::UNDERSCORE, result)); // to provide GC root
-                }
             }
             CodeTerm::Var(id) => {
                 if let Some((_, unified)) = var_map.iter().find(|(x, _)| x == id) {
-                    self.data.push(HeapTerm::Var(*unified, false));
+                    self.data.push(HeapTerm::Var(*unified, true)); // shunted
                 } else {
                     self.data.push(HeapTerm::Var(result, false));
                     var_map.push((*id, result));
