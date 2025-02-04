@@ -47,6 +47,7 @@ pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, Built
                     str::ANE => Some(cmp::NeqBuiltin::eval(solver, args)),
                     str::AEQ => Some(cmp::EqBuiltin::eval(solver, args)),
                     str::STAT => Some(statistics::StatisticsBuiltin::eval(solver, args)),
+                    str::EQUIV => Some(cmp::EquivBuiltin::eval(solver, args)),
                     _ => None,
                 }
             } else {

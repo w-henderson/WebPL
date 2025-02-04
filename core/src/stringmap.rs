@@ -31,6 +31,7 @@ pub mod str {
     pub const ATOM: usize = 24;
     pub const COMPOUND: usize = 25;
     pub const NUMBER: usize = 26;
+    pub const EQUIV: usize = 27;
 }
 
 pub struct StringMap {
@@ -68,6 +69,7 @@ impl Default for StringMap {
             "atom".to_string(),
             "compound".to_string(),
             "number".to_string(),
+            "==".to_string(),
         ];
 
         let map = reverse

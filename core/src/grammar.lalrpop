@@ -71,7 +71,7 @@ Atom: Atom = {
 MulOp: String = r"\*|\/|\/\/| mod " => <>.trim().to_string();
 AddOp: String = r"\+|-" => <>.trim().to_string();
 ShfOp: String = r"<<|>>" => <>.trim().to_string();
-CmpOp: String = r"=|>|<|>=|=<|=\\=|=:=| is " => <>.trim().to_string();
+CmpOp: String = r"=|==|>|<|>=|=<|=\\=|=:=| is " => <>.trim().to_string();
 
 AtomStr: String = r"[a-z][a-zA-Z0-9_]*" => <>.to_string();
 VarStr: String = r"[A-Z_][a-zA-Z0-9_]*" => <>.to_string();
