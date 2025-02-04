@@ -10,6 +10,7 @@ const GC_UNMARKED: usize = usize::MAX >> 1;
 pub struct GarbageCollector {
     map: Vec<usize>,
     trail_map: Vec<usize>,
+    map_len: usize,
     scheduler: GCScheduler,
 }
 
@@ -30,6 +31,7 @@ impl GarbageCollector {
         Self {
             map: Vec::new(),
             trail_map: Vec::new(),
+            map_len: 0,
             scheduler: GCScheduler {
                 absolute_threshold,
                 relative_threshold,
@@ -44,6 +46,7 @@ impl GarbageCollector {
         Self {
             map: Vec::new(),
             trail_map: Vec::new(),
+            map_len: 0,
             scheduler: GCScheduler {
                 absolute_threshold: usize::MAX,
                 relative_threshold: 0.0,
@@ -55,12 +58,27 @@ impl GarbageCollector {
     }
 
     pub fn run(solver: &mut Solver) {
-        let roots = solver
-            .gc
-            .get_roots(&solver.var_map, &solver.goals, &solver.choice_points);
         solver
             .gc
-            .collect(&mut solver.heap, &mut solver.trail, roots);
+            .reset(solver.heap.data.len(), solver.trail.vars.len());
+
+        let roots = solver.gc.get_roots(&solver.var_map, &solver.goals);
+
+        solver.gc.mark_heap(&solver.heap, roots);
+        solver.gc.mark_from_choice_points(
+            &mut solver.heap,
+            &solver.goals,
+            &mut solver.trail,
+            &solver.choice_points,
+        );
+
+        solver.gc.shunt(&solver.heap);
+        solver.gc.realign_choice_points(&mut solver.choice_points);
+        solver.gc.compact(&mut solver.heap, &mut solver.trail);
+
+        solver.gc.scheduler.last_live_percentage =
+            (solver.heap.data.len() as f64) / (solver.gc.map.len() as f64);
+
         solver.gc.rewrite(
             &mut solver.var_map,
             &mut solver.goals,
@@ -68,39 +86,53 @@ impl GarbageCollector {
         );
     }
 
-    pub fn get_roots<'a>(
+    fn reset(&mut self, heap_len: usize, trail_len: usize) {
+        self.map.clear();
+        self.map.resize(heap_len + 1, GC_UNMARKED);
+        self.map_len = heap_len;
+
+        self.trail_map.clear();
+        self.trail_map.resize(trail_len + 1, 0);
+    }
+
+    fn get_roots<'a>(
         &self,
         vars: &'a [(String, usize)],
         goals: &'a Goals,
-        choice_points: &'a [ChoicePoint],
     ) -> impl Iterator<Item = HeapTermPtr> + 'a {
-        vars.iter()
-            .map(|(_, ptr)| *ptr)
-            .chain(goals.iter())
-            .chain(choice_points.iter().flat_map(|cp| {
-                goals
-                    .iter_from(cp.goals_checkpoint)
-                    .chain(std::iter::once(cp.heap_checkpoint.0))
-            }))
+        vars.iter().map(|(_, ptr)| *ptr).chain(goals.iter())
     }
 
-    pub fn collect(
-        &mut self,
-        heap: &mut Heap,
-        trail: &mut Trail,
-        roots: impl Iterator<Item = HeapTermPtr>,
-    ) {
-        self.map.clear();
-        self.map.resize(heap.data.len(), GC_UNMARKED);
-
+    fn mark_heap(&mut self, heap: &Heap, roots: impl Iterator<Item = HeapTermPtr>) {
         for root in roots {
             self.mark(heap, root);
         }
+    }
 
-        self.shunt(heap);
-        self.compact(heap, trail);
+    fn mark_from_choice_points(
+        &mut self,
+        heap: &mut Heap,
+        goals: &Goals,
+        trail: &mut Trail,
+        choice_points: &[ChoicePoint],
+    ) {
+        let mut last_top = trail.vars.len();
 
-        self.scheduler.last_live_percentage = (heap.data.len() as f64) / (self.map.len() as f64)
+        for cp in choice_points.iter().rev() {
+            // Early reset variables that will be reset when backtracking to
+            // this choice point and are not otherwise reachable
+            for var in (cp.trail_checkpoint.0..last_top).map(|i| trail.vars[i]) {
+                if self.map[var] == GC_UNMARKED {
+                    heap.unbind(var);
+                }
+            }
+
+            for goal in goals.iter_from(cp.goals_checkpoint) {
+                self.mark(heap, goal);
+            }
+
+            last_top = cp.trail_checkpoint.0;
+        }
     }
 
     fn mark(&mut self, heap: &Heap, ptr: HeapTermPtr) {
@@ -135,6 +167,20 @@ impl GarbageCollector {
         }
     }
 
+    fn realign_choice_points(&mut self, choice_points: &mut [ChoicePoint]) {
+        for cp in choice_points.iter_mut() {
+            let mut checkpoint = cp.heap_checkpoint.0;
+
+            while checkpoint < self.map_len
+                && (self.map[checkpoint] == GC_UNMARKED || self.map[checkpoint] & GC_SHUNTED != 0)
+            {
+                checkpoint += 1;
+            }
+
+            cp.heap_checkpoint.0 = checkpoint;
+        }
+    }
+
     fn compact(&mut self, heap: &mut Heap, trail: &mut Trail) {
         let mut new_ptr: HeapTermPtr = 0;
 
@@ -153,13 +199,14 @@ impl GarbageCollector {
             }
         }
 
+        *self.map.last_mut().unwrap() = new_ptr;
         heap.data.truncate(new_ptr);
 
         // Do the same on the trail stack
         self.collect_trail(trail);
 
         // Rewrite shunted pointers
-        for i in 0..self.map.len() {
+        for i in 0..self.map_len {
             if self.map[i] & GC_SHUNTED != 0 {
                 let old_ptr = self.map[i] ^ GC_SHUNTED;
                 self.map[i] = self.map[old_ptr];
@@ -183,9 +230,6 @@ impl GarbageCollector {
     }
 
     fn collect_trail(&mut self, trail: &mut Trail) {
-        self.trail_map.clear();
-        self.trail_map.resize(trail.vars.len() + 1, GC_UNMARKED);
-
         let mut new_ptr = 0;
         let mut old_ptr = 0;
 

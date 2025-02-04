@@ -77,6 +77,9 @@ pub struct Solver {
     gc: GarbageCollector,
     var_map: Vec<(String, HeapTermPtr)>,
     trail: Trail,
+
+    #[cfg(test)]
+    interrupt: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[derive(Copy, Clone)]
@@ -161,6 +164,9 @@ impl Solver {
             },
             var_map,
             trail: Trail::new(),
+
+            #[cfg(test)]
+            interrupt: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
         };
 
         solver.find_clause_group();
@@ -176,6 +182,9 @@ impl Solver {
         let mut var_map = Vec::new();
 
         'solve: loop {
+            #[cfg(test)]
+            self.check_interrupted()?;
+
             if self.gc.should_run(&self.heap) {
                 GarbageCollector::run(self);
             }
@@ -378,11 +387,6 @@ impl Solver {
     #[inline]
     pub(crate) fn serialize_solution(&mut self) -> Solution {
         self.heap.serialize(&self.var_map)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn max_choice_point_stack_height(&self) -> usize {
-        self.choice_points.capacity()
     }
 }
 
