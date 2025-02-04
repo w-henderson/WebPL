@@ -71,34 +71,36 @@ impl Heap {
             CodeTerm::Compound(functor, args) => {
                 let arity = args.len();
 
-                self.data.push(HeapTerm::Compound(*functor, arity, None));
+                self.data.push(HeapTerm::Compound(*functor, arity));
 
-                let mut next = None;
-                for arg in args.iter().rev() {
-                    let head = self.alloc(arg, var_map, choice_point_idx);
-                    let tail = next.replace(self.data.len());
-                    self.data.push(HeapTerm::CompoundCons(head, tail));
+                let args_heap = self.data.len();
+                for _ in args {
+                    self.data.push(HeapTerm::Var(0, false));
                 }
 
-                if let HeapTerm::Compound(_, _, arg) = &mut self.data[result] {
-                    *arg = next;
+                for (i, arg) in args.iter().enumerate() {
+                    let arg = self.alloc(arg, var_map, choice_point_idx);
+                    if let HeapTerm::Var(x, _) = &mut self.data[args_heap + i] {
+                        *x = arg;
+                    }
                 }
             }
             CodeTerm::Cut => self.data.push(HeapTerm::Cut(choice_point_idx)),
             CodeTerm::Lambda(js, args) => {
                 let arity = args.len();
 
-                self.data.push(HeapTerm::Lambda(*js, arity, None));
+                self.data.push(HeapTerm::Lambda(*js, arity));
 
-                let mut next = None;
-                for arg in args.iter().rev() {
-                    let head = self.alloc(arg, var_map, choice_point_idx);
-                    let tail = next.replace(self.data.len());
-                    self.data.push(HeapTerm::CompoundCons(head, tail));
+                let args_heap = self.data.len();
+                for _ in args {
+                    self.data.push(HeapTerm::Var(0, false));
                 }
 
-                if let HeapTerm::Lambda(_, _, arg) = &mut self.data[result] {
-                    *arg = next;
+                for (i, arg) in args.iter().enumerate() {
+                    let arg = self.alloc(arg, var_map, choice_point_idx);
+                    if let HeapTerm::Var(x, _) = &mut self.data[args_heap + i] {
+                        *x = arg;
+                    }
                 }
             }
         }
@@ -112,14 +114,18 @@ impl Heap {
         result
     }
 
-    pub fn get(&self, mut var: HeapTermPtr) -> &HeapTerm {
+    pub fn get(&self, var: HeapTermPtr) -> &HeapTerm {
+        &self.data[self.get_ptr(var)]
+    }
+
+    pub fn get_ptr(&self, mut var: HeapTermPtr) -> HeapTermPtr {
         debug_assert!(var < self.data.len());
 
         // Follow the chain of variable bindings until we reach the root.
         loop {
             match &self.data[var] {
                 HeapTerm::Var(x, _) if *x != var => var = *x,
-                _ => return &self.data[var],
+                _ => return var,
             }
         }
     }
@@ -152,9 +158,9 @@ impl Heap {
     pub fn get_name(&self, term: HeapTermPtr) -> ClauseName {
         match self.get(term) {
             HeapTerm::Atom(Atom::String(name)) => ClauseName(*name, 0),
-            HeapTerm::Compound(functor, arity, _) => ClauseName(*functor, *arity),
+            HeapTerm::Compound(functor, arity) => ClauseName(*functor, *arity),
             HeapTerm::Cut(_) => ClauseName(crate::stringmap::str::EXCL, 0),
-            HeapTerm::Lambda(code, arity, _) => ClauseName(*code, *arity),
+            HeapTerm::Lambda(code, arity) => ClauseName(*code, *arity),
             _ => unreachable!(),
         }
     }

@@ -67,67 +67,51 @@ impl Heap {
                     } else {
                         if let Some(stack) = stack {
                             // Keep track of this variable to find future cycles
-                            stacks[stack].1.push(term);
+                            stacks[stack].1.push(*ptr);
                         }
                         term = *ptr;
                         continue;
                     }
                 }
-                HeapTerm::Compound(crate::stringmap::str::DOT, 2, next) => {
-                    if let Some(HeapTerm::CompoundCons(head, tail)) = next.map(|x| &self.data[x]) {
-                        let element = self.serialize_inner(*head, None, stacks, false)?;
+                HeapTerm::Compound(crate::stringmap::str::DOT, 2) => {
+                    let element = self.serialize_inner(term + 1, None, stacks, false)?;
 
-                        if element == "]" {
-                            match continue_list {
-                                true => write!(result, "]")?,
-                                false => write!(result, "[]")?,
-                            };
-                            return Ok(result);
-                        }
-
-                        if let Some(HeapTerm::CompoundCons(next_term, None)) =
-                            tail.map(|x| &self.data[x])
-                        {
-                            match continue_list {
-                                true => write!(result, ",{}", element)?,
-                                false => write!(result, "[{}", element)?,
-                            };
-
-                            term = *next_term;
-                            continue_list = true;
-                            continue;
-                        }
+                    if element == "]" {
+                        match continue_list {
+                            true => write!(result, "]")?,
+                            false => write!(result, "[]")?,
+                        };
+                        return Ok(result);
                     }
 
-                    unreachable!();
+                    match continue_list {
+                        true => write!(result, ",{}", element)?,
+                        false => write!(result, "[{}", element)?,
+                    };
+
+                    term += 2;
+                    continue_list = true;
+                    continue;
                 }
-                HeapTerm::Compound(functor, arity, next) => {
+                HeapTerm::Compound(functor, arity) => {
                     if continue_list {
                         result.push('|');
                     }
 
                     write!(result, "{}(", self.get_atom(*functor))?;
 
-                    let mut arg = *next;
-                    for i in 0..*arity {
-                        if let Some(HeapTerm::CompoundCons(head, tail)) = arg.map(|x| &self.data[x])
-                        {
-                            result.push_str(&self.serialize_inner(*head, None, stacks, false)?);
+                    for i in 1..=*arity {
+                        result.push_str(&self.serialize_inner(term + i, None, stacks, false)?);
 
-                            if i + 1 < *arity {
-                                result.push(',');
-                            }
-                            arg = *tail;
-                        } else {
-                            unreachable!();
+                        if i + 1 < *arity {
+                            result.push(',');
                         }
                     }
 
                     result.push(')');
                 }
-                HeapTerm::CompoundCons(_, _) => unreachable!(),
                 HeapTerm::Cut(_) => result.push('!'),
-                HeapTerm::Lambda(_, _, _) => result.push_str("<js_function>"),
+                HeapTerm::Lambda(_, _) => result.push_str("<js_function>"),
             };
 
             if continue_list {

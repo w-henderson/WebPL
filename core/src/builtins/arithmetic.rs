@@ -1,11 +1,12 @@
-use crate::builtins::{args, BuiltinError};
+use crate::builtins::BuiltinError;
 use crate::stringmap::str;
 use crate::{Atom, HeapTerm, HeapTermPtr, Solver};
 
 use std::ops::{Add, Div, Mul, Rem, Shl, Shr, Sub};
 
 pub fn eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Atom, BuiltinError> {
-    match solver.heap.get(term) {
+    let term_ptr = solver.heap.get_ptr(term);
+    match solver.heap.get(term_ptr) {
         HeapTerm::Atom(atom) => {
             if matches!(atom, Atom::Integer(_) | Atom::Float(_)) {
                 Ok(*atom)
@@ -14,11 +15,10 @@ pub fn eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Atom, BuiltinError
             }
         }
         HeapTerm::Var(_, _) => Err(BuiltinError::InsufficientlyInstantiated(term)),
-        HeapTerm::Compound(f, arity, next) if *arity == 2 => {
+        HeapTerm::Compound(f, arity) if *arity == 2 => {
             let f = *f;
-            let args = args::<2>(solver, *next);
-            let a = eval(solver, args[0])?;
-            let b = eval(solver, args[1])?;
+            let a = eval(solver, term_ptr + 1)?;
+            let b = eval(solver, term_ptr + 2)?;
 
             match f {
                 str::ADD => add(&a, &b),

@@ -36,14 +36,13 @@ static GC_HEAP_SIZE_THRESHOLD: usize = 1024;
 static GC_HEAP_PRESSURE_THRESHOLD: f64 = 0.8;
 static GC_COOLDOWN: usize = 16;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum HeapTerm {
     Atom(Atom),
     Var(HeapTermPtr, bool), // ptr, shunted
-    Compound(StringId, usize, Option<HeapTermPtr>),
-    CompoundCons(HeapTermPtr, Option<HeapTermPtr>),
+    Compound(StringId, usize),
     Cut(ChoicePointIdx),
-    Lambda(StringId, usize, Option<HeapTermPtr>),
+    Lambda(StringId, usize),
 }
 
 pub enum CodeTerm {
@@ -268,7 +267,7 @@ impl Solver {
         match (self.heap.get(a_ptr), b) {
             (HeapTerm::Atom(a), CodeTerm::Atom(b)) => a == b,
             (HeapTerm::Var(_, _), _) | (_, CodeTerm::Var(_)) => true,
-            (HeapTerm::Compound(f, a_arity, _), CodeTerm::Compound(g, b_args)) => {
+            (HeapTerm::Compound(f, a_arity), CodeTerm::Compound(g, b_args)) => {
                 f == g && *a_arity == b_args.len()
             }
             _ => false,
@@ -276,38 +275,29 @@ impl Solver {
     }
 
     fn unify(&mut self, a_ptr: HeapTermPtr, b_ptr: HeapTermPtr) -> bool {
-        match (self.heap.get(a_ptr), self.heap.get(b_ptr)) {
+        let a_root = self.heap.get_ptr(a_ptr);
+        let b_root = self.heap.get_ptr(b_ptr);
+
+        match (self.heap.get(a_root), self.heap.get(b_root)) {
             (HeapTerm::Atom(a), HeapTerm::Atom(b)) => a == b,
 
             // Unify variables downwards (i.e. newer variables point to older ones)
-            (HeapTerm::Var(a, _), HeapTerm::Var(b, _)) if *a < b_ptr => self.unify_var(*b, a_ptr),
-            (HeapTerm::Var(a, _), _) => self.unify_var(*a, b_ptr),
-            (_, HeapTerm::Var(b, _)) => self.unify_var(*b, a_ptr),
+            (HeapTerm::Var(a, _), HeapTerm::Var(b, _)) if *a < b_root => self.unify_var(*b, a_root),
+            (HeapTerm::Var(a, _), _) => self.unify_var(*a, b_root),
+            (_, HeapTerm::Var(b, _)) => self.unify_var(*b, a_root),
 
-            (HeapTerm::Compound(f, a_arity, a_next), HeapTerm::Compound(g, b_arity, b_next)) => {
+            (HeapTerm::Compound(f, a_arity), HeapTerm::Compound(g, b_arity)) => {
                 if f != g || a_arity != b_arity {
                     return false;
                 }
 
                 let checkpoint = self.trail.checkpoint();
 
-                let mut a_arg = *a_next;
-                let mut b_arg = *b_next;
-
-                while let Some((a_ref, b_ref)) = a_arg.zip(b_arg) {
-                    if let (
-                        HeapTerm::CompoundCons(a_head, a_tail),
-                        HeapTerm::CompoundCons(b_head, b_tail),
-                    ) = (self.heap.get(a_ref), self.heap.get(b_ref))
-                    {
-                        a_arg = *a_tail;
-                        b_arg = *b_tail;
-
-                        if !self.unify(*a_head, *b_head) {
-                            self.trail.undo(checkpoint, &mut self.heap);
-                            return false;
-                        }
-                    };
+                for (a_arg, b_arg) in (1..=*a_arity).map(|i| (a_root + i, b_root + i)) {
+                    if !self.unify(a_arg, b_arg) {
+                        self.trail.undo(checkpoint, &mut self.heap);
+                        return false;
+                    }
                 }
 
                 true

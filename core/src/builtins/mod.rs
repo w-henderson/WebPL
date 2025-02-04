@@ -6,7 +6,7 @@ mod types;
 mod unify;
 
 use crate::stringmap::str;
-use crate::{Error, Heap, HeapTerm, HeapTermPtr, Solver, StringId};
+use crate::{Error, HeapTerm, HeapTermPtr, Solver, StringId};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BuiltinError {
@@ -18,36 +18,35 @@ pub enum BuiltinError {
 }
 
 pub trait Builtin<const ARITY: usize> {
-    fn eval(solver: &mut Solver, args: [HeapTermPtr; ARITY]) -> Result<bool, BuiltinError>;
+    fn eval(solver: &mut Solver, args: HeapTermPtr) -> Result<bool, BuiltinError>;
 }
 
 pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, BuiltinError>> {
-    match solver.heap.get(goal) {
-        HeapTerm::Compound(functor, arity, next) => {
+    let goal_ptr = solver.heap.get_ptr(goal);
+    match solver.heap.get(goal_ptr) {
+        HeapTerm::Compound(functor, arity) => {
             if *arity == 1 {
-                let args = args(solver, *next);
                 match *functor {
-                    str::INTEGER => Some(types::IsIntegerBuiltin::eval(solver, args)),
-                    str::FLOAT => Some(types::IsFloatBuiltin::eval(solver, args)),
-                    str::ATOM => Some(types::IsAtomBuiltin::eval(solver, args)),
-                    str::COMPOUND => Some(types::IsCompoundBuiltin::eval(solver, args)),
-                    str::NUMBER => Some(types::IsNumberBuiltin::eval(solver, args)),
-                    str::VAR => Some(types::IsVarBuiltin::eval(solver, args)),
+                    str::INTEGER => Some(types::IsIntegerBuiltin::eval(solver, goal_ptr + 1)),
+                    str::FLOAT => Some(types::IsFloatBuiltin::eval(solver, goal_ptr + 1)),
+                    str::ATOM => Some(types::IsAtomBuiltin::eval(solver, goal_ptr + 1)),
+                    str::COMPOUND => Some(types::IsCompoundBuiltin::eval(solver, goal_ptr + 1)),
+                    str::NUMBER => Some(types::IsNumberBuiltin::eval(solver, goal_ptr + 1)),
+                    str::VAR => Some(types::IsVarBuiltin::eval(solver, goal_ptr + 1)),
                     _ => None,
                 }
             } else if *arity == 2 {
-                let args = args(solver, *next);
                 match *functor {
-                    str::EQ => Some(unify::UnifyBuiltin::eval(solver, args)),
-                    str::IS => Some(is::IsBuiltin::eval(solver, args)),
-                    str::GT => Some(cmp::GtBuiltin::eval(solver, args)),
-                    str::GE => Some(cmp::GteBuiltin::eval(solver, args)),
-                    str::LT => Some(cmp::LtBuiltin::eval(solver, args)),
-                    str::LE => Some(cmp::LteBuiltin::eval(solver, args)),
-                    str::ANE => Some(cmp::NeqBuiltin::eval(solver, args)),
-                    str::AEQ => Some(cmp::EqBuiltin::eval(solver, args)),
-                    str::STAT => Some(statistics::StatisticsBuiltin::eval(solver, args)),
-                    str::EQUIV => Some(cmp::EquivBuiltin::eval(solver, args)),
+                    str::EQ => Some(unify::UnifyBuiltin::eval(solver, goal_ptr + 1)),
+                    str::IS => Some(is::IsBuiltin::eval(solver, goal_ptr + 1)),
+                    str::GT => Some(cmp::GtBuiltin::eval(solver, goal_ptr + 1)),
+                    str::GE => Some(cmp::GteBuiltin::eval(solver, goal_ptr + 1)),
+                    str::LT => Some(cmp::LtBuiltin::eval(solver, goal_ptr + 1)),
+                    str::LE => Some(cmp::LteBuiltin::eval(solver, goal_ptr + 1)),
+                    str::ANE => Some(cmp::NeqBuiltin::eval(solver, goal_ptr + 1)),
+                    str::AEQ => Some(cmp::EqBuiltin::eval(solver, goal_ptr + 1)),
+                    str::STAT => Some(statistics::StatisticsBuiltin::eval(solver, goal_ptr + 1)),
+                    str::EQUIV => Some(cmp::EquivBuiltin::eval(solver, goal_ptr + 1)),
                     _ => None,
                 }
             } else {
@@ -58,52 +57,12 @@ pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, Built
             solver.cut(*choice_point_idx);
             Some(Ok(true))
         }
-        HeapTerm::Lambda(js, arity, next) => {
-            let args = dyn_args(&solver.heap, *arity, *next);
+        HeapTerm::Lambda(js, arity) => {
+            let args = (1..=*arity).map(|i| goal_ptr + i).collect();
             Some(crate::wasm::inline_js::eval(solver, *js, args))
         }
         _ => None,
     }
-}
-
-pub fn args<const N: usize>(solver: &Solver, next: Option<HeapTermPtr>) -> [HeapTermPtr; N] {
-    let mut args = [0; N];
-    let mut i = 0;
-    let mut next = next;
-
-    while let Some(arg) = next {
-        match solver.heap.get(arg) {
-            HeapTerm::CompoundCons(head, tail) => {
-                args[i] = *head;
-                i += 1;
-                next = *tail;
-            }
-            _ => break,
-        }
-    }
-
-    debug_assert_eq!(i, N);
-
-    args
-}
-
-pub fn dyn_args(heap: &Heap, arity: usize, next: Option<HeapTermPtr>) -> Vec<HeapTermPtr> {
-    let mut args = Vec::with_capacity(arity);
-    let mut next = next;
-
-    while let Some(arg) = next {
-        match heap.get(arg) {
-            HeapTerm::CompoundCons(head, tail) => {
-                args.push(*head);
-                next = *tail;
-            }
-            _ => break,
-        }
-    }
-
-    debug_assert_eq!(args.len(), arity);
-
-    args
 }
 
 pub fn error(solver: &Solver, error: BuiltinError) -> Error {

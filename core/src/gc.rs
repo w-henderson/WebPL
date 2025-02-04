@@ -135,23 +135,24 @@ impl GarbageCollector {
         }
     }
 
-    fn mark(&mut self, heap: &Heap, ptr: HeapTermPtr) {
-        if self.map[ptr] == GC_MARKED {
-            return;
-        }
-
-        self.map[ptr] = GC_MARKED;
-
-        match &heap.data[ptr] {
-            HeapTerm::Var(ptr, _) => self.mark(heap, *ptr),
-            HeapTerm::Compound(_, _, Some(next)) => self.mark(heap, *next),
-            HeapTerm::CompoundCons(v, next) => {
-                self.mark(heap, *v);
-                if let Some(next) = next {
-                    self.mark(heap, *next);
-                }
+    fn mark(&mut self, heap: &Heap, mut ptr: HeapTermPtr) {
+        loop {
+            if self.map[ptr] == GC_MARKED {
+                return;
             }
-            _ => (),
+
+            self.map[ptr] = GC_MARKED;
+
+            match &heap.data[ptr] {
+                HeapTerm::Var(next, _) => ptr = *next,
+                HeapTerm::Compound(_, arity) if *arity > 0 => {
+                    for i in 1..=(arity - 1) {
+                        self.mark(heap, ptr + i);
+                    }
+                    ptr += *arity; // tail recursion to avoid stack overflow on lists
+                }
+                _ => return,
+            }
         }
     }
 
@@ -215,16 +216,8 @@ impl GarbageCollector {
 
         // Rewrite internal pointers
         for term in heap.data.iter_mut() {
-            match term {
-                HeapTerm::Var(ptr, _) => *ptr = self.map[*ptr],
-                HeapTerm::Compound(_, _, Some(next)) => *next = self.map[*next],
-                HeapTerm::CompoundCons(head, tail) => {
-                    *head = self.map[*head];
-                    if let Some(tail) = tail {
-                        *tail = self.map[*tail];
-                    }
-                }
-                _ => (),
+            if let HeapTerm::Var(ptr, _) = term {
+                *ptr = self.map[*ptr]
             }
         }
     }

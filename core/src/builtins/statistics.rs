@@ -5,11 +5,11 @@ use crate::{HeapTerm, HeapTermPtr, Solver};
 pub struct StatisticsBuiltin;
 
 impl Builtin<2> for StatisticsBuiltin {
-    fn eval(solver: &mut Solver, args: [HeapTermPtr; 2]) -> Result<bool, BuiltinError> {
-        Ok(match solver.heap.get(args[0]) {
+    fn eval(solver: &mut Solver, args: HeapTermPtr) -> Result<bool, BuiltinError> {
+        Ok(match solver.heap.get(args) {
             HeapTerm::Atom(Atom::String(id)) => match solver.heap.get_atom(*id) {
-                "memory" => unify_int(solver, args[1], solver.heap.size() as i64),
-                "allocated" => unify_int(solver, args[1], solver.heap.capacity() as i64),
+                "memory" => unify_int(solver, args + 1, solver.heap.size() as i64),
+                "allocated" => unify_int(solver, args + 1, solver.heap.capacity() as i64),
                 _ => false,
             },
             _ => false,

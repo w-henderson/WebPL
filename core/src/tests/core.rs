@@ -39,16 +39,16 @@ test!(mutual_recursive_solution, |solver: SolverFn| {
     assert_eq!(
         solver_1.step().unwrap(),
         Some(vec![
+            ("X".into(), "f(L)".into()),
             ("L".into(), "[1,X|L]".into()),
-            ("X".into(), "f([1,X|L])".into()),
         ])
     );
 
     assert_eq!(
         solver_2.step().unwrap(),
         Some(vec![
-            ("L".into(), "[1,X|L]".into()),
             ("X".into(), "f(L)".into()),
+            ("L".into(), "[1,X|L]".into()),
         ])
     );
 

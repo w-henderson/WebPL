@@ -68,16 +68,16 @@ impl Solver {
 
 impl Term {
     pub fn from_heap(heap: &Heap, ptr: HeapTermPtr) -> Self {
+        let ptr = heap.get_ptr(ptr);
         match heap.get(ptr) {
             HeapTerm::Atom(Atom::String(id)) => Term::String(heap.get_atom(*id).to_string()),
             HeapTerm::Atom(Atom::Integer(i)) => Term::Number(*i as f64),
             HeapTerm::Atom(Atom::Float(f)) => Term::Number(*f),
             HeapTerm::Var(ptr, _) => Term::Variable(*ptr),
-            HeapTerm::Compound(functor, arity, next) => Term::Compound(
+            HeapTerm::Compound(functor, arity) => Term::Compound(
                 heap.get_atom(*functor).to_string(),
-                crate::builtins::dyn_args(heap, *arity, *next)
-                    .into_iter()
-                    .map(|ptr| Term::from_heap(heap, ptr))
+                (1..=*arity)
+                    .map(|i| Term::from_heap(heap, ptr + i))
                     .collect::<Vec<_>>(),
             ),
             _ => panic!("Invalid term"),

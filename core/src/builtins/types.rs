@@ -6,8 +6,8 @@ macro_rules! impl_type_check {
         pub struct $name;
 
         impl Builtin<1> for $name {
-            fn eval(solver: &mut Solver, args: [HeapTermPtr; 1]) -> Result<bool, BuiltinError> {
-                Ok(matches!(solver.heap.get(args[0]), $matcher))
+            fn eval(solver: &mut Solver, args: HeapTermPtr) -> Result<bool, BuiltinError> {
+                Ok(matches!(solver.heap.get(args), $matcher))
             }
         }
     };
@@ -21,4 +21,4 @@ impl_type_check!(
     HeapTerm::Atom(Atom::Integer(_)) | HeapTerm::Atom(Atom::Float(_))
 );
 impl_type_check!(IsVarBuiltin, HeapTerm::Var(_, _));
-impl_type_check!(IsCompoundBuiltin, HeapTerm::Compound(_, _, _));
+impl_type_check!(IsCompoundBuiltin, HeapTerm::Compound(_, _));

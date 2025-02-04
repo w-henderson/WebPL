@@ -1,7 +1,7 @@
 use crate::stringmap::StringMap;
 use crate::{ast, StringId};
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Atom {
     String(StringId),
     Integer(i64),

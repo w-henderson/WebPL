@@ -51,8 +51,6 @@ test!(cut, |solver: SolverFn| {
     "#;
     let query_4 = "c(X).";
 
-    println!("end");
-
     let mut solver_4 = solver(program_4, query_4);
     assert_eq!(
         solver_4.step().unwrap(),
@@ -151,7 +149,7 @@ test!(insufficient_instantiation, |solver: SolverFn| {
             e,
             Error {
                 location: None,
-                error: "Insufficiently instantiated variable `_1`".into()
+                error: "Insufficiently instantiated variable `_4`".into()
             }
         );
     } else {
@@ -179,7 +177,7 @@ test!(typecheck, |solver: SolverFn| {
 
     assert_eq!(
         solver_3.step().unwrap(),
-        Some(vec![("X".into(), "_1".into())])
+        Some(vec![("X".into(), "_2".into())])
     );
     assert_eq!(solver_3.step().unwrap(), None);
 
