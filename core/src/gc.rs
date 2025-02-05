@@ -13,14 +13,15 @@ pub struct GarbageCollector {
     goal_map: Vec<usize>,
     map_len: usize,
     scheduler: GCScheduler,
+    runs: usize,
 }
 
 pub struct GCScheduler {
     absolute_threshold: usize,
     relative_threshold: f64,
+    wait_for_resize: Option<usize>,
     cooldown: usize,
     remaining_cooldown: usize,
-    last_live_percentage: f64,
 }
 
 pub trait GCRewritable {
@@ -37,10 +38,11 @@ impl GarbageCollector {
             scheduler: GCScheduler {
                 absolute_threshold,
                 relative_threshold,
+                wait_for_resize: None,
                 cooldown,
                 remaining_cooldown: 0,
-                last_live_percentage: 0.0,
             },
+            runs: 0,
         }
     }
 
@@ -53,11 +55,16 @@ impl GarbageCollector {
             scheduler: GCScheduler {
                 absolute_threshold: usize::MAX,
                 relative_threshold: 0.0,
+                wait_for_resize: None,
                 cooldown: 0,
                 remaining_cooldown: 0,
-                last_live_percentage: 0.0,
             },
+            runs: 0,
         }
+    }
+
+    pub fn runs(&self) -> usize {
+        self.runs
     }
 
     pub fn run(solver: &mut Solver) {
@@ -83,14 +90,15 @@ impl GarbageCollector {
         solver.gc.compact(&mut solver.heap, &mut solver.trail);
         solver.gc.compact_goals(&mut solver.goals);
 
-        solver.gc.scheduler.last_live_percentage =
-            (solver.heap.data.len() as f64) / (solver.gc.map.len() as f64);
+        solver.gc.scheduler.post_gc(&solver.heap);
 
         solver.gc.rewrite(
             &mut solver.var_map,
             &mut solver.goals,
             &mut solver.choice_points,
         );
+
+        solver.gc.runs += 1;
     }
 
     fn reset(&mut self, heap_len: usize, trail_len: usize, goals_len: usize) {
@@ -317,17 +325,28 @@ impl GCRewritable for [(String, usize)] {
 
 impl GCScheduler {
     fn should_run(&mut self, heap: &Heap) -> bool {
-        let should_run = heap.data.len() > self.absolute_threshold
+        let result = heap.data.len() > self.absolute_threshold
+            && self
+                .wait_for_resize
+                .map(|capacity| capacity != heap.capacity())
+                .unwrap_or(true)
             && (heap.size() as f64) / (heap.capacity() as f64) > self.relative_threshold
             && self.remaining_cooldown == 0;
 
-        if should_run {
-            self.remaining_cooldown =
-                (self.cooldown as f64 * (1.0 / (1.0 - self.last_live_percentage))) as usize;
-        } else {
-            self.remaining_cooldown = self.remaining_cooldown.saturating_sub(1);
-        }
+        self.remaining_cooldown = self.remaining_cooldown.saturating_sub(1);
 
-        should_run
+        result
+    }
+
+    fn post_gc(&mut self, heap: &Heap) {
+        self.wait_for_resize = if heap.data.len() > self.absolute_threshold
+            && (heap.size() as f64) / (heap.capacity() as f64) > self.relative_threshold
+        {
+            Some(heap.capacity())
+        } else {
+            None
+        };
+
+        self.remaining_cooldown = self.cooldown;
     }
 }

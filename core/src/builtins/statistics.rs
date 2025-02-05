@@ -10,6 +10,7 @@ impl Builtin<2> for StatisticsBuiltin {
             HeapTerm::Atom(Atom::String(id)) => match solver.heap.get_atom(*id) {
                 "memory" => unify_int(solver, args + 1, solver.heap.size() as i64),
                 "allocated" => unify_int(solver, args + 1, solver.heap.capacity() as i64),
+                "gc" => unify_int(solver, args + 1, solver.gc.runs() as i64),
                 _ => false,
             },
             _ => false,

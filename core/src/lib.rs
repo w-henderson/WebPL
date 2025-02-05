@@ -33,7 +33,7 @@ type ChoicePointIdx = usize;
 type StringId = usize;
 
 static GC_HEAP_SIZE_THRESHOLD: usize = 1024;
-static GC_HEAP_PRESSURE_THRESHOLD: f64 = 0.8;
+static GC_HEAP_PRESSURE_THRESHOLD: f64 = 0.9;
 static GC_COOLDOWN: usize = 16;
 
 #[derive(Clone, Copy, Debug)]
