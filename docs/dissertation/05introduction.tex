@@ -25,17 +25,18 @@ The aims of the project are as follows:
 \begin{itemize}
 \item to \textbf{build a web-native Prolog implementation} that uses WebAssembly, with a particular focus on performance and browser integration, including
 \begin{itemize}
-\item a \textbf{lexer} and \textbf{parser} for \emph{pure Prolog}\footnote{So as not to distract from the focus of performance and browser integration, the project considers a subset of Prolog, roughly equivalent to the content of the Cambridge Computer Science Part IB Prolog course. Appendix \ref{appendix:pure-prolog} comprises a detailed definition of the subset.} programs, and
-\item an \textbf{interpreter} for the parsed programs,
+\item a \textbf{lexer} and \textbf{parser} for \emph{pure Prolog} programs (that is, those that do not use cut, negation, or extra-logical predicates), and
+\item an \textbf{interpreter} for the resulting abstract syntax tree,
 \end{itemize}
 \item to \textbf{make optimisations} to improve performance, including both traditional Prolog optimisations and those that specifically target the browser environment, and
-\item to \textbf{evaluate its performance}, both in terms of execution time and memory usage, against existing web-ported and web-native Prolog implementations, exploring which factors contribute to the performance differences.
+\item to \textbf{evaluate its performance}, both in terms of execution time and memory usage, against existing web-ported and web-native Prolog implementations, exploring which factors contribute to any performance differences.
 \end{itemize}
 
 As extensions, the project has the following additional aims:
 
 \begin{itemize}
+\item to \textbf{extend the implementation} to support more advanced Prolog features, such as extra-logical predicates, cut, and negation,
 \item to \textbf{build a browser-based development environment} for the Prolog implementation, similar to SWISH, which supports \textbf{plugins} for other Prolog implementations to facilitate comparison,
 \item to \textbf{implement a garbage collector} to make more efficient use of memory, and
-\item to \textbf{develop a foreign function interface}, extending the Prolog syntax to support \textbf{inline JavaScript code}, to integrate with the browser environment.
+\item to \textbf{develop a foreign function interface}, extending the Prolog syntax to support \textbf{inline JavaScript code}, to better integrate with the browser environment.
 \end{itemize}
