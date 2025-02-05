@@ -1,18 +1,19 @@
 use crate::gc::GCRewritable;
 use crate::HeapTermPtr;
 
+#[derive(Clone, Copy, Debug)]
 pub struct Goal(pub(crate) HeapTermPtr, pub(crate) Option<GoalPtr>);
 
 pub type GoalPtr = usize;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Goals {
-    current: Option<GoalPtr>,
-    goals: Vec<Goal>,
+    pub(crate) current: Option<GoalPtr>,
+    pub(crate) goals: Vec<Goal>,
 }
 
 #[derive(Clone, Copy)]
-pub struct Checkpoint(Option<GoalPtr>, usize);
+pub struct Checkpoint(pub(crate) Option<GoalPtr>, pub(crate) usize);
 
 impl Goals {
     pub fn new(query: &[HeapTermPtr]) -> Self {
@@ -88,13 +89,12 @@ impl Goal {
 }
 
 impl GCRewritable for Goals {
-    fn rewrite(&mut self, map: &[usize], _: &[usize]) {
-        for goal in self.goals.iter_mut() {
-            if let Some(ptr) = map.get(goal.0) {
-                // This will always be true for live goals
-                // TODO: collect dead goals
-                goal.0 = *ptr;
-            }
+    fn rewrite(&mut self, map: &[usize], _: &[usize], goal_map: &[usize]) {
+        self.current = self.current.map(|ptr| goal_map[ptr]);
+
+        for Goal(term, prev) in self.goals.iter_mut() {
+            *term = map[*term];
+            *prev = prev.map(|ptr| goal_map[ptr]);
         }
     }
 }
