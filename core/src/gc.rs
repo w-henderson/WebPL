@@ -14,6 +14,12 @@ pub struct GarbageCollector {
     map_len: usize,
     scheduler: GCScheduler,
     runs: usize,
+
+    // Generational GC
+    start_choice_point: usize,
+    start_heap_ptr: crate::heap::Checkpoint,
+    start_trail_ptr: crate::trail::Checkpoint,
+    start_goal_ptr: crate::goal::Checkpoint,
 }
 
 pub struct GCScheduler {
@@ -25,7 +31,7 @@ pub struct GCScheduler {
 }
 
 pub trait GCRewritable {
-    fn rewrite(&mut self, map: &[usize], trail_map: &[usize], goal_map: &[usize]);
+    fn rewrite(&mut self, from: usize, map: &[usize], trail_map: &[usize], goal_map: &[usize]);
 }
 
 impl GarbageCollector {
@@ -43,6 +49,10 @@ impl GarbageCollector {
                 remaining_cooldown: 0,
             },
             runs: 0,
+            start_choice_point: 0,
+            start_heap_ptr: crate::heap::Checkpoint(0),
+            start_trail_ptr: crate::trail::Checkpoint(0),
+            start_goal_ptr: crate::goal::Checkpoint(None, 0),
         }
     }
 
@@ -60,6 +70,10 @@ impl GarbageCollector {
                 remaining_cooldown: 0,
             },
             runs: 0,
+            start_choice_point: 0,
+            start_heap_ptr: crate::heap::Checkpoint(0),
+            start_trail_ptr: crate::trail::Checkpoint(0),
+            start_goal_ptr: crate::goal::Checkpoint(None, 0),
         }
     }
 
@@ -74,8 +88,18 @@ impl GarbageCollector {
             solver.goals.goals.len(),
         );
 
-        let roots = solver.gc.get_roots(&solver.var_map, &solver.goals);
+        if solver.gc.start_choice_point > 0 {
+            let cp = &solver.choice_points[solver.gc.start_choice_point - 1];
+            solver.gc.start_heap_ptr = cp.heap_checkpoint;
+            solver.gc.start_trail_ptr = cp.trail_checkpoint;
+            solver.gc.start_goal_ptr = cp.goals_checkpoint;
+        } else {
+            solver.gc.start_heap_ptr = crate::heap::Checkpoint(0);
+            solver.gc.start_trail_ptr = crate::trail::Checkpoint(0);
+            solver.gc.start_goal_ptr = crate::goal::Checkpoint(None, 0);
+        }
 
+        let roots = solver.gc.get_roots(&solver.var_map, &solver.goals);
         solver.gc.mark_heap(&solver.heap, roots);
         solver.gc.mark_goal(&solver.goals, solver.goals.current);
         solver.gc.mark_from_choice_points(
@@ -87,10 +111,10 @@ impl GarbageCollector {
 
         solver.gc.shunt(&solver.heap);
         solver.gc.realign_choice_points(&mut solver.choice_points);
+        solver.gc.reset_old_generation_maps();
+
         solver.gc.compact(&mut solver.heap, &mut solver.trail);
         solver.gc.compact_goals(&mut solver.goals);
-
-        solver.gc.scheduler.post_gc(&solver.heap);
 
         solver.gc.rewrite(
             &mut solver.var_map,
@@ -98,7 +122,13 @@ impl GarbageCollector {
             &mut solver.choice_points,
         );
 
+        solver
+            .gc
+            .update_old_pointers(&mut solver.heap, &solver.trail);
+
+        solver.gc.scheduler.post_run(&solver.heap);
         solver.gc.runs += 1;
+        solver.gc.start_choice_point = solver.choice_points.len();
     }
 
     fn reset(&mut self, heap_len: usize, trail_len: usize, goals_len: usize) {
@@ -136,7 +166,7 @@ impl GarbageCollector {
     ) {
         let mut last_top = trail.vars.len();
 
-        for cp in choice_points.iter().rev() {
+        for cp in choice_points.iter().skip(self.start_choice_point).rev() {
             // Early reset variables that will be reset when backtracking to
             // this choice point and are not otherwise reachable
             for var in (cp.trail_checkpoint.0..last_top).map(|i| trail.vars[i]) {
@@ -189,7 +219,13 @@ impl GarbageCollector {
     }
 
     fn shunt(&mut self, heap: &Heap) {
-        for (i, term) in heap.data.iter().enumerate().rev() {
+        for (i, term) in heap
+            .data
+            .iter()
+            .enumerate()
+            .skip(self.start_heap_ptr.0)
+            .rev()
+        {
             if let HeapTerm::Var(ptr, true) = term {
                 match self.map[*ptr] {
                     GC_MARKED => self.map[i] = GC_SHUNTED | *ptr, // End of shunted chain
@@ -201,7 +237,7 @@ impl GarbageCollector {
     }
 
     fn realign_choice_points(&mut self, choice_points: &mut [ChoicePoint]) {
-        for cp in choice_points.iter_mut() {
+        for cp in choice_points.iter_mut().skip(self.start_choice_point) {
             let mut checkpoint = cp.heap_checkpoint.0;
 
             while checkpoint < self.map_len
@@ -214,14 +250,28 @@ impl GarbageCollector {
         }
     }
 
+    fn reset_old_generation_maps(&mut self) {
+        // Old generations haven't changed
+        for i in 0..self.start_heap_ptr.0 {
+            self.map[i] = i;
+        }
+        for i in 0..self.start_trail_ptr.0 {
+            self.trail_map[i] = i;
+        }
+        for i in 0..self.start_goal_ptr.1 {
+            self.goal_map[i] = i;
+        }
+    }
+
     fn compact(&mut self, heap: &mut Heap, trail: &mut Trail) {
-        let mut new_ptr: HeapTermPtr = 0;
+        let mut new_ptr: HeapTermPtr = self.start_heap_ptr.0;
 
         // Shuffle data down the heap, overwriting dead data
         for (old_ptr, ptr) in self
             .map
             .iter_mut()
             .enumerate()
+            .skip(self.start_heap_ptr.0)
             .filter(|(_, ptr)| **ptr == GC_MARKED)
         {
             *ptr = new_ptr;
@@ -239,7 +289,7 @@ impl GarbageCollector {
         self.collect_trail(trail);
 
         // Rewrite shunted pointers
-        for i in 0..self.map_len {
+        for i in self.start_heap_ptr.0..self.map_len {
             if self.map[i] & GC_SHUNTED != 0 {
                 let old_ptr = self.map[i] ^ GC_SHUNTED;
                 self.map[i] = self.map[old_ptr];
@@ -247,7 +297,7 @@ impl GarbageCollector {
         }
 
         // Rewrite internal pointers
-        for term in heap.data.iter_mut() {
+        for term in heap.data.iter_mut().skip(self.start_heap_ptr.0) {
             if let HeapTerm::Var(ptr, _) = term {
                 *ptr = self.map[*ptr]
             }
@@ -255,8 +305,8 @@ impl GarbageCollector {
     }
 
     fn collect_trail(&mut self, trail: &mut Trail) {
-        let mut new_ptr = 0;
-        let mut old_ptr = 0;
+        let mut new_ptr = self.start_trail_ptr.0;
+        let mut old_ptr = self.start_trail_ptr.0;
 
         while old_ptr < trail.vars.len() {
             let ptr = trail.vars[old_ptr];
@@ -277,8 +327,8 @@ impl GarbageCollector {
     }
 
     fn compact_goals(&mut self, goals: &mut Goals) {
-        let mut new_ptr = 0;
-        let mut old_ptr = 0;
+        let mut new_ptr = self.start_goal_ptr.1;
+        let mut old_ptr = self.start_goal_ptr.1;
 
         while old_ptr < goals.goals.len() {
             let goal = goals.goals[old_ptr];
@@ -300,31 +350,58 @@ impl GarbageCollector {
     }
 
     fn rewrite(
-        &self,
+        &mut self,
         vars: &mut [(String, usize)],
         goals: &mut Goals,
         choice_points: &mut [ChoicePoint],
     ) {
-        vars.rewrite(&self.map, &self.trail_map, &self.goal_map);
-        goals.rewrite(&self.map, &self.trail_map, &self.goal_map);
-        choice_points.rewrite(&self.map, &self.trail_map, &self.goal_map);
+        vars.rewrite(0, &self.map, &self.trail_map, &self.goal_map);
+        goals.rewrite(
+            self.start_goal_ptr.1,
+            &self.map,
+            &self.trail_map,
+            &self.goal_map,
+        );
+        choice_points.rewrite(
+            self.start_choice_point,
+            &self.map,
+            &self.trail_map,
+            &self.goal_map,
+        );
     }
 
-    pub fn should_run(&mut self, heap: &Heap) -> bool {
-        self.scheduler.should_run(heap)
+    // The trail stack conveniently tells us exactly where to find all the
+    // pointers from the old generation to the new generation.
+    fn update_old_pointers(&mut self, heap: &mut Heap, trail: &Trail) {
+        for var in trail.vars.iter().skip(self.start_trail_ptr.0) {
+            if let HeapTerm::Var(ptr, _) = &mut heap.data[*var] {
+                if *var < self.start_heap_ptr.0
+                    && *ptr >= self.start_heap_ptr.0
+                    && self.map[*ptr] < GC_UNMARKED
+                {
+                    *ptr = self.map[*ptr];
+                }
+            }
+        }
+    }
+
+    pub fn pre_run(&mut self, heap: &Heap, choice_points: usize) -> bool {
+        self.start_choice_point = self.start_choice_point.min(choice_points);
+
+        self.scheduler.pre_run(heap)
     }
 }
 
 impl GCRewritable for [(String, usize)] {
-    fn rewrite(&mut self, map: &[usize], _: &[usize], _: &[usize]) {
-        for (_, ptr) in self.iter_mut() {
+    fn rewrite(&mut self, from: usize, map: &[usize], _: &[usize], _: &[usize]) {
+        for (_, ptr) in self.iter_mut().skip(from) {
             *ptr = map[*ptr];
         }
     }
 }
 
 impl GCScheduler {
-    fn should_run(&mut self, heap: &Heap) -> bool {
+    fn pre_run(&mut self, heap: &Heap) -> bool {
         let result = heap.data.len() > self.absolute_threshold
             && self
                 .wait_for_resize
@@ -338,7 +415,7 @@ impl GCScheduler {
         result
     }
 
-    fn post_gc(&mut self, heap: &Heap) {
+    fn post_run(&mut self, heap: &Heap) {
         self.wait_for_resize = if heap.data.len() > self.absolute_threshold
             && (heap.size() as f64) / (heap.capacity() as f64) > self.relative_threshold
         {
