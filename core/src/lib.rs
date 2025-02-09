@@ -184,7 +184,7 @@ impl Solver {
             #[cfg(test)]
             self.check_interrupted()?;
 
-            if self.gc.should_run(&self.heap) {
+            if self.gc.pre_run(&self.heap, self.choice_points.len()) {
                 GarbageCollector::run(self);
             }
 
@@ -389,8 +389,8 @@ impl Iterator for Solver {
 }
 
 impl GCRewritable for [ChoicePoint] {
-    fn rewrite(&mut self, map: &[usize], trail_map: &[usize], goal_map: &[usize]) {
-        for cp in self.iter_mut() {
+    fn rewrite(&mut self, from: usize, map: &[usize], trail_map: &[usize], goal_map: &[usize]) {
+        for cp in self.iter_mut().skip(from) {
             cp.heap_checkpoint = crate::heap::Checkpoint(map[cp.heap_checkpoint.0]);
             cp.trail_checkpoint = crate::trail::Checkpoint(trail_map[cp.trail_checkpoint.0]);
 

@@ -103,7 +103,7 @@ impl Heap {
                     for i in 1..=*arity {
                         result.push_str(&self.serialize_inner(term + i, None, stacks, false)?);
 
-                        if i + 1 < *arity {
+                        if i < *arity {
                             result.push(',');
                         }
                     }
