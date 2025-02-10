@@ -22,6 +22,15 @@ pub fn init() {
     console_error_panic_hook::set_once();
 }
 
+#[cfg(target_family = "wasm")]
+pub fn memory() -> usize {
+    wasm_bindgen::memory()
+        .unchecked_into::<js_sys::WebAssembly::Memory>()
+        .buffer()
+        .unchecked_into::<js_sys::ArrayBuffer>()
+        .byte_length() as usize
+}
+
 #[wasm_bindgen(module = "/src/wasm/inline_js_handler.js")]
 extern "C" {
     #[wasm_bindgen(catch)]

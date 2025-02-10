@@ -11,6 +11,10 @@ impl Builtin<2> for StatisticsBuiltin {
                 "memory" => unify_int(solver, args + 1, solver.heap.size() as i64),
                 "allocated" => unify_int(solver, args + 1, solver.heap.capacity() as i64),
                 "gc" => unify_int(solver, args + 1, solver.gc.runs() as i64),
+
+                #[cfg(target_family = "wasm")]
+                "wasm_memory" => unify_int(solver, args + 1, crate::wasm::memory() as i64),
+
                 _ => false,
             },
             _ => false,
