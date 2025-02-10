@@ -54,7 +54,7 @@ Term: Term = {
 }
 
 LambdaTerm: Term = {
-    <js:r"<\{.*\}>"> =>? Term::parse_lambda(js)
+    <js:r"<\{(.|\n)*\}>"> =>? Term::parse_lambda(js)
         .map_err(|error| lalrpop_util::ParseError::User { error }),
 }
 

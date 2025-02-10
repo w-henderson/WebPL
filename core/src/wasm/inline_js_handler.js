@@ -18,10 +18,17 @@ export function eval_js(js, args, unify_wasm, alloc_wasm) {
     return unify_wasm(a_ptr, b_ptr);
   };
 
+  // Provide a synchronous `fetch` function
+  const fetch = (url, method = "GET") => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url, false);
+    xhr.send();
+    return xhr.responseText;
+  };
+
   try {
-    console.log(js);
     let fn = eval(js);
-    return fn(...args);
+    return fn(...args) !== false;
   } catch (e) {
     throw e.toString();
   }
