@@ -9,13 +9,28 @@
 \usepackage{booktabs}
 \usepackage{siunitx}
 \usepackage{setspace}
+\usepackage{amsthm}
+\usepackage{float}
+\usepackage{tikz}
 \usepackage[toc,page]{appendix}
+\usepackage{minted}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{pdfpages}
+\RecustomVerbatimEnvironment{Verbatim}{BVerbatim}{}
+\usetikzlibrary{shapes.multipart}
+\makeatletter
+\AtBeginEnvironment{minted}{\dontdofcolorbox}
+\def\dontdofcolorbox{\renewcommand\fcolorbox[4][]{##4}}
+\makeatother
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{1em}
 \setstretch{1.25}
 \hyphenation{Prolog}
 \hyphenation{WebAssembly}
+\theoremstyle{definition}
+\newtheorem*{definition}{Definition}
 
 \begin{document}
 
