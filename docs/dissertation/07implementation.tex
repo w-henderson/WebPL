@@ -1,1 +1,243 @@
 \chapter{Implementation}
+
+This chapter gives an overview of the implementation of the project.
+
+% TODO: overview
+
+\section{Repository Overview}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{12cm}l}
+\hline
+\textbf{Directory} & \textbf{Description} & \textbf{LOC} \\
+\hline
+\texttt{core/} & Implementation of the core interpreter in Rust, including the parser, garbage collector, and the JavaScript FFI. & 2390 \\
+\texttt{core/src/wasm} & WebAssembly interface for the core interpreter and JavaScript FFI. & \\
+\texttt{core/src/tests} & Unit tests for the core interpreter. & \\
+\texttt{lib/} & Higher-level JavaScript library for the interpreter. & 75 \\
+\texttt{web/} & Web-based development environment to demonstrate and benchmark the interpreter. & 952 \\
+\texttt{web/src/prolog} & TypeScript Prolog interface and wrappers for various Prolog interpreters. & \\
+\texttt{bench/} & Web-based benchmarking tools. & 115 \\
+\texttt{docs/} & Documentation for the project. & \\
+\hline
+\end{tabular}
+\caption{An overview of key directories in the repository}
+\label{tab:repository-overview}
+\end{table}
+
+\section{Core Interpreter}
+
+This section describes the implementation of the core Prolog interpreter, implemented in Rust.
+
+\subsection{Memory Layout}
+
+The interpreter uses the merged heap/stack architecture proposed by Li \cite{liEfficientMemoryManagement2000} and described in Section \ref{sec:preparation-implementation}. Alongside the advantages identified by Li, notably improved cache performance, this architecture is uniquely suited to the linear memory model of WebAssembly.
+
+In a traditional heap/stack architecture, the heap and stack are separate regions of memory, often with few constraints imposed on the layout of the heap. Indeed, SWI-Prolog simply uses \texttt{malloc} to allocate memory for terms on the heap\footnote{\url{https://www.swi-prolog.org/pldoc/man?section=memlimit}}, imposing no constraints on where the C runtime decides to put the memory. Running natively, this is not a problem, as virtual memory is plentiful. However, WebAssembly's linear memory is contiguous and limited in size, so the heap must be carefully managed by the WebAssembly code itself to avoid fragmentation. In addition, the trail stack contains pointers to bound variables, which may appear either on the stack or on the heap, but WebAssembly does not allow pointers to exist to stack-allocated objects. Therefore, the stack must also be placed in the linear memory, which further complicates memory management.
+
+In a merged heap/stack architecture, all terms are allocated in one contiguous region of memory. This avoids the problem of fragmentation, as the heap grows with allocations and shrinks with instant reclaiming and garbage collection (Section \ref{sec:gc-impl}). If the heap grows too large for the linear memory, it suffices, in theory, to execute the \texttt{memory.grow} WebAssembly instruction, with no additional work from the WebAssembly module required. In my implementation, the exact placement of the heap in the linear memory is decided by Rust's allocator, but once the heap grows sufficiently large, this has the same effect (Section \ref{sec:heap-placement}).
+
+Of course, other areas of memory are needed:
+
+\paragraph{Trail Stack} The trail stack is a stack of pointers to variables that have been bound, used for backtracking.
+
+\paragraph{Choice Point Stack} The choice point stack stores information about where to backtrack to for each choice we make. Alongside the next clause to consider, each choice point also contains the sizes of the heap, trail stack and goal stack to facilitate backtracking and instant reclaiming.
+
+\paragraph{Goal Stack} The goal stack contains the remaining goals to prove. When backtracking, goals that have previously been popped might be needed again, so while I refer to it as a stack, the goal stack is actually a graph, with goals represented as pairs $(\texttt{pred}, \texttt{goal})$ and the goal stack additionally storing a pointer to the current goal (the ``top of the stack'').
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.5\textwidth}
+\centering
+\begin{minted}{prolog}
+a(1).
+a(2).
+b(2).
+?- a(X), b(X).
+
+\end{minted}
+\caption{A Prolog program}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+\centering
+\begin{tikzpicture}
+  \node (A) at (0,3) {\mintinline{prolog}{a(X), b(X)}};
+  \node (B1) at (-2,1.5) {\mintinline{prolog}{b(1)}};
+  \node (B2) at (2,1.5) {\mintinline{prolog}{b(2)}};
+  \node (C2) at (2,0) {\{\}};
+
+  \draw (A) -- (B1) node [midway, xshift=-30, yshift=4] {\footnotesize \texttt{X = 1}};
+  \draw (A) -- (B2) node [midway, xshift=30, yshift=4] {\footnotesize \texttt{X = 2}};
+  \draw (B2) -- (C2);
+
+  \node (D) at (-2,1) {\footnotesize (failure)};
+\end{tikzpicture}
+\caption{Corresponding SLD-tree}
+\end{subfigure}
+\par\bigskip
+\par\bigskip
+\begin{subfigure}{.5\textwidth}
+\centering
+\begin{tikzpicture}[box/.style={draw, rectangle}]
+  \node[box] (B) at (0, 0) {\mintinline{prolog}{b(X)}};
+  \node[box] (A) at (3, 0) {\mintinline{prolog}{a(X)}};
+
+  \node (null) at (-2, 0) {\texttt{null}};
+  \node (current) at (0, 2) {current goal};
+  \node (cp1) at (3, 2.5) {choice point};
+  \node (cp2) at (3, 2) {goal pointer};
+
+  \draw[->] (A) -- (B);
+  \draw[->] (B) -- (null);
+  \draw[->] (current) -- (A);
+  \draw[->] (cp2) -- (A);
+\end{tikzpicture}
+\vspace{5mm}
+\caption{The goal graph before the first resolution}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+\centering
+\begin{tikzpicture}[box/.style={draw, rectangle}]
+  \node[box] (B) at (0, 0) {\mintinline{prolog}{b(X)}};
+  \node[box, fill=lightgray] (A) at (3, 0) {\mintinline{prolog}{a(X)}};
+
+  \node (null) at (-2, 0) {\texttt{null}};
+  \node (current) at (0, 2) {current goal};
+  \node (cp1) at (3, 2.5) {choice point};
+  \node (cp2) at (3, 2) {goal pointer};
+
+  \draw[->] (A) -- (B);
+  \draw[->] (B) -- (null);
+  \draw[->] (current) -- (B);
+  \draw[->] (cp2) -- (A);
+\end{tikzpicture}
+\vspace{5mm}
+\caption{The goal graph after the first resolution}
+\end{subfigure}
+\vspace*{-5mm}
+\caption{The goal graph}
+\label{fig:goals}
+\end{figure}
+
+Figure \ref{fig:goals} illustrates this idea. Before resolving \mintinline{prolog}{a(X)} with \mintinline{prolog}{a(1)} (c), a choice point is created, containing a pointer to the current goal. After the resolution step, \mintinline{prolog}{a(X)} is ``popped from the goal stack'', which is implemented by setting the current goal pointer to its predecessor (d). Importantly, however, it remains in the graph, as upon backtracking to the choice point when \mintinline{prolog}{b(1)} fails, the current goal pointer is restored to that stored in the choice point. In order to prevent the goal stack growing indefinitely, each choice point also contains the number of goals in the stack when it was created, and the goal stack is truncated to this size upon backtracking. The goal stack is also garbage collected (Section \ref{sec:gc-impl}).
+
+\subsection{Pointers}
+
+A common theme in the implementation of this project, taken from WebAssembly, is that of using indexing over pointers. The contiguous nature of the heap allows terms to be referred to by their index, and the same is true for the goal stack and choice point stack.
+
+Rust strongly discourages the use of raw pointers, instead preferring its memory-safe abstraction, references. Every object in Rust must have exactly one \emph{owner}, with multiple immutable references or a single mutable reference allowed, enforced at compile time by the \emph{borrow checker}. The Prolog heap does not fit nicely into this model: there may be multiple variables bound to the same term, both of which requiring mutable access to it (e.g. to update the term when unifying). One way to work around this is to use reference counting and \texttt{RefCell}, which facilitates runtime borrow checking, but this is very expensive in terms of performance. Instead, terms are referred to by their index in the heap. As we use a merged heap/stack architecture, this is straightforward to implement. Hereafter, any references to ``pointers to heap terms'' actually mean indices.
+
+The performance consequences of these approaches are discussed in more detail in Section \ref{sec:get-unchecked}.
+
+\subsection{Term Representation}
+
+Terms are stored on the heap as fixed-size blocks of 24 bytes. In Rust, these are represented as an enum (Figure \ref{fig:rust-term-representation}), Rust's sum type.
+
+Atoms are typed, being either strings, integers, or floats, with implicit casting from integers to floats permitted. The representation of variables includes a pointer to their bound object, as in the WAM, but additionally a boolean flag to indicate whether they are \emph{shunted} (Section \ref{sec:variable-shunting}), which is used in garbage collection. Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments. There is also a heap representation of cut, which is necessary because goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within the Prolog execution (Section \ref{sec:js-ffi}), are represented in the same way as compound terms, except instead of storing a functor, they store the raw JavaScript code.
+
+All other kinds of term supported in the Prolog syntax are syntactic sugar for terms represented as above, converted during parsing. For example, the arithmetic expression $2 + 3$ becomes the compound term \texttt{+(2, 3)}, and the list \texttt{[a, b]} becomes the compound term \texttt{.(a, .(b, []))}.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{0.5\textwidth}
+\centering
+\begin{minted}{rust}
+pub enum HeapTerm {
+    Atom(Atom),
+    Var(HeapTermPtr, bool),
+    Compound(StringId, usize),
+    Cut(ChoicePointIdx),
+    Lambda(StringId, usize),
+}
+\end{minted}
+\end{subfigure}%
+\begin{subfigure}{0.5\textwidth}
+\centering
+\begin{minted}{rust}
+pub enum Atom {
+    String(StringId),
+    Integer(i64),
+    Float(f64),
+}
+
+
+\end{minted}
+\end{subfigure}
+\caption{Term representation in Rust}
+\label{fig:rust-term-representation}
+\end{figure}
+
+\subsection{String Interning}
+
+Strings are expensive to copy because they must be dynamically allocated in the linear memory. Comparing two strings for equality is also orders of magnitude more expensive than a simple arithmetic comparison, requiring both memory reads and $O(n)$ comparisons (where $n$ is the length of the string), as opposed to a single WebAssembly instruction for arithmetic comparison.
+
+For this reason, the implementation avoids using \texttt{String} objects wherever possible by using \emph{string interning}. All strings are allocated in a specific area of memory, and all references to each string are replaced with its index in that area. A hash table, mapping strings to their indices, is used to ensure that no duplicate strings appear.
+
+A further optimisation initialises the string area with fixed mappings for commonly-used strings, such as the names of built-in predicates and arithmetic operators. For example, the string \texttt{"+"} is always at index 9, stored as a constant \texttt{str::ADD} in the Rust code, so a real string comparison is not necessary, even with runtime-generated strings (due to the uniqueness of string mapping). Figure \ref{fig:fixed-string-indices} shows how this is used in the arithmetic evaluation code (simplified).
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.5\textwidth}
+\centering
+\begin{minted}{rust}
+match functor {
+    str::ADD /*  9 */ => add(&a, &b),
+    str::SUB /* 10 */ => sub(&a, &b),
+    str::MUL /* 11 */ => mul(&a, &b),
+    str::DIV /* 12 */ => div(&a, &b),
+    ...
+}
+\end{minted}
+\caption{Arithmetic comparison of functors}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+\centering
+\begin{minted}{rust}
+match functor {
+    "+" => add(&a, &b),
+    "-" => sub(&a, &b),
+    "*" => mul(&a, &b),
+    "/" => div(&a, &b),
+    ...
+}
+\end{minted}
+\caption{String comparison of functors}
+\end{subfigure}
+\caption{Using fixed string indices for arithmetic evaluation}
+\label{fig:fixed-string-indices}
+\end{figure}
+
+\subsection{Parsing}
+
+The Prolog program is parsed into its abstract syntax tree (AST) using a parser generated by LALRPOP \cite{thelalrpopprojectdevelopersLALRPOPhttpsgithubcom2015} with a custom grammar, written from scratch.
+
+\vspace*{5mm}
+
+\begin{figure}[H]
+\centering
+\begin{minted}{rust}
+Clause: Clause = {
+    <h:Term> "." => Clause(h, vec![]),
+    <h:Term> ":-" <b:Comma<Term>> "." => Clause(h, b),
+}
+Comma<T>: Vec<T> = {
+    <t:T> => vec![t],
+    <mut ts:Comma<T>> "," <t:T> => { ts.push(t); ts },
+}
+\end{minted}
+\caption{Extract from the LALRPOP grammar}
+\label{fig:grammar}
+\end{figure}
+
+Figure \ref{fig:grammar} shows an extract from the grammar. LALRPOP supports polymorphic non-terminals, which are used in the extract to define a generic non-empty comma-separated list of terms, \texttt{Comma<T>}. The \texttt{vec!} macro is used to create a vector using array-like syntax.
+
+\section{Garbage Collection}
+
+\label{sec:gc-impl}
+
+\section{JavaScript FFI}
+
+\label{sec:js-ffi}
+
+\section{Web-Based Development Environment}

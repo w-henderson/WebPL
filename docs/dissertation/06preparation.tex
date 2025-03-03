@@ -161,6 +161,8 @@ The tree is searched depth-first, left-to-right, with clauses selected in the or
 
 \subsection{Implementation}
 
+\label{sec:preparation-implementation}
+
 This subsection highlights some of the key decisions that must be made when building a Prolog implementation.
 
 \paragraph{Variable Representation} Variables in Prolog are commonly represented as pointers to the term they are bound to. Unbound variables may be represented by a pointer to themselves, as in the Warren Abstract Machine (WAM) \cite{warrenAbstractPrologInstruction1983}, or by a null pointer. Another approach, taken by Tau Prolog \cite{riazaTauPrologProlog2024}, is to assign an identifier to each variable, and store the bindings in a separate substitution data structure.
@@ -226,7 +228,7 @@ This subsection highlights some of the key decisions that must be made when buil
 \item the \emph{trail}, which records variable bindings for backtracking.
 \end{itemize}
 
-Certain Prolog implementations combine some of these areas. For example, the WAM does not use a separate control stack, preferring to store choice points on the local stack. Tarau's ``hitchhiker'' virtual machine stores code on the heap rather than in a separate code area, as its encoding of instructions is the same as that of terms \cite{tarauHitchhikersGuideReinventing2018}. Li's Logic Virtual Machine (LVM) combines the stack and the heap into a single memory area, which is managed by a garbage collector \cite{liEfficientMemoryManagement2000}.
+Certain Prolog implementations combine some of these areas. For example, the WAM does not use a separate control stack, preferring to store choice points on the local stack. Tarau's ``hitchhiker'' virtual machine stores code on the heap rather than in a separate code area, as its encoding of instructions is the same as that of terms \cite{tarauHitchhikersGuideReinventing2018}. Li's Logic Virtual Machine (LVM) combines the stack and the heap into a single memory area to improve locality, which is managed by a garbage collector \cite{liEfficientMemoryManagement2000}.
 
 \paragraph{Last Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller, and not create a choice point, if the clause is \emph{determinate}. That is, if the failure of the last predicate in the body implies the failure of the entire clause. Last call optimisation enables programs like in Figure \ref{fig:lco} to run in constant stack space.
 
@@ -264,7 +266,7 @@ A WebAssembly program executes as a \emph{stack machine}: operands of instructio
 
 \paragraph{Linear Memory}
 
-The main storage of a WebAssembly program is the \emph{linear memory}, or simply the \emph{memory}. It is a contiguous array of bytes, indexed from 0, and addressed by 32-bit pointers. The memory is disjoint from the rest of the WebAssembly program. WebAssembly provides a \texttt{grow\_memory} instruction to request more memory from the host environment (e.g. the browser), however, there is no way to free memory.
+The main storage of a WebAssembly program is the \emph{linear memory}, or simply the \emph{memory}. It is a contiguous array of bytes, indexed from 0, and addressed by 32-bit pointers. The memory is disjoint from the rest of the WebAssembly program. WebAssembly provides a \texttt{memory.grow} instruction to request more memory from the host environment (e.g. the browser), however, there is no way to free memory.
 
 \subsection{Interface with JavaScript}
 
