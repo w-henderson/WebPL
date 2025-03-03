@@ -191,3 +191,10 @@ fn empty() {
     assert!(Solver::new("a.", "").is_ok());
     assert!(Solver::new("", "").is_ok());
 }
+
+#[test]
+fn nullary_predicate() {
+    let mut solver = Solver::new("a().", "a.").unwrap();
+    assert_eq!(solver.step().unwrap(), Some(vec![]));
+    assert_eq!(solver.step().unwrap(), None);
+}

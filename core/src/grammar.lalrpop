@@ -20,6 +20,7 @@ Term: Term = {
     #[precedence(level="0")]
     <a:Atom> => Term::Atom(a),
     <v:VarStr> => Term::Variable(v),
+    <f:AtomStr> "(" ")" => Term::Atom(Atom::String(f)),
     <f:AtomStr> "(" <a:Comma<BracketedTerm>> ")" => Term::Compound(f, a),
     "(" <t:BracketedTerm> ")" => t,
 
