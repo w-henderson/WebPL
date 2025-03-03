@@ -1,5 +1,4 @@
-use crate::stringmap::StringMap;
-use crate::{atom, ClauseName, CodeTerm, Error, ErrorLocation};
+use crate::{Error, ErrorLocation};
 
 use lalrpop_util::lexer::Token;
 
@@ -37,45 +36,6 @@ impl Term {
         }
 
         term
-    }
-
-    pub fn to_code_term(&self, string_map: &mut StringMap) -> (CodeTerm, Option<ClauseName>) {
-        match self {
-            Term::Atom(atom) => {
-                let atom = atom::Atom::new(string_map, atom);
-                if let atom::Atom::String(string_id) = &atom {
-                    (CodeTerm::Atom(atom), Some(ClauseName(*string_id, 0)))
-                } else {
-                    (CodeTerm::Atom(atom), None)
-                }
-            }
-            Term::Variable(var) => (CodeTerm::Var(string_map.alloc(var)), None),
-            Term::Compound(functor, args) => {
-                let functor = string_map.alloc(functor);
-                (
-                    CodeTerm::Compound(
-                        functor,
-                        args.iter()
-                            .map(|arg| arg.to_code_term(string_map).0)
-                            .collect(),
-                    ),
-                    Some(ClauseName(functor, args.len())),
-                )
-            }
-            Term::Lambda(js, args) => {
-                let js = string_map.alloc(js);
-                (
-                    CodeTerm::Lambda(
-                        js,
-                        args.iter()
-                            .map(|arg| arg.to_code_term(string_map).0)
-                            .collect(),
-                    ),
-                    None,
-                )
-            }
-            Term::Cut => (CodeTerm::Cut, None),
-        }
     }
 
     pub fn parse_lambda(js_str: &str) -> Result<Term, &'static str> {

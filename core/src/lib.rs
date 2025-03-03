@@ -20,11 +20,9 @@ use serde::Serialize;
 mod tests;
 
 use atom::Atom;
-use compile::compile;
 use gc::{GCRewritable, GarbageCollector};
 use goal::Goals;
 use heap::Heap;
-use stringmap::StringMap;
 use trail::Trail;
 
 type HeapTermPtr = usize;
@@ -45,28 +43,22 @@ pub enum HeapTerm {
     Lambda(StringId, usize),
 }
 
-pub enum CodeTerm {
-    Atom(Atom),
-    Var(StringId),
-    Compound(StringId, Vec<CodeTerm>),
-    Cut,
-    Lambda(StringId, Vec<CodeTerm>),
-}
-
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]
 pub struct ClauseName(pub StringId, pub usize); // functor, arity
 
-pub struct Clause {
-    head: CodeTerm,
-    body: Vec<CodeTerm>,
+pub struct HeapClausePtr {
+    ptr: HeapTermPtr,
+    goals_length: usize,
+    head_length: usize,
+    body_length: usize,
 }
 
-pub type Query = Vec<CodeTerm>;
-pub type Program = Vec<(ClauseName, Vec<Clause>)>;
+pub type Index = Vec<(ClauseName, Vec<HeapClausePtr>)>;
+
 pub type Solution = Vec<(String, String)>;
 
 pub struct Solver {
-    program: Program,
+    index: Index,
     goals: Goals,
     group: Option<usize>,
     clause: usize,
@@ -131,27 +123,20 @@ impl Solver {
     }
 
     pub fn from_ast(program: ast::Program, query: ast::Query, gc: bool) -> Self {
-        let mut string_map = StringMap::default();
+        let mut heap = Heap::new();
 
-        let program = compile(program, &mut string_map);
-
-        let query = query
-            .0
-            .into_iter()
-            .map(|term| term.to_code_term(&mut string_map).0)
-            .collect();
-
-        let (vars, heap_query, var_map) = Heap::new(string_map, &query);
-        let goals = Goals::new(&heap_query);
+        let index = compile::compile(program, &mut heap);
+        let (query, var_map) = compile::alloc_query(query, &mut heap);
+        let goals = Goals::new(&query);
 
         let mut solver = Solver {
-            program,
+            index,
             goals,
             group: None,
             clause: 0,
             choice_points: Vec::new(),
             choice_point_age: heap::Checkpoint(0),
-            heap: vars,
+            heap,
             gc: if gc {
                 GarbageCollector::new(
                     GC_HEAP_SIZE_THRESHOLD,
@@ -178,8 +163,6 @@ impl Solver {
     }
 
     fn step_inner(&mut self) -> Option<Result<Solution, Error>> {
-        let mut var_map = Vec::new();
-
         'solve: loop {
             #[cfg(test)]
             self.check_interrupted()?;
@@ -212,35 +195,34 @@ impl Solver {
             };
 
             if let Some(group) = self.group {
-                while self.clause < self.program[group].1.len() {
-                    var_map.clear();
+                while self.clause < self.index[group].1.len() {
+                    let head = &self.index[group].1[self.clause].head();
 
-                    let head = &self.program[group].1[self.clause].head;
-
-                    if self.pre_unify(goal, head) {
+                    if self.pre_unify(goal, *head) {
                         let choice_point = self.enter();
                         let choice_point_idx = self.choice_points.len();
 
-                        if self.clause + 1 < self.program[group].1.len() {
+                        if self.clause + 1 < self.index[group].1.len() {
                             self.choice_point_age = choice_point.heap_checkpoint;
                         }
 
-                        let head = self.heap.alloc(head, &mut var_map, choice_point_idx);
+                        let head = self
+                            .heap
+                            .copy_clause_head(&self.index[group].1[self.clause]);
 
                         if self.unify(goal, head) {
                             // If this was the only choice, don't push a choice point
-                            if self.clause + 1 < self.program[group].1.len() {
+                            if self.clause + 1 < self.index[group].1.len() {
                                 self.push_choice_point(choice_point);
                             }
 
+                            let clause = &self.index[group].1[self.clause];
+
                             self.goals.pop();
-                            let body = &self.program[group].1[self.clause].body;
-                            for goal in body.iter().rev() {
-                                self.goals.push(self.heap.alloc(
-                                    goal,
-                                    &mut var_map,
-                                    choice_point_idx,
-                                ));
+                            self.heap.copy_clause_body(clause, choice_point_idx);
+
+                            for goal in self.heap.clause_goals(clause).rev() {
+                                self.goals.push(goal);
                             }
 
                             self.find_clause_group();
@@ -263,12 +245,12 @@ impl Solver {
         }
     }
 
-    fn pre_unify(&self, a_ptr: HeapTermPtr, b: &CodeTerm) -> bool {
-        match (self.heap.get(a_ptr), b) {
-            (HeapTerm::Atom(a), CodeTerm::Atom(b)) => a == b,
-            (HeapTerm::Var(_, _), _) | (_, CodeTerm::Var(_)) => true,
-            (HeapTerm::Compound(f, a_arity), CodeTerm::Compound(g, b_args)) => {
-                f == g && *a_arity == b_args.len()
+    fn pre_unify(&self, a_ptr: HeapTermPtr, b_ptr: HeapTermPtr) -> bool {
+        match (self.heap.get(a_ptr), self.heap.get(b_ptr)) {
+            (HeapTerm::Atom(a), HeapTerm::Atom(b)) => a == b,
+            (HeapTerm::Var(_, _), _) | (_, HeapTerm::Var(_, _)) => true,
+            (HeapTerm::Compound(f, a_arity), HeapTerm::Compound(g, b_arity)) => {
+                f == g && a_arity == b_arity
             }
             _ => false,
         }
@@ -362,7 +344,7 @@ impl Solver {
         if let Some(goal) = self.goals.current() {
             let name = self.heap.get_name(goal);
             self.group = self
-                .program
+                .index
                 .iter()
                 .position(|(clause_name, _)| clause_name == &name);
             self.clause = 0;
@@ -402,5 +384,27 @@ impl GCRewritable for [ChoicePoint] {
                     crate::goal::Checkpoint(None, goal_map[cp.goals_checkpoint.1]);
             }
         }
+    }
+}
+
+impl HeapClausePtr {
+    #[inline]
+    fn goals(&self) -> HeapTermPtr {
+        self.ptr
+    }
+
+    #[inline]
+    fn head(&self) -> HeapTermPtr {
+        self.ptr + self.goals_length
+    }
+
+    #[inline]
+    fn body(&self) -> HeapTermPtr {
+        self.ptr + self.goals_length + self.head_length
+    }
+
+    #[inline]
+    fn end(&self) -> HeapTermPtr {
+        self.ptr + self.goals_length + self.head_length + self.body_length
     }
 }
