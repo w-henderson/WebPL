@@ -36,6 +36,8 @@ pub fn compile(ast_program: ast::Program, heap: &mut Heap) -> Index {
         });
     }
 
+    heap.code_end = heap.data.len();
+
     index
 }
 

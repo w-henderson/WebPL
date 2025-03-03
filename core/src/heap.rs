@@ -6,6 +6,7 @@ use crate::{ChoicePointIdx, ClauseName, HeapClausePtr, HeapTerm, HeapTermPtr, St
 pub struct Heap {
     pub(crate) data: Vec<HeapTerm>,
     pub(crate) string_map: StringMap,
+    pub(crate) code_end: HeapTermPtr,
 }
 
 #[derive(Copy, Clone, Debug)]
