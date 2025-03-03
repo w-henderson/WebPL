@@ -1,42 +1,20 @@
 use crate::atom::Atom;
 use crate::stringmap::StringMap;
-use crate::{ChoicePointIdx, ClauseName, CodeTerm, HeapTerm, HeapTermPtr, Query, StringId};
+use crate::{ChoicePointIdx, ClauseName, HeapClausePtr, HeapTerm, HeapTermPtr, StringId};
 
+#[derive(Default)]
 pub struct Heap {
     pub(crate) data: Vec<HeapTerm>,
     pub(crate) string_map: StringMap,
-    pub(crate) initialised: bool,
+    pub(crate) code_end: HeapTermPtr,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Checkpoint(pub usize);
 
 impl Heap {
-    pub fn new(
-        string_map: StringMap,
-        query: &Query,
-    ) -> (Self, Vec<HeapTermPtr>, Vec<(String, HeapTermPtr)>) {
-        let mut heap = Self {
-            data: Vec::new(),
-            string_map,
-            initialised: false,
-        };
-
-        let mut var_map = Vec::new();
-        let mut heap_query = Vec::new();
-
-        for term in query {
-            heap_query.push(heap.alloc(term, &mut var_map, 0));
-        }
-
-        let var_map = var_map
-            .into_iter()
-            .map(|(id, ptr)| (heap.string_map.get(id).unwrap().to_string(), ptr))
-            .collect();
-
-        heap.initialised = true;
-
-        (heap, heap_query, var_map)
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn checkpoint(&self) -> Checkpoint {
@@ -47,70 +25,61 @@ impl Heap {
         self.data.truncate(checkpoint.0);
     }
 
-    pub fn alloc(
-        &mut self,
-        term: &CodeTerm,
-        var_map: &mut Vec<(StringId, HeapTermPtr)>,
-        choice_point_idx: ChoicePointIdx,
-    ) -> HeapTermPtr {
+    pub fn copy_clause_head(&mut self, clause: &HeapClausePtr) -> HeapTermPtr {
         let result = self.data.len();
+        let offset = self.data.len() - clause.head();
 
-        match term {
-            CodeTerm::Atom(atom) => self.data.push(HeapTerm::Atom(*atom)),
-            CodeTerm::Var(crate::stringmap::str::UNDERSCORE) => {
-                self.data.push(HeapTerm::Var(result, false));
-            }
-            CodeTerm::Var(id) => {
-                if let Some((_, unified)) = var_map.iter().find(|(x, _)| x == id) {
-                    self.data.push(HeapTerm::Var(*unified, true)); // shunted
-                } else {
-                    self.data.push(HeapTerm::Var(result, false));
-                    var_map.push((*id, result));
-                }
-            }
-            CodeTerm::Compound(functor, args) => {
-                let arity = args.len();
+        self.data.extend_from_within(clause.head()..clause.body());
 
-                self.data.push(HeapTerm::Compound(*functor, arity));
-
-                let args_heap = self.data.len();
-                for _ in args {
-                    self.data.push(HeapTerm::Var(0, false));
-                }
-
-                for (i, arg) in args.iter().enumerate() {
-                    let arg = self.alloc(arg, var_map, choice_point_idx);
-                    if let HeapTerm::Var(x, _) = &mut self.data[args_heap + i] {
-                        *x = arg;
-                    }
-                }
-            }
-            CodeTerm::Cut => self.data.push(HeapTerm::Cut(choice_point_idx)),
-            CodeTerm::Lambda(js, args) => {
-                let arity = args.len();
-
-                self.data.push(HeapTerm::Lambda(*js, arity));
-
-                let args_heap = self.data.len();
-                for _ in args {
-                    self.data.push(HeapTerm::Var(0, false));
-                }
-
-                for (i, arg) in args.iter().enumerate() {
-                    let arg = self.alloc(arg, var_map, choice_point_idx);
-                    if let HeapTerm::Var(x, _) = &mut self.data[args_heap + i] {
-                        *x = arg;
-                    }
-                }
+        for term in &mut self.data[result..] {
+            if let HeapTerm::Var(x, _) = term {
+                *x += offset;
             }
         }
 
         result
     }
 
-    pub fn alloc_atom(&mut self, atom: Atom) -> HeapTermPtr {
+    pub fn copy_clause_body(&mut self, clause: &HeapClausePtr, choice_point_idx: ChoicePointIdx) {
         let result = self.data.len();
-        self.data.push(HeapTerm::Atom(atom));
+        let offset = self.data.len() - clause.body();
+
+        self.data.extend_from_within(clause.body()..clause.end());
+
+        for term in &mut self.data[result..] {
+            match term {
+                HeapTerm::Var(x, _) => *x += offset,
+                HeapTerm::Cut(choice_point) => *choice_point += choice_point_idx,
+                _ => {}
+            }
+        }
+    }
+
+    pub fn clause_goals<'a>(
+        &'a mut self,
+        clause: &HeapClausePtr,
+    ) -> impl DoubleEndedIterator<Item = HeapTermPtr> + 'a {
+        let offset = self.data.len() - clause.end();
+        self.data[clause.goals()..clause.head()]
+            .iter()
+            .map(move |term| {
+                if let HeapTerm::Var(x, _) = term {
+                    x + offset
+                } else {
+                    unreachable!()
+                }
+            })
+    }
+
+    pub fn alloc(&mut self, term: HeapTerm) -> HeapTermPtr {
+        let result = self.data.len();
+        self.data.push(term);
+        result
+    }
+
+    pub fn alloc_new_var(&mut self) -> HeapTermPtr {
+        let result = self.data.len();
+        self.data.push(HeapTerm::Var(result, false));
         result
     }
 

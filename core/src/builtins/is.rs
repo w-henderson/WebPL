@@ -1,5 +1,5 @@
 use crate::builtins::{arithmetic, Builtin, BuiltinError};
-use crate::{HeapTermPtr, Solver};
+use crate::{HeapTerm, HeapTermPtr, Solver};
 
 pub struct IsBuiltin;
 
@@ -8,7 +8,7 @@ impl Builtin<2> for IsBuiltin {
         let result = arithmetic::eval(solver, args + 1);
 
         result.map(|n| {
-            let n: HeapTermPtr = solver.heap.alloc_atom(n);
+            let n: HeapTermPtr = solver.heap.alloc(HeapTerm::Atom(n));
             solver.unify(args, n)
         })
     }

@@ -99,6 +99,9 @@ impl GarbageCollector {
             solver.gc.start_goal_ptr = crate::goal::Checkpoint(None, 0);
         }
 
+        solver.gc.start_heap_ptr =
+            crate::heap::Checkpoint(solver.gc.start_heap_ptr.0.max(solver.heap.code_end));
+
         let roots = solver.gc.get_roots(&solver.var_map, &solver.goals);
         solver.gc.mark_heap(&solver.heap, roots);
         solver.gc.mark_goal(&solver.goals, solver.goals.current);

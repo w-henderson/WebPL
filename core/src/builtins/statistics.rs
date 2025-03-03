@@ -23,6 +23,6 @@ impl Builtin<2> for StatisticsBuiltin {
 }
 
 fn unify_int(solver: &mut Solver, a: HeapTermPtr, i: i64) -> bool {
-    let atom: HeapTermPtr = solver.heap.alloc_atom(Atom::Integer(i));
+    let atom: HeapTermPtr = solver.heap.alloc(HeapTerm::Atom(Atom::Integer(i)));
     solver.unify(a, atom)
 }
