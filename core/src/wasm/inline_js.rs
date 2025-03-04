@@ -1,5 +1,5 @@
 use crate::builtins::BuiltinError;
-use crate::{Atom, HeapTermPtr, Solver};
+use crate::{Atom, HeapTerm, HeapTermPtr, Solver};
 
 use crate::wasm::{eval_js, Term};
 
@@ -23,13 +23,22 @@ pub fn eval(solver: &mut Solver, js: usize, args: Vec<HeapTermPtr>) -> Result<bo
         &mut |a| {
             if let Some(a) = a.as_f64() {
                 if a == a as i64 as f64 {
-                    Ok(solver.borrow_mut().heap.alloc_atom(Atom::Integer(a as i64)))
+                    Ok(solver
+                        .borrow_mut()
+                        .heap
+                        .alloc(HeapTerm::Atom(Atom::Integer(a as i64))))
                 } else {
-                    Ok(solver.borrow_mut().heap.alloc_atom(Atom::Float(a)))
+                    Ok(solver
+                        .borrow_mut()
+                        .heap
+                        .alloc(HeapTerm::Atom(Atom::Float(a))))
                 }
             } else if let Some(a) = a.as_string() {
                 let a = solver.borrow_mut().heap.string_map.alloc(&a);
-                Ok(solver.borrow_mut().heap.alloc_atom(Atom::String(a)))
+                Ok(solver
+                    .borrow_mut()
+                    .heap
+                    .alloc(HeapTerm::Atom(Atom::String(a))))
             } else {
                 Err("Can only allocate numbers and strings".to_string())
             }
