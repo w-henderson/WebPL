@@ -39,9 +39,12 @@ impl Goals {
         self.current.map(|ptr| self.goals[ptr].term())
     }
 
-    pub fn pop(&mut self) {
+    pub fn pop(&mut self, determinate: bool) {
         if let Some(ptr) = self.current.take() {
             self.current = self.goals[ptr].prev_ptr();
+            if determinate && ptr == self.goals.len() - 1 {
+                self.goals.pop();
+            }
         }
     }
 

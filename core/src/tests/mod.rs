@@ -29,8 +29,12 @@ macro_rules! test {
 }
 
 impl Solver {
-    pub(crate) fn max_choice_point_stack_height(&self) -> usize {
+    pub(crate) fn max_choice_points_capacity(&self) -> usize {
         self.choice_points.capacity()
+    }
+
+    pub(crate) fn max_goals_capacity(&self) -> usize {
+        self.goals.goals.capacity()
     }
 
     pub(crate) fn interrupt(interrupt: &std::sync::atomic::AtomicBool) {

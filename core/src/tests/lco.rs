@@ -14,5 +14,6 @@ test!(lco, |solver: SolverFn| {
     assert!(solver.next().is_none());
 
     // Check that LCO was applied (the stack would've grown much more otherwise)
-    assert!(solver.max_choice_point_stack_height() < 50);
+    assert!(solver.max_choice_points_capacity() < 50);
+    assert!(solver.max_goals_capacity() < 50);
 });

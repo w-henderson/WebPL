@@ -176,7 +176,7 @@ impl Solver {
             match builtins::eval(self, goal) {
                 Some(Ok(true)) => {
                     // Built-in predicate succeeded
-                    self.goals.pop();
+                    self.goals.pop(true);
                     self.find_clause_group();
                     if self.goals.is_complete() {
                         let solution = self.serialize_solution();
@@ -212,13 +212,16 @@ impl Solver {
 
                         if self.unify(goal, head) {
                             // If this was the only choice, don't push a choice point
-                            if self.clause + 1 < self.index[group].1.len() {
+                            let determinate = if self.clause + 1 < self.index[group].1.len() {
                                 self.push_choice_point(choice_point);
-                            }
+                                false
+                            } else {
+                                true
+                            };
 
                             let clause = &self.index[group].1[self.clause];
 
-                            self.goals.pop();
+                            self.goals.pop(determinate);
                             self.heap.copy_clause_body(clause, choice_point_idx);
 
                             for goal in self.heap.clause_goals(clause).rev() {
