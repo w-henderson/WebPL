@@ -196,66 +196,48 @@ impl Solver {
 
             if let Some(group) = self.group {
                 while self.clause < self.index[group].1.len() {
-                    let head = &self.index[group].1[self.clause].head();
+                    let choice_point = self.enter();
+                    let choice_point_idx = self.choice_points.len();
+                    self.choice_point_age = choice_point.heap_checkpoint;
 
-                    if self.pre_unify(goal, *head) {
-                        let choice_point = self.enter();
-                        let choice_point_idx = self.choice_points.len();
+                    let head = self
+                        .heap
+                        .copy_clause_head(&self.index[group].1[self.clause]);
 
-                        if self.clause + 1 < self.index[group].1.len() {
-                            self.choice_point_age = choice_point.heap_checkpoint;
+                    if self.unify(goal, head) {
+                        // If this was the only choice, don't push a choice point
+                        let determinate = if self.clause + 1 < self.index[group].1.len() {
+                            self.push_choice_point(choice_point);
+                            false
+                        } else {
+                            true
+                        };
+
+                        let clause = &self.index[group].1[self.clause];
+
+                        self.goals.pop(determinate);
+                        self.heap.copy_clause_body(clause, choice_point_idx);
+
+                        for goal in self.heap.clause_goals(clause).rev() {
+                            self.goals.push(goal);
                         }
 
-                        let head = self
-                            .heap
-                            .copy_clause_head(&self.index[group].1[self.clause]);
+                        self.find_clause_group();
 
-                        if self.unify(goal, head) {
-                            // If this was the only choice, don't push a choice point
-                            let determinate = if self.clause + 1 < self.index[group].1.len() {
-                                self.push_choice_point(choice_point);
-                                false
-                            } else {
-                                true
-                            };
-
-                            let clause = &self.index[group].1[self.clause];
-
-                            self.goals.pop(determinate);
-                            self.heap.copy_clause_body(clause, choice_point_idx);
-
-                            for goal in self.heap.clause_goals(clause).rev() {
-                                self.goals.push(goal);
-                            }
-
-                            self.find_clause_group();
-
-                            if self.goals.is_complete() {
-                                let solution = self.serialize_solution();
-                                self.pop_choice_point();
-                                return Some(Ok(solution));
-                            }
-
-                            continue 'solve;
+                        if self.goals.is_complete() {
+                            let solution = self.serialize_solution();
+                            self.pop_choice_point();
+                            return Some(Ok(solution));
                         }
 
-                        self.undo(choice_point);
+                        continue 'solve;
                     }
+
+                    self.undo(choice_point);
                 }
             }
 
             self.pop_choice_point()?;
-        }
-    }
-
-    fn pre_unify(&self, a_ptr: HeapTermPtr, b_ptr: HeapTermPtr) -> bool {
-        match (self.heap.get(a_ptr), self.heap.get(b_ptr)) {
-            (HeapTerm::Atom(a), HeapTerm::Atom(b)) => a == b,
-            (HeapTerm::Var(_, _), _) | (_, HeapTerm::Var(_, _)) => true,
-            (HeapTerm::Compound(f, a_arity), HeapTerm::Compound(g, b_arity)) => {
-                f == g && a_arity == b_arity
-            }
-            _ => false,
         }
     }
 
@@ -326,7 +308,6 @@ impl Solver {
 
     #[inline]
     fn push_choice_point(&mut self, choice_point: ChoicePoint) {
-        self.choice_point_age = choice_point.heap_checkpoint;
         self.choice_points.push(choice_point);
     }
 
