@@ -254,9 +254,31 @@ When a clause is copied onto the heap, a linear scan updates its variables by th
 
 Last call optimisation (LCO) is traditionally implemented by reusing the stack frame for the last call of a determinate predicate (Section \ref{sec:preparation-implementation}). This is only applicable on the final clause of a predicate, as otherwise the predicate would not be determinate.
 
-However, in my implementation, we do not have a call stack, instead storing all terms on the heap and using a goal stack and choice point stack for control (Section \ref{sec:memory-layout}). Therefore, it is not the call stack that grows indefinitely, but the choice point stack. I implement a variant of last call optimisation, which I call \emph{choice point elimination}. This works by not creating a choice point for the final clause of a predicate, as its failure necessarily implies the failure of the entire predicate. Static analysis prior to execution is required to group clauses into predicates to enable this optimisation.
+However, in my implementation, we do not have a call stack, instead storing all terms on the heap and using a goal stack and choice point stack for control (Section \ref{sec:memory-layout}). Therefore, LCO must be implemented in two parts, one on the choice point stack and one on the goal stack.
 
-Instead of reusing the stack frame on the call stack, TODO
+For the choice point stack, I implement a variant of last call optimisation, which I call \emph{choice point elimination}. This works by not creating a choice point for the final clause of a predicate, as its failure necessarily implies the failure of the entire predicate. Static analysis prior to execution is performed to group clauses into predicates to enable this optimisation. This has the same effect as traditional LCO: if a clause is determinate, it will not leave any choice points on the stack, as no choice point will be created for either the choice of the clause or the solution of any goals.
+
+Recall the implementation of the goal stack in Section \ref{sec:memory-layout}, namely that ``popping a goal from the stack'' does not remove it from the graph, rather moving the current goal pointer to its predecessor. Goals are only fully removed on backtracking, when the goal stack is truncated to the size it was when the choice point was created. As is, while a determinate predicate will use constant space on the choice point stack, it will use linear space on the goal stack.
+
+However, when no choice points refer to a goal, it is sound to remove it from the graph entirely when it is popped. This is exactly the case in a determinate predicate. The goals of its body are pushed to the goal stack when a goal unifies with its head, and because of its determinacy and choice point elimination, no choice points are created as these goals are popped and resolved one by one. Furthermore, as they will be allocated at the end of the memory for the goal graph, no fragmentation occurs when they are removed. This is implemented by passing a boolean flag to the \texttt{Goal::pop} function, indicating whether the goal can be safely removed from the graph (Figure \ref{fig:goal-pop}).
+
+\begin{figure}[H]
+\centering
+\begin{minted}{rust}
+impl Goal {
+    pub fn pop(&mut self, determinate: bool) {
+        if let Some(ptr) = self.current.take() {
+            self.current = self.goals[ptr].prev_ptr();
+            if determinate && ptr == self.goals.len() - 1 {
+                self.goals.pop();
+            }
+        }
+    }
+}
+\end{minted}
+\caption{Implementation of \texttt{Goal::pop}}
+\label{fig:goal-pop}
+\end{figure}
 
 \subsection{String Interning}
 
