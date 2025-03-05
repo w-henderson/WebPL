@@ -6,4 +6,61 @@
 
 \includepdf[pages=-]{../proposal/proposal.pdf}
 
+\chapter{Built-in Predicates}
+
+\label{appendix:predicates}
+
+\section{Predicates}
+
+Supported built-in predicates (Section \ref{sec:builtins}) are shown in Table \ref{table:predicates}.
+
+\begin{table}
+\centering
+\begin{tabular}{lp{12cm}}
+\hline
+\textbf{Predicate} & \textbf{Description} \\
+\hline
+\texttt{is/2} & Unifies the first argument with the result of evaluating the second argument, or fails if they do not unify. \\
+\texttt{=/2} & Unifies the first argument with the second argument, or fails if they do not unify. \\
+\texttt{>/2} & Succeeds if the first argument is greater than the second argument. \\
+\texttt{</2} & Succeeds if the first argument is less than the second argument. \\
+\texttt{>=/2} & Succeeds if the first argument is greater than or equal to the second argument. \\
+\texttt{=</2} & Succeeds if the first argument is less than or equal to the second argument. \\
+\texttt{=\textbackslash=/2} & Succeeds if the first argument is not equal (arithmetic) to the second argument. \\
+\texttt{=:=/2} & Succeeds if the first argument is equal (arithmetic) to the second argument. \\
+\texttt{==/2} & Succeeds if the first argument is equal (term) to the second argument. \\
+\texttt{integer/1} & Succeeds if the argument is an integer. \\
+\texttt{float/1} & Succeeds if the argument is a floating point number. \\
+\texttt{atom/1} & Succeeds if the argument is an atom. \\
+\texttt{var/1} & Succeeds if the argument is a variable. \\
+\texttt{compound/1} & Succeeds if the argument is a compound term. \\
+\texttt{number/1} & Succeeds if the argument is a number (integer or float). \\
+\texttt{!/0} & Cut operator. \\
+\texttt{statistics/2} & Queries runtime statistics, see Table \ref{table:statistics}. \\
+\hline
+\end{tabular}
+\caption{Built-in predicates}
+\label{table:predicates}
+\end{table}
+
+\section{Statistics Predicate}
+
+The \texttt{statistics/2} predicate takes a statistic name as its first argument, unifying the current value of that statistic with the second argument. Available statistics are shown in Table \ref{table:statistics}.
+
+\begin{table}
+\centering
+\begin{tabular}{ll}
+\hline
+\textbf{Statistic} & \textbf{Description} \\
+\hline
+\texttt{memory} & Current heap memory usage in bytes. \\
+\texttt{allocated} & Current allocated heap size in bytes. \\
+\texttt{gc} & Number of garbage collections performed. \\
+\texttt{wasm\_memory} & Current size of the WebAssembly linear memory in bytes. \\
+\hline
+\end{tabular}
+\caption{Supported statistics}
+\label{table:statistics}
+\end{table}
+
 \end{appendices}
