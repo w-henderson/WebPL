@@ -40,6 +40,8 @@ In a traditional heap/stack architecture, the heap and stack are separate region
 
 In a merged heap/stack architecture, all terms are allocated in one contiguous region of memory. This avoids the problem of fragmentation, as the heap grows with allocations and shrinks with instant reclaiming and garbage collection (Section \ref{sec:gc-impl}). If the heap grows too large for the linear memory, it suffices, in theory, to execute the \texttt{memory.grow} WebAssembly instruction, with no additional work from the WebAssembly module required. In my implementation, the exact placement of the heap in the linear memory is decided by Rust's allocator, but once the heap grows sufficiently large, this has the same effect (Section \ref{sec:heap-placement}).
 
+A key advantage of this architecture is that terms are stored in chronological order on the heap, with older terms at lower addresses. This facilitates the implementation of several garbage collection optimisations, such as variable shunting (Section \ref{sec:variable-shunting}) and generational stack collection (Section \ref{sec:generational-gc}).
+
 Of course, other areas of memory are needed:
 
 \paragraph{Trail Stack} The trail stack is a stack of pointers to variables that have been bound, used for backtracking.
@@ -248,8 +250,6 @@ The cut operator, \texttt{!/0}, is an extra-logical predicate that commits to th
 
 When a clause is copied onto the heap, a linear scan updates its variables by the appropriate offset (Section \ref{sec:memory-layout}). This linear scan also updates the heap representations of any instances of the cut operator to include the index of the current choice point, that is, the choice point before this clause was selected. When the cut operator becomes the current goal, the choice point stack is truncated to the choice point it refers to.
 
-\section{Optimisations}
-
 \subsection{Choice Point Elimination (incl. Last Call Optimisation)}
 
 Last call optimisation (LCO) is traditionally implemented by reusing the stack frame for the last call of a determinate predicate (Section \ref{sec:preparation-implementation}). This is only applicable on the final clause of a predicate, as otherwise the predicate would not be determinate.
@@ -258,7 +258,7 @@ However, in my implementation, we do not have a call stack, instead storing all 
 
 For the choice point stack, I implement a variant of last call optimisation, which I call \emph{choice point elimination}. This works by not creating a choice point for the final clause of a predicate, as its failure necessarily implies the failure of the entire predicate. Static analysis prior to execution is performed to group clauses into predicates to enable this optimisation. This has the same effect as traditional LCO: if a clause is determinate, it will not leave any choice points on the stack, as no choice point will be created for either the choice of the clause or the solution of any goals.
 
-Recall the implementation of the goal stack in Section \ref{sec:memory-layout}, namely that ``popping a goal from the stack'' does not remove it from the graph, rather moving the current goal pointer to its predecessor. Goals are only fully removed on backtracking, when the goal stack is truncated to the size it was when the choice point was created. As is, while a determinate predicate will use constant space on the choice point stack, it will use linear space on the goal stack.
+Recall the implementation of the goal stack from Section \ref{sec:memory-layout}, namely that ``popping a goal from the stack'' does not remove it from the graph, rather moving the current goal pointer to its predecessor. Goals are only fully removed on backtracking, when the goal stack is truncated to the size it was when the choice point was created. As is, while a determinate predicate will use constant space on the choice point stack, it will use linear space on the goal stack.
 
 However, when no choice points refer to a goal, it is sound to remove it from the graph entirely when it is popped. This is exactly the case in a determinate predicate. The goals of its body are pushed to the goal stack when a goal unifies with its head, and because of its determinacy and choice point elimination, no choice points are created as these goals are popped and resolved one by one. Furthermore, as they will be allocated at the end of the memory for the goal graph, no fragmentation occurs when they are removed. This is implemented by passing a boolean flag to the \texttt{Goal::pop} function, indicating whether the goal can be safely removed from the graph (Figure \ref{fig:goal-pop}).
 
@@ -323,6 +323,177 @@ match functor {
 \section{Garbage Collection}
 
 \label{sec:gc-impl}
+
+Garbage collection is a crucial part of a merged heap/stack architecture \cite{liEfficientMemoryManagement2000}. This section describes the implementation of the garbage collector in the Prolog interpreter.
+
+\subsection{Mark and Sweep}
+
+Initially, I implemented a naive mark-and-sweep garbage collector, based on the algorithm described by Knuth \cite{knuthArtComputerProgramming1997}.
+
+The mark phase uses the goal stack, choice point stack, and named variables in the query as the root set, marking all terms on the heap that are reachable from these roots. A term is marked by setting its entry in a separate vector called the \emph{garbage collection map} (Knuth calls these entries \texttt{LINK}s) to \texttt{GC\_MARKED}. The entries are initialised to \texttt{GC\_UNMARKED} at the start of each garbage collection.
+
+During the compaction phase, a linear scan of the heap is performed, shuffling marked terms down the heap to remove gaps. The heap is then truncated to the end of the last marked term. The garbage collection map is also updated to reflect the new locations of terms.
+
+Finally, during the pointer rewriting phase, the heap is scanned again, and all pointers are updated using the garbage collection map. Pointers in the root set are similarly updated.
+
+\subsection{Precise Garbage Collection}
+
+The key aim of this part of the project was to implement a \emph{precise} garbage collector, as defined by Wielemaker and Neumerkel in their paper evaluating the garbage collectors of various Prolog implementations \cite{wielemakerPreciseGarbageCollection2008}:
+
+\begin{quote}
+``We define a `precise' garbage collector as a garbage collector that reclaims all data that can no longer be reached considering all possible execution paths from the current state without considering semantics.''
+\end{quote}
+
+They define five programs that must run indefinitely in bounded memory with a precise garbage collector. Two of these concern functionality not relevant to this project, regarding attributed variables and if/then/else constructs. The remaining three are shown in Figure \ref{fig:gc-programs}.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.65\textwidth}
+\centering
+\begin{minted}{prolog}
+run :- run(_,_).
+run(L0, L) :- f(L0, L1), dummy(L1, L).
+f([g|X], Y) :- f(X, Y).
+dummy(Xs, Xs).
+\end{minted}
+\caption{And-control (head variables)}
+\end{subfigure}%
+\begin{subfigure}{.35\textwidth}
+\centering
+\begin{minted}{prolog}
+run :- run(_).
+run(X) :- f(X).
+run(X) :- X == [].
+f([f|X]) :- f(X).
+\end{minted}
+\caption{Or-control}
+\label{fig:or-control}
+\end{subfigure}
+\par\bigskip
+\par\bigskip
+\begin{subfigure}{\textwidth}
+\centering
+\begin{minted}{prolog}
+run :- run(_,_).
+run(L0, L) :- dummy(L0, L1), f(L1, L2), dummy(L2, L).
+f([f|X], Y) :- f(X, Y).
+dummy(Xs, Xs).
+\end{minted}
+\caption{And-control (existential variables)}
+\end{subfigure}
+\caption{Garbage collection test programs}
+\label{fig:gc-programs}
+\end{figure}
+
+In order to meet these criteria, a number of Prolog-specific garbage collection optimisations were made. These are described in the following sections.
+
+\subsection{Variable Shunting}
+
+\label{sec:variable-shunting}
+
+\emph{Variable shunting} replaces variables that are only seen in their bound state with their binding values \cite{sahlinVariableShuntingWAM1991}. These variables are those which were created and then bound without the creation of any choice points in between. I implement variable shunting using the ``timestamping'' algorithm described by Bekkers et al. \cite{bekkersDynamicMemoryManagement1992}.
+
+Figure \ref{fig:shunt-program} shows a program that demonstrates the need for variable shunting. Y can be shunted to prevent the heap from growing indefinitely.
+
+\begin{figure}[H]
+\centering
+\begin{minted}{prolog}
+f(X) :- Y = X, f(Y).
+?- f(3).
+\end{minted}
+\caption{A program that demonstrates the need for variable shunting}
+\label{fig:shunt-program}
+\end{figure}
+
+Bekkers et al. define the \emph{age} of a variable to be the serial number of the choice point created just after that variable, i.e. the number of choice points on the stack when the variable was created. In the merged heap/stack architecture, due to the chronological layout of the heap, it is equivalent, and simplifies the implementation, to consider the age of a variable to be simply its index in the heap. The age of a choice point is defined to be the size of the heap when it was created.
+
+The timestamping algorithm works in two parts, the first during unification and the second during garbage collection, between the mark and compact phases.
+
+\begin{enumerate}
+\item Prior to unifying a variable with another term, the age of the variable is compared to the age of the current choice point. If the variable is older, it is pushed to the trail as normal. Otherwise, no choice points can exist since its creation, so variable shunting is applicable. The variable is not pushed to the trail and is instead marked as shunted by setting a flag in its heap representation. This is shown in Figure \ref{fig:unify-var}.
+
+\begin{figure}[H]
+\centering
+\begin{minted}{rust}
+#[inline]
+fn unify_var(&mut self, a: HeapTermPtr, b: HeapTermPtr) -> bool {
+    if a < self.choice_point_age.0 {
+        self.trail.push(a);
+    } else {
+        self.heap.mark_shunted(a);
+    }
+
+    self.heap.unify(a, b);
+    true
+}
+\end{minted}
+\caption{Variable shunting during unification}
+\label{fig:unify-var}
+\end{figure}
+
+\item During garbage collection, an additional ``shunt'' phase is added between the mark and compact phases. The shunt phase iterates over the heap, from younger to older terms (reverse order), and for each shunted variable that was marked, performs one of two actions, based on the garbage collection map entry of the term it is bound to:
+\begin{enumerate}
+\item If the term is not yet mapped, the variable is mapped to the term.
+\item If the term is mapped to an index $i$, it must be a younger variable that has already been shunted by case (a). Therefore, the variable is also mapped to $i$.
+\end{enumerate}
+
+These cases are illustrated in Figure \ref{fig:shunt-cases}. The following compact phase then considers all terms that were already mapped by the shunt phase to be dead, and reclaims them. It also performs a final pass over the map to update the entries of all shunted variables to point to their new (post-compaction) locations.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[box/.style={draw, rectangle}]
+    \node (root) at (-1, 0) {};
+    \node[box] (X) at (0, 0) {X};
+    \node[box] (Y) at (2, 0) {Y};
+    \node[box] (7) at (4, 0) {7};
+
+    \draw[->] (root) -- (X);
+    \draw[->] (X) -- (Y);
+    \draw[->] (Y) -- (7);
+
+    \draw[->, dashed] (X) to [bend left=90] node [midway, above] {(b)} (7);
+    \draw[->, dashed] (Y) to [bend left=45] node [midway, above] {(a)} (7);
+\end{tikzpicture}
+\caption{Variable shunting during garbage collection. X and Y are shunted variables. Solid lines represent variable bindings, and dashed lines represent the garbage collection map.}
+\label{fig:shunt-cases}
+\end{figure}
+
+\end{enumerate}
+
+\subsection{Early Reset}
+
+\emph{Early reset} is concerned with collecting terms that are only accessible from a choice point \cite{applebyGarbargecollectionProlog1988}.
+
+Recall the program in Figure \ref{fig:or-control} (or-control). The first clause of \texttt{run/1} creates a choice point to try the second clause if this one fails, then iterates through an infinite list. As is, the garbage collector is prevented from reclaiming items already iterated over because they are still reachable from the choice point: in the goal \texttt{run(X)}, \texttt{X} is bound to the infinitely-growing list by the execution of the first clause. Of course, \texttt{X} will be unbound upon backtracking, before the second clause is reached. This is the key insight behind early reset. The garbage collector can reset the bindings of variables that are only reachable from a choice point, as this is only observable upon backtracking to that choice point, at which point they will be reset anyway.
+
+\subsection{Testing for Precise Garbage Collection}
+
+Variable shunting and early reset prove sufficient to meet the criteria for precise garbage collection.
+
+To test this, for each of the programs in Figure \ref{fig:gc-programs}, I use the following algorithm:
+
+\begin{enumerate}
+\item Run the program for a fixed number of iterations to reach a steady state.
+\item Perform a garbage collection, then measure the size of the heap.
+\item Run the program for a further fixed number of iterations.
+\item Perform a garbage collection and measure the size of the heap, passing the test if the heap size is less than or equal to that in step 2.
+\item Make one resolution step, then go back to step 4. Repeat this a fixed number of times in order to get to the same point in the execution as the first measurement, at which point the test passes.
+\end{enumerate}
+
+\subsection{Generational Garbage Collection}
+
+\label{sec:implementation-generational-gc}
+
+While the naive mark-and-sweep garbage collector augmented with variable shunting and early reset is precise, it is not particularly efficient.
+
+Generational garbage collection avoids scanning the entire heap by dividing it into generations, with the youngest generation being collected most frequently (Section \ref{sec:generational-gc}).
+
+\emph{Segmented garbage collection} applies this concept to Prolog \cite{applebyGarbargecollectionProlog1988}. Recall the concept of \emph{age} from the variable shunting algorithm (Section \ref{sec:variable-shunting}). This is used to divide the heap into generations, where each generation consists of a choice point and all terms not older than it, up to the next choice point. When a choice point (and hence a new generation) is created, all non-garbage terms in previous generations cannot become garbage until the choice point is popped upon backtracking. This means that each garbage collection needs only consider terms in generations for which garbage collection has not yet been performed.
+
+This is implemented by keeping track of the age of the oldest choice point for which garbage collection has not yet been performed. Initially, this is set to 0. When a garbage collection is performed, the age is updated to the age of the current choice point. When a choice point is popped, the age is updated to the age of the choice point before it.
+
+\subsection{Garbage Collecting the Trail}
+
 
 \section{JavaScript FFI}
 

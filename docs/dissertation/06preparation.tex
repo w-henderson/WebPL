@@ -345,6 +345,8 @@ Warren applied this algorithm to Prolog, using the local stack as the root set \
 
 \subsection{Generational Garbage Collection}
 
+\label{sec:generational-gc}
+
 \emph{Generational garbage collection} attempts to mitigate the high performance cost of garbage collecting the entire heap by observing that most objects die young. This is called the \emph{generational hypothesis}.
 
 The heap is divided into \emph{generations}, let's say two: the \emph{young generation}, where new objects are allocated, and the \emph{old generation}, where objects that survive a collection cycle are promoted. The young generation is collected with frequent \emph{minor} collections, while infrequent \emph{major} collections cover the entire heap.
