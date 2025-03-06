@@ -92,12 +92,9 @@ impl Goal {
 }
 
 impl GCRewritable for Goals {
-    fn rewrite(&mut self, from: usize, map: &[usize], _: &[usize], goal_map: &[usize]) {
-        self.current = self.current.map(|ptr| goal_map[ptr]);
-
-        for Goal(term, prev) in self.goals.iter_mut().skip(from) {
+    fn rewrite(&mut self, from: usize, map: &[usize], _: &[usize]) {
+        for Goal(term, _) in self.goals.iter_mut().skip(from) {
             *term = map[*term];
-            *prev = prev.map(|ptr| goal_map[ptr]);
         }
     }
 }

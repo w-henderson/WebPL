@@ -355,18 +355,10 @@ impl Iterator for Solver {
 }
 
 impl GCRewritable for [ChoicePoint] {
-    fn rewrite(&mut self, from: usize, map: &[usize], trail_map: &[usize], goal_map: &[usize]) {
+    fn rewrite(&mut self, from: usize, map: &[usize], trail_map: &[usize]) {
         for cp in self.iter_mut().skip(from) {
             cp.heap_checkpoint = crate::heap::Checkpoint(map[cp.heap_checkpoint.0]);
             cp.trail_checkpoint = crate::trail::Checkpoint(trail_map[cp.trail_checkpoint.0]);
-
-            if let Some(goal) = cp.goals_checkpoint.0 {
-                cp.goals_checkpoint =
-                    crate::goal::Checkpoint(Some(goal_map[goal]), goal_map[cp.goals_checkpoint.1]);
-            } else {
-                cp.goals_checkpoint =
-                    crate::goal::Checkpoint(None, goal_map[cp.goals_checkpoint.1]);
-            }
         }
     }
 }
