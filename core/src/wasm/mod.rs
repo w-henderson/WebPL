@@ -1,7 +1,7 @@
-//#[cfg(target_family = "wasm")]
+#[cfg(target_family = "wasm")]
 pub mod inline_js;
 
-/*#[cfg(not(target_family = "wasm"))]
+#[cfg(not(target_family = "wasm"))]
 pub mod inline_js {
     pub fn eval(
         _: &mut crate::Solver,
@@ -10,7 +10,7 @@ pub mod inline_js {
     ) -> Result<bool, crate::builtins::BuiltinError> {
         Err(crate::builtins::BuiltinError::UnsupportedPlatform)
     }
-}*/
+}
 
 use serde::{ser::SerializeStruct, Serialize};
 use wasm_bindgen::prelude::*;
@@ -35,8 +35,9 @@ pub fn memory() -> usize {
 extern "C" {
     #[wasm_bindgen(catch)]
     fn eval_js(
-        js: &str,
-        args: Vec<JsValue>,
+        js: String,
+        arg_names: Vec<String>,
+        arg_values: Vec<JsValue>,
         unify_wasm: &mut dyn FnMut(HeapTermPtr, HeapTermPtr) -> bool,
         alloc_wasm: &mut dyn FnMut(JsValue) -> Result<HeapTermPtr, String>,
     ) -> Result<bool, JsValue>;

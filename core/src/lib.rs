@@ -29,6 +29,7 @@ type HeapTermPtr = usize;
 type ChoicePointIdx = usize;
 
 type StringId = usize;
+type LambdaId = usize;
 
 static GC_HEAP_SIZE_THRESHOLD: usize = 1024;
 static GC_HEAP_PRESSURE_THRESHOLD: f64 = 0.9;
@@ -40,7 +41,7 @@ pub enum HeapTerm {
     Var(HeapTermPtr, bool), // ptr, shunted
     Compound(StringId, usize),
     Cut(ChoicePointIdx),
-    Lambda(StringId, usize),
+    Lambda(LambdaId, usize),
 }
 
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]
@@ -51,6 +52,13 @@ pub struct HeapClausePtr {
     goals_length: usize,
     head_length: usize,
     body_length: usize,
+}
+
+#[derive(Clone)]
+#[allow(dead_code)]
+pub struct Lambda {
+    js: String,
+    arg_names: Vec<String>,
 }
 
 pub type Index = Vec<(ClauseName, Vec<HeapClausePtr>)>;
@@ -68,6 +76,9 @@ pub struct Solver {
     gc: GarbageCollector,
     var_map: Vec<(String, HeapTermPtr)>,
     trail: Trail,
+
+    #[allow(dead_code)]
+    lambdas: Vec<Lambda>,
 
     #[cfg(test)]
     interrupt: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -124,9 +135,10 @@ impl Solver {
 
     pub fn from_ast(program: ast::Program, query: ast::Query, gc: bool) -> Self {
         let mut heap = Heap::new();
+        let mut lambdas = Vec::new();
 
-        let index = compile::compile(program, &mut heap);
-        let (query, var_map) = compile::alloc_query(query, &mut heap);
+        let index = compile::compile(program, &mut heap, &mut lambdas);
+        let (query, var_map) = compile::alloc_query(query, &mut heap, &mut lambdas);
         let goals = Goals::new(&query);
 
         let mut solver = Solver {
@@ -148,6 +160,7 @@ impl Solver {
             },
             var_map,
             trail: Trail::new(),
+            lambdas,
 
             #[cfg(test)]
             interrupt: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),

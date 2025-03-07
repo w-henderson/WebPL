@@ -16,7 +16,7 @@ pub enum Term {
     Variable(String),
     Compound(String, Vec<Term>),
     Cut,
-    Lambda(String, Vec<Term>),
+    Lambda(String, Vec<String>),
 }
 
 #[derive(Debug)]
@@ -77,7 +77,7 @@ impl Term {
         if js.get(i) == Some(&b'(') {
             i = consume_whitespace(i + 1);
             while let Some((var, new_i)) = read_var(i) {
-                vars.push(Term::Variable(var));
+                vars.push(var);
                 i = consume_whitespace(new_i);
                 if *js.get(i).ok_or("Unexpected EOF")? == b',' {
                     i = consume_whitespace(i + 1);
@@ -93,7 +93,7 @@ impl Term {
 
             i = consume_whitespace(i + 1);
         } else if let Some((var, new_i)) = read_var(i) {
-            vars.push(Term::Variable(var));
+            vars.push(var);
             i = consume_whitespace(new_i);
         } else {
             return Err("Expected ( or variable name");
@@ -105,7 +105,7 @@ impl Term {
             return Err("Expected =>");
         }
 
-        let js = js_str[2..js_str.len() - 2].trim().to_string();
+        let js = js_str[i + 2..js_str.len() - 2].trim().to_string();
 
         Ok(Term::Lambda(js, vars))
     }

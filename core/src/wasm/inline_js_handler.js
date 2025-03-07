@@ -7,7 +7,7 @@
  * 
  * @throws {string} - If the JavaScript code throws an error
  */
-export function eval_js(js, args, unify_wasm, alloc_wasm) {
+export function eval_js(js, arg_names, arg_values, unify_wasm, alloc_wasm) {
   const unify = (a, b) => {
     if (!("variable" in a)) throw new Error("Can only unify variables");
     if (!(typeof b === "number" || typeof b === "string")) throw new Error("Can only unify with numbers or strings");
@@ -27,8 +27,9 @@ export function eval_js(js, args, unify_wasm, alloc_wasm) {
   };
 
   try {
-    let fn = eval(js);
-    return fn(...args) !== false;
+    let fn = new Function("unify", "fetch", ...arg_names, js)
+      .bind(globalThis, unify, fetch);
+    return fn(...arg_values) !== false;
   } catch (e) {
     throw e.toString();
   }

@@ -57,9 +57,9 @@ pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, Built
             solver.cut(*choice_point_idx);
             Some(Ok(true))
         }
-        HeapTerm::Lambda(js, arity) => {
+        HeapTerm::Lambda(id, arity) => {
             let args = (1..=*arity).map(|i| goal_ptr + i).collect();
-            Some(crate::wasm::inline_js::eval(solver, *js, args))
+            Some(crate::wasm::inline_js::eval(solver, *id, args))
         }
         _ => None,
     }

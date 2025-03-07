@@ -301,8 +301,6 @@ impl GarbageCollector {
     }
 
     fn collect_trail(&mut self, trail: &mut Trail) {
-        let old_size = trail.vars.len();
-
         let mut new_ptr = self.start_trail_ptr.0;
         let mut old_ptr = self.start_trail_ptr.0;
 
@@ -323,10 +321,6 @@ impl GarbageCollector {
         self.trail_map[old_ptr] = new_ptr;
 
         trail.vars.truncate(new_ptr);
-
-        if new_ptr < old_size {
-            //panic!("garbage on the trail");
-        }
     }
 
     fn rewrite(

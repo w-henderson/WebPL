@@ -1,5 +1,5 @@
 use crate::builtins::BuiltinError;
-use crate::{Atom, HeapTerm, HeapTermPtr, Solver};
+use crate::{Atom, HeapTerm, HeapTermPtr, LambdaId, Solver};
 
 use crate::wasm::{eval_js, Term};
 
@@ -7,9 +7,13 @@ use wasm_bindgen::JsValue;
 
 use std::cell::RefCell;
 
-pub fn eval(solver: &mut Solver, js: usize, args: Vec<HeapTermPtr>) -> Result<bool, BuiltinError> {
-    let js = solver.heap.get_atom(js).to_string();
-    let args: Vec<JsValue> = args
+pub fn eval(
+    solver: &mut Solver,
+    id: LambdaId,
+    args: Vec<HeapTermPtr>,
+) -> Result<bool, BuiltinError> {
+    let lambda = solver.lambdas[id].clone();
+    let arg_values: Vec<JsValue> = args
         .into_iter()
         .map(|ptr| JsValue::from(Term::from_heap(&solver.heap, ptr)))
         .collect();
@@ -17,8 +21,9 @@ pub fn eval(solver: &mut Solver, js: usize, args: Vec<HeapTermPtr>) -> Result<bo
     let solver = RefCell::new(solver);
 
     let result = eval_js(
-        &js,
-        args,
+        lambda.js,
+        lambda.arg_names,
+        arg_values,
         &mut |a, b| solver.borrow_mut().unify(a, b),
         &mut |a| {
             if let Some(a) = a.as_f64() {
