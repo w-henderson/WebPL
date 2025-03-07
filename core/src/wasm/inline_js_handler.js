@@ -1,3 +1,5 @@
+import * as builtins from "./builtins.js";
+
 /**
  * @param {string} js - The JavaScript code to evaluate
  * @param {Array} args - The arguments to pass to the JavaScript code
@@ -8,27 +10,13 @@
  * @throws {string} - If the JavaScript code throws an error
  */
 export function eval_js(js, arg_names, arg_values, unify_wasm, alloc_wasm) {
-  const unify = (a, b) => {
-    if (!("variable" in a)) throw new Error("Can only unify variables");
-    if (!(typeof b === "number" || typeof b === "string")) throw new Error("Can only unify with numbers or strings");
-
-    const a_ptr = a.variable;
-    const b_ptr = alloc_wasm(b);
-
-    return unify_wasm(a_ptr, b_ptr);
-  };
-
-  // Provide a synchronous `fetch` function
-  const fetch = (url, method = "GET") => {
-    const xhr = new XMLHttpRequest();
-    xhr.open(method, url, false);
-    xhr.send();
-    return xhr.responseText;
-  };
+  const env = { unify_wasm, alloc_wasm };
+  const builtin_names = Object.keys(builtins);
+  const builtin_values = Object.values(builtins).map(fn => fn.bind(env));
 
   try {
-    let fn = new Function("unify", "fetch", ...arg_names, js)
-      .bind(globalThis, unify, fetch);
+    let fn = new Function(...builtin_names, ...arg_names, js)
+      .bind(globalThis, ...builtin_values);
     return fn(...arg_values) !== false;
   } catch (e) {
     throw e.toString();

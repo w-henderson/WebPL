@@ -105,7 +105,13 @@ impl Term {
             return Err("Expected =>");
         }
 
-        let js = js_str[i + 2..js_str.len() - 2].trim().to_string();
+        i = consume_whitespace(i + 2);
+
+        let js = if *js.get(i).ok_or("Unexpected EOF")? == b'{' {
+            js_str[i..js_str.len() - 2].trim().to_string()
+        } else {
+            "return ".to_string() + js_str[i..js_str.len() - 2].trim()
+        };
 
         Ok(Term::Lambda(js, vars))
     }

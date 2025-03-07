@@ -43,6 +43,14 @@ extern "C" {
     ) -> Result<bool, JsValue>;
 }
 
+#[wasm_bindgen(module = "/src/wasm/builtins.js")]
+extern "C" {
+    // This is just here to ensure the builtins.js module is included in the final build.
+    // (Not technically supported but this works... see wasm_bindgen RFC 6)
+    #[wasm_bindgen]
+    fn dummy();
+}
+
 pub enum Term {
     String(String),
     Number(f64),
