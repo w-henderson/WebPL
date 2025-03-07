@@ -140,6 +140,8 @@ The performance consequences of these approaches are discussed in more detail in
 
 \subsection{Term Representation}
 
+\label{sec:term-representation}
+
 Terms are stored on the heap as fixed-size blocks of 24 bytes. In Rust, these are represented as an enum (Figure \ref{fig:rust-term-representation}), Rust's sum type.
 
 Atoms are typed, being either strings, integers, or floats, with implicit casting from integers to floats permitted. The representation of variables includes a pointer to their bound object, as in the WAM, but additionally a boolean flag to indicate whether they are \emph{shunted} (Section \ref{sec:variable-shunting}), which is used in garbage collection. Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments. There is also a heap representation of cut, which is necessary because goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within the Prolog execution (Section \ref{sec:js-ffi}), are represented in the same way as compound terms, except instead of storing a functor, they store the raw JavaScript code.
@@ -468,6 +470,8 @@ Recall the program in Figure \ref{fig:or-control} (or-control). The first clause
 
 This is implemented during the mark phase. The root set is ordered such that marking from the choice point stack is done last, so that terms only reachable from the choice point stack can be identified. The trail stack is then scanned from the point of each choice point to the end, and any variables that are currently unmarked (i.e. only reachable from the choice point stack, if at all) are reset.
 
+This introduces a new problem: the entries on the trail stack that have been early reset are now garbage themselves. This is resolved by extending the garbage collection algorithm to include a \emph{trail stack compaction} phase.
+
 \subsection{Testing for Precise Garbage Collection}
 
 Variable shunting and early reset prove sufficient to meet the criteria for precise garbage collection.
@@ -497,5 +501,43 @@ This is implemented by keeping track of the age of the oldest choice point for w
 \section{JavaScript FFI}
 
 \label{sec:js-ffi}
+
+In order to better integrate the Prolog interpreter with the web environment, I implemented a foreign function interface (FFI) to enable Prolog code to call JavaScript functions. This section details the implementation of this feature.
+
+\subsection{Syntax for JavaScript in Prolog}
+
+I augmented the Prolog syntax with a new term type, \emph{lambda terms}, which represent JavaScript code. A lambda term contains a JavaScript closure, along with its arguments, which are Prolog terms. Figure \ref{fig:js-in-prolog} shows an example of a program that delegates to JavaScript to add two numbers.
+
+\begin{figure}[H]
+\centering
+\begin{minted}{prolog}
+add(X, Y, Z) :- <{ (X, Y, Z) => unify(Z, X + Y) }>.
+\end{minted}
+\caption{A Prolog program with embedded JavaScript}
+\label{fig:js-in-prolog}
+\end{figure}
+
+To avoid the parser needing to understand JavaScript syntax, the LALRPOP-generated parser is extended with a separate recursive descent parser for lambda terms. The LALRPOP grammar simply identifies strings of tokens enclosed in \texttt{<\{} and \texttt{\}>} as lambda terms, then invokes the recursive descent parser to parse the closure syntax (Figure \ref{fig:js-grammar}).
+
+\begin{figure}[H]
+\centering
+\begin{minted}{rust}
+LambdaTerm: Term = {
+    <js:r"<\{(.|\n)*\}>"> =>? Term::parse_lambda(js)
+        .map_err(|error| lalrpop_util::ParseError::User { error }),
+}
+\end{minted}
+\caption{Calling the recursive descent parser in the LALRPOP grammar}
+\label{fig:js-grammar}
+\end{figure}
+
+The JavaScript closure in the lambda term is represented as a string (Section \ref{sec:term-representation}), which is not evaluated until the lambda term is called.
+
+\subsection{Execution of JavaScript}
+
+When the current goal is a lambda term, the JavaScript code is executed.
+
+
+\subsection{Web Workers}
 
 \section{Web-Based Development Environment}
