@@ -492,9 +492,6 @@ Generational garbage collection avoids scanning the entire heap by dividing it i
 
 This is implemented by keeping track of the age of the oldest choice point for which garbage collection has not yet been performed. Initially, this is set to 0. When a garbage collection is performed, the age is updated to the age of the current choice point. When a choice point is popped, the age is updated to the age of the choice point before it.
 
-\subsection{Garbage Collecting the Trail}
-
-
 \section{JavaScript FFI}
 
 \label{sec:js-ffi}
