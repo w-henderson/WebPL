@@ -196,9 +196,13 @@ impl Solver {
 
             if let Some(group) = self.group {
                 while self.clause < self.index[group].1.len() {
+                    let determinate = self.clause + 1 == self.index[group].1.len();
                     let choice_point = self.enter();
                     let choice_point_idx = self.choice_points.len();
-                    self.choice_point_age = choice_point.heap_checkpoint;
+
+                    if !determinate {
+                        self.choice_point_age = choice_point.heap_checkpoint;
+                    }
 
                     let head = self
                         .heap
@@ -206,12 +210,9 @@ impl Solver {
 
                     if self.unify(goal, head) {
                         // If this was the only choice, don't push a choice point
-                        let determinate = if self.clause + 1 < self.index[group].1.len() {
+                        if !determinate {
                             self.push_choice_point(choice_point);
-                            false
-                        } else {
-                            true
-                        };
+                        }
 
                         let clause = &self.index[group].1[self.clause];
 

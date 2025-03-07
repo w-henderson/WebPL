@@ -11,6 +11,7 @@ pub struct GarbageCollector {
     map: Vec<usize>,
     trail_map: Vec<usize>,
     map_len: usize,
+    trail_map_len: usize,
     scheduler: GCScheduler,
     runs: usize,
 
@@ -39,6 +40,7 @@ impl GarbageCollector {
             map: Vec::new(),
             trail_map: Vec::new(),
             map_len: 0,
+            trail_map_len: 0,
             scheduler: GCScheduler {
                 absolute_threshold,
                 relative_threshold,
@@ -59,6 +61,7 @@ impl GarbageCollector {
             map: Vec::new(),
             trail_map: Vec::new(),
             map_len: 0,
+            trail_map_len: 0,
             scheduler: GCScheduler {
                 absolute_threshold: usize::MAX,
                 relative_threshold: 0.0,
@@ -125,6 +128,12 @@ impl GarbageCollector {
         solver.gc.scheduler.post_run(&solver.heap);
         solver.gc.runs += 1;
         solver.gc.start_choice_point = solver.choice_points.len();
+
+        solver.choice_point_age = solver
+            .choice_points
+            .last()
+            .map(|cp| cp.heap_checkpoint)
+            .unwrap_or(crate::heap::Checkpoint(0));
     }
 
     fn reset(&mut self, heap_len: usize, trail_len: usize) {
@@ -133,7 +142,8 @@ impl GarbageCollector {
         self.map_len = heap_len;
 
         self.trail_map.clear();
-        self.trail_map.resize(trail_len + 1, GC_UNMARKED);
+        self.trail_map.resize(trail_len + 1, GC_MARKED);
+        self.trail_map_len = trail_len;
     }
 
     fn get_roots<'a>(
@@ -162,9 +172,10 @@ impl GarbageCollector {
         for cp in choice_points.iter().skip(self.start_choice_point).rev() {
             // Early reset variables that will be reset when backtracking to
             // this choice point and are not otherwise reachable
-            for var in (cp.trail_checkpoint.0..last_top).map(|i| trail.vars[i]) {
-                if self.map[var] == GC_UNMARKED {
-                    heap.unbind(var);
+            for (var, ptr) in (cp.trail_checkpoint.0..last_top).map(|var| (var, trail.vars[var])) {
+                if self.map[ptr] == GC_UNMARKED {
+                    heap.unbind(ptr);
+                    self.trail_map[var] = GC_UNMARKED;
                 }
             }
 
@@ -217,15 +228,24 @@ impl GarbageCollector {
 
     fn realign_choice_points(&mut self, choice_points: &mut [ChoicePoint]) {
         for cp in choice_points.iter_mut().skip(self.start_choice_point) {
-            let mut checkpoint = cp.heap_checkpoint.0;
+            let mut heap_checkpoint = cp.heap_checkpoint.0;
+            let mut trail_checkpoint = cp.trail_checkpoint.0;
 
-            while checkpoint < self.map_len
-                && (self.map[checkpoint] == GC_UNMARKED || self.map[checkpoint] & GC_SHUNTED != 0)
+            while heap_checkpoint < self.map_len
+                && (self.map[heap_checkpoint] == GC_UNMARKED
+                    || self.map[heap_checkpoint] & GC_SHUNTED != 0)
             {
-                checkpoint += 1;
+                heap_checkpoint += 1;
             }
 
-            cp.heap_checkpoint.0 = checkpoint;
+            while trail_checkpoint < self.trail_map_len
+                && self.trail_map[trail_checkpoint] == GC_UNMARKED
+            {
+                trail_checkpoint += 1;
+            }
+
+            cp.heap_checkpoint.0 = heap_checkpoint;
+            cp.trail_checkpoint.0 = trail_checkpoint;
         }
     }
 
@@ -281,15 +301,18 @@ impl GarbageCollector {
     }
 
     fn collect_trail(&mut self, trail: &mut Trail) {
+        let old_size = trail.vars.len();
+
         let mut new_ptr = self.start_trail_ptr.0;
         let mut old_ptr = self.start_trail_ptr.0;
 
         while old_ptr < trail.vars.len() {
             let ptr = trail.vars[old_ptr];
+            let map_entry = self.trail_map[old_ptr];
 
             self.trail_map[old_ptr] = new_ptr;
 
-            if self.map[ptr] < GC_UNMARKED {
+            if self.map[ptr] < GC_UNMARKED && map_entry == GC_MARKED {
                 trail.vars[new_ptr] = self.map[ptr];
                 new_ptr += 1;
             }
@@ -300,6 +323,10 @@ impl GarbageCollector {
         self.trail_map[old_ptr] = new_ptr;
 
         trail.vars.truncate(new_ptr);
+
+        if new_ptr < old_size {
+            //panic!("garbage on the trail");
+        }
     }
 
     fn rewrite(
