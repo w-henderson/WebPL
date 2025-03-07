@@ -144,7 +144,7 @@ The performance consequences of these approaches are discussed in more detail in
 
 Terms are stored on the heap as fixed-size blocks of 24 bytes. In Rust, these are represented as an enum (Figure \ref{fig:rust-term-representation}), Rust's sum type.
 
-Atoms are typed, being either strings, integers, or floats, with implicit casting from integers to floats permitted. The representation of variables includes a pointer to their bound object, as in the WAM, but additionally a boolean flag to indicate whether they are \emph{shunted} (Section \ref{sec:variable-shunting}), which is used in garbage collection. Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments. There is also a heap representation of cut, which is necessary because goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within the Prolog execution (Section \ref{sec:js-ffi}), are represented in the same way as compound terms, except instead of storing a functor, they store the raw JavaScript code.
+Atoms are typed, being either strings, integers, or floats, with implicit casting from integers to floats permitted. The representation of variables includes a pointer to their bound object, as in the WAM, but additionally a boolean flag to indicate whether they are \emph{shunted} (Section \ref{sec:variable-shunting}), which is used in garbage collection. Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments. There is also a heap representation of cut, which is necessary because goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within the Prolog execution, are represented similarly to compound terms, except instead of storing a functor, they store a pointer to the representation of the JavaScript function (Section \ref{sec:js-ffi}).
 
 All other kinds of term supported in the Prolog syntax are syntactic sugar for terms represented as above, converted during parsing. For example, the arithmetic expression $2 + 3$ becomes the compound term \texttt{+(2, 3)}, and the list \texttt{[a, b]} becomes the compound term \texttt{.(a, .(b, []))}.
 
@@ -506,7 +506,7 @@ In order to better integrate the Prolog interpreter with the web environment, I 
 
 \subsection{Syntax for JavaScript in Prolog}
 
-I augmented the Prolog syntax with a new term type, \emph{lambda terms}, which represent JavaScript code. A lambda term contains a JavaScript closure, along with its arguments, which are Prolog terms. Figure \ref{fig:js-in-prolog} shows an example of a program that delegates to JavaScript to add two numbers.
+I augmented the Prolog syntax with a new term type, \emph{lambda terms}, which represent JavaScript code. A lambda term contains a JavaScript function, along with its arguments, which are Prolog terms. Figure \ref{fig:js-in-prolog} shows an example of a program that delegates to JavaScript to add two numbers.
 
 \begin{figure}[H]
 \centering
@@ -517,7 +517,7 @@ add(X, Y, Z) :- <{ (X, Y, Z) => unify(Z, X + Y) }>.
 \label{fig:js-in-prolog}
 \end{figure}
 
-To avoid the parser needing to understand JavaScript syntax, the LALRPOP-generated parser is extended with a separate recursive descent parser for lambda terms. The LALRPOP grammar simply identifies strings of tokens enclosed in \texttt{<\{} and \texttt{\}>} as lambda terms, then invokes the recursive descent parser to parse the closure syntax (Figure \ref{fig:js-grammar}).
+To avoid the parser needing to understand JavaScript syntax, the LALRPOP-generated parser is extended with a separate recursive descent parser for lambda terms. The LALRPOP grammar simply identifies strings of tokens enclosed in \texttt{<\{} and \texttt{\}>} as lambda terms, then invokes the recursive descent parser to parse the function syntax (Figure \ref{fig:js-grammar}).
 
 \begin{figure}[H]
 \centering
@@ -531,12 +531,91 @@ LambdaTerm: Term = {
 \label{fig:js-grammar}
 \end{figure}
 
-The JavaScript closure in the lambda term is represented as a string (Section \ref{sec:term-representation}), which is not evaluated until the lambda term is called.
+The JavaScript function pointed to by the lambda term is represented as a pair of its named arguments and the JavaScript code itself. For example, in Figure \ref{fig:js-in-prolog}, the named arguments are \texttt{X}, \texttt{Y}, and \texttt{Z}, and the JavaScript code is \texttt{unify(Z, X + Y)}, which is not evaluated until the lambda term is executed.
+
+\subsection{JavaScript Representation of Prolog Terms}
+
+\label{sec:js-prolog-mapping}
+
+The arguments to the JavaScript function are Prolog terms, which must be converted to JavaScript objects before the function can be executed. For ease of JavaScript programming, these are represented using native JavaScript types wherever possible, for example integers are represented as JavaScript numbers. Unbound variables and compound terms are represented using JavaScript objects, the former containing a pointer that is opaque to the JavaScript code (Figure \ref{fig:prolog-js-mapping}).
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{0.3\textwidth}
+\centering
+\begin{minted}{prolog}
+
+
+
+
+a(X, b(3, c))    =>
+
+
+
+
+\end{minted}
+\end{subfigure}%
+\begin{subfigure}{0.7\textwidth}
+\centering
+\begin{minted}{javascript}
+{ Compound: {
+    functor: "a",
+    args: [
+        { Variable: (internal pointer) },
+        { Compound: {
+            functor: "b",
+            args: [3, "c"]
+        } }
+    ]
+} }
+\end{minted}
+\end{subfigure}
+\caption{Mapping Prolog terms to JavaScript objects}
+\label{fig:prolog-js-mapping}
+\end{figure}
 
 \subsection{Execution of JavaScript}
 
-When the current goal is a lambda term, the JavaScript code is executed.
+When the current goal is a lambda term, its JavaScript code is executed as follows:
 
+\begin{enumerate}
+\item The Rust code converts the arguments to JavaScript objects as described in the previous section.
+\item Rust calls out to an external JavaScript function called \texttt{eval\_js}, passing it the JavaScript function, serialised arguments, and callback functions for various internal operations (e.g. unification).
+\item The \texttt{eval\_js} function converts the function to a JavaScript \texttt{Function} object, sets up its environment with the callback functions to enable it to interact with the Prolog interpreter, then calls it with the arguments (Figure \ref{fig:js-execution}).
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{minted}{javascript}
+try {
+    let fn = new Function("unify", "fetch", ...arg_names, js)
+      .bind(globalThis, unify, fetch);
+    return fn(...arg_values) !== false;
+} catch (e) {
+    throw e.toString();
+}
+\end{minted}
+\caption{Executing the JavaScript function safely}
+\label{fig:js-execution}
+\end{figure}
+
+By controlling the environment in which the JavaScript code is executed by explicitly providing the internal functions it can call, rather than simply using \texttt{eval}, the JavaScript code is prevented from corrupting the Prolog interpreter's state. The functions available to the JavaScript code are outlined in Table \ref{tab:js-ffi}.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{12cm}}
+\hline
+\textbf{Function} & \textbf{Description} \\
+\hline
+\texttt{unify} & Performs unification. The first term must be the JavaScript representation of a Prolog variable as in Section \ref{sec:js-prolog-mapping}, and the second may be an integer, float, or string, which will be converted back to a Prolog term and allocated on the heap. \\
+\texttt{fetch} & Makes a synchronous HTTP request to the given URL, returning the response as a string. This is implemented in JavaScript, and is simply a wrapper around the \texttt{XMLHttpRequest} API, provided for convenience. \\
+\hline
+\end{tabular}
+\caption{Functions available to JavaScript code}
+\label{tab:js-ffi}
+\end{table}
+
+The function may return \texttt{false} to indicate logical failure, or throw an exception to indicate an error. In the latter case, the exception is converted to a string before being passed back to Rust.
 
 \subsection{Web Workers}
 
