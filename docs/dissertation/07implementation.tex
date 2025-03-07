@@ -464,7 +464,9 @@ These cases are illustrated in Figure \ref{fig:shunt-cases}. The following compa
 
 \emph{Early reset} is concerned with collecting terms that are only accessible from a choice point \cite{applebyGarbargecollectionProlog1988}.
 
-Recall the program in Figure \ref{fig:or-control} (or-control). The first clause of \texttt{run/1} creates a choice point to try the second clause if this one fails, then iterates through an infinite list. As is, the garbage collector is prevented from reclaiming items already iterated over because they are still reachable from the choice point: in the goal \texttt{run(X)}, \texttt{X} is bound to the infinitely-growing list by the execution of the first clause. Of course, \texttt{X} will be unbound upon backtracking, before the second clause is reached. This is the key insight behind early reset. The garbage collector can reset the bindings of variables that are only reachable from a choice point, as this is only observable upon backtracking to that choice point, at which point they will be reset anyway.
+Recall the program in Figure \ref{fig:or-control} (or-control). The first clause of \texttt{run/1} creates a choice point to try the second clause if the first fails, then iterates through an infinite list. As is, the garbage collector is prevented from reclaiming items already iterated over because they are still reachable from the choice point: in the goal \texttt{run(X)}, \texttt{X} is bound to the infinitely-growing list by the execution of the first clause. The key insight behind early reset is that \texttt{X} will be unbound upon backtracking, before the second clause is reached, so it is safe to reset it if it is only reachable from the choice point.
+
+This is implemented during the mark phase. The root set is ordered such that marking from the choice point stack is done last, so that terms only reachable from the choice point stack can be identified. The trail stack is then scanned from the point of each choice point to the end, and any variables that are currently unmarked (i.e. only reachable from the choice point stack, if at all) are reset.
 
 \subsection{Testing for Precise Garbage Collection}
 
