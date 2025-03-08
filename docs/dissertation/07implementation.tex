@@ -40,7 +40,7 @@ In a traditional heap/stack architecture, the heap and stack are separate region
 
 In a merged heap/stack architecture, all terms are allocated in one contiguous region of memory. This avoids the problem of fragmentation, as the heap grows with allocations and shrinks with instant reclaiming and garbage collection (Section \ref{sec:gc-impl}). If the heap grows too large for the linear memory, it suffices, in theory, to execute the \texttt{memory.grow} WebAssembly instruction, with no additional work from the WebAssembly module required. In my implementation, the exact placement of the heap in the linear memory is decided by Rust's allocator, but once the heap grows sufficiently large, this has the same effect (Section \ref{sec:heap-placement}).
 
-A key advantage of this architecture is that terms are stored in chronological order on the heap, with older terms at lower addresses. This facilitates the implementation of several garbage collection optimisations, such as variable shunting (Section \ref{sec:variable-shunting}) and generational stack collection (Section \ref{sec:generational-gc}).
+A key advantage of this architecture is that terms are stored in chronological order on the heap, with older terms at lower addresses. This facilitates the implementation of several garbage collection optimisations, such as variable shunting (Section \ref{sec:variable-shunting}) and generational stack collection (Section \ref{sec:implementation-generational-gc}).
 
 Of course, other areas of memory are needed:
 
@@ -517,7 +517,7 @@ add(X, Y, Z) :- <{ (X, Y, Z) => unify(Z, X + Y) }>.
 \label{fig:js-in-prolog}
 \end{figure}
 
-To avoid the parser needing to understand JavaScript syntax, the LALRPOP-generated parser is extended with a separate recursive descent parser for lambda terms. The LALRPOP grammar simply identifies strings of tokens enclosed in \texttt{<\{} and \texttt{\}>} as lambda terms, then invokes the recursive descent parser to parse the function syntax (Figure \ref{fig:js-grammar}).
+To avoid the LALRPOP-generated parser needing to understand JavaScript syntax, it is extended with a separate recursive descent parser for lambda terms. The LALRPOP grammar simply identifies strings of tokens enclosed in \texttt{<\{} and \texttt{\}>} as lambda terms, then invokes the recursive descent parser to parse the function syntax into its code and named arguments (Figure \ref{fig:js-grammar}).
 
 \begin{figure}[H]
 \centering
@@ -531,13 +531,13 @@ LambdaTerm: Term = {
 \label{fig:js-grammar}
 \end{figure}
 
-The JavaScript function pointed to by the lambda term is represented as a pair of its named arguments and the JavaScript code itself. For example, in Figure \ref{fig:js-in-prolog}, the named arguments are \texttt{X}, \texttt{Y}, and \texttt{Z}, and the JavaScript code is \texttt{unify(Z, X + Y)}, which is not evaluated until the lambda term is executed.
+For example, in Figure \ref{fig:js-in-prolog}, the named arguments are \texttt{X}, \texttt{Y}, and \texttt{Z}, and the JavaScript code is \texttt{unify(Z, X + Y)}, which is not evaluated until the lambda term is executed.
 
 \subsection{JavaScript Representation of Prolog Terms}
 
 \label{sec:js-prolog-mapping}
 
-The arguments to the JavaScript function are Prolog terms, which must be converted to JavaScript objects before the function can be executed. For ease of JavaScript programming, these are represented using native JavaScript types wherever possible, for example integers are represented as JavaScript numbers. Unbound variables and compound terms are represented using JavaScript objects, the former containing a pointer that is opaque to the JavaScript code (Figure \ref{fig:prolog-js-mapping}).
+The arguments to the JavaScript function are Prolog terms, which must be converted to JavaScript objects before the function can be executed. For ease of JavaScript programming, these are represented using native JavaScript types wherever possible; for example, integers are represented as JavaScript numbers. Unbound variables and compound terms are represented using JavaScript objects, the former containing a pointer that is opaque to the JavaScript code (Figure \ref{fig:prolog-js-mapping}).
 
 \begin{figure}[H]
 \centering
@@ -547,9 +547,7 @@ The arguments to the JavaScript function are Prolog terms, which must be convert
 
 
 
-
-a(X, b(3, c))    =>
-
+a(X, b(3, c))   =>
 
 
 
@@ -558,16 +556,13 @@ a(X, b(3, c))    =>
 \begin{subfigure}{0.7\textwidth}
 \centering
 \begin{minted}{javascript}
-{ Compound: {
+{
     functor: "a",
     args: [
-        { Variable: (internal pointer) },
-        { Compound: {
-            functor: "b",
-            args: [3, "c"]
-        } }
+        { variable: (internal pointer) },
+        { functor: "b", args: [3, "c"] }
     ]
-} }
+}
 \end{minted}
 \end{subfigure}
 \caption{Mapping Prolog terms to JavaScript objects}
@@ -588,8 +583,8 @@ When the current goal is a lambda term, its JavaScript code is executed as follo
 \centering
 \begin{minted}{javascript}
 try {
-    let fn = new Function("unify", "fetch", ...arg_names, js)
-      .bind(globalThis, unify, fetch);
+    let fn = new Function(...builtin_names, ...arg_names, js)
+        .bind(globalThis, ...builtin_values);
     return fn(...arg_values) !== false;
 } catch (e) {
     throw e.toString();
@@ -607,8 +602,10 @@ By controlling the environment in which the JavaScript code is executed by expli
 \hline
 \textbf{Function} & \textbf{Description} \\
 \hline
-\texttt{unify} & Performs unification. The first term must be the JavaScript representation of a Prolog variable as in Section \ref{sec:js-prolog-mapping}, and the second may be an integer, float, or string, which will be converted back to a Prolog term and allocated on the heap. \\
+\texttt{unify} & Performs unification. Both terms must be valid JavaScript representations of Prolog terms (Section \ref{sec:js-prolog-mapping}), which will be converted back to Prolog terms and allocated on the heap if necessary. Variable bindings are checked to ensure they refer to terms that exist. \\
 \texttt{fetch} & Makes a synchronous HTTP request to the given URL, returning the response as a string. This is implemented in JavaScript, and is simply a wrapper around the \texttt{XMLHttpRequest} API, provided for convenience. \\
+\texttt{compound} & Creates a compound term from a functor and some arguments. \\
+\texttt{list} & Converts a JavaScript list into its linked-list Prolog representation. \\
 \hline
 \end{tabular}
 \caption{Functions available to JavaScript code}
@@ -617,6 +614,106 @@ By controlling the environment in which the JavaScript code is executed by expli
 
 The function may return \texttt{false} to indicate logical failure, or throw an exception to indicate an error. In the latter case, the exception is converted to a string before being passed back to Rust.
 
+\section{Web-Based Development Environment}
+
+This section describes the implementation of a web-based development environment for the Prolog interpreter, inspired by the SWISH Prolog IDE \cite{wielemakerSWISHSWIPrologSharing2015}.
+
+\subsection{User Interface}
+
+The user interface was implemented using the React JavaScript framework. Figure \ref{fig:webpl} shows the interface, which consists of three main components:
+
+\begin{itemize}
+\item The program pane, implemented using \texttt{react-simple-code-editor}, which provides syntax highlighting.
+\item The query pane, which allows the user to enter a query to run against the program.
+\item The results pane, which displays the results of the query.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{07implementation_browser.png}
+\caption{The web-based development environment running in Chrome on macOS}
+\label{fig:webpl}
+\end{figure}
+
+\subsection{Prolog Interface}
+
+A key goal of the web-based development environment is to support several Prolog implementations to facilitate comparison. Flach et al. highlight the need for a ``standard embedding interface to enable designing interactive web pages using multiple Prolog backends'' \cite{flachSimplyLogicalFirst2023}, which I aim to provide. The interface is defined in Figure \ref{fig:prolog-interface}.
+
+\begin{figure}[H]
+\centering
+\begin{minted}{typescript}
+export type Solution = Map<string, string>;
+
+export default abstract class Prolog {
+  abstract name: string;
+
+  abstract init(): Promise<void>;
+  abstract solve(program: string, query: string): Promise<void>;
+  abstract next(): Promise<Solution | undefined>;
+  abstract all(): Promise<Solution[]>;
+}
+\end{minted}
+\caption{The Prolog interface}
+\label{fig:prolog-interface}
+\end{figure}
+
+This is an example of the \emph{adapter pattern} \cite{gammaDesignPatternsElements1995}, where an adapter is defined for each Prolog implementation, implementing the \texttt{Prolog} abstract class using the underlying Prolog system. I implemented adapters for this project (WebPL), SWI-Prolog, Tau Prolog, and Trealla Prolog, allowing them to be used interchangeably in the IDE.
+
+This also formed the basis of the benchmarking system (Section \ref{sec:benchmarking}).
+
 \subsection{Web Workers}
 
-\section{Web-Based Development Environment}
+The programming model in the browser is inherently \emph{asynchronous}, as JavaScript is single-threaded and must not block the main thread to maintain a responsive user interface. Long running computations, such as solving a Prolog query, do not fit well into this model, as they block for potentially long periods of time.
+
+Modern browsers provide \emph{Web Workers}, which allow JavaScript to be run in a separate thread, communicating with the main thread using an asynchronous message-passing API. Recent Prolog implementations for the browser exploit this feature to prevent Prolog computations from blocking the main thread \cite{garcia-pradalessCASPInBrowserPlayground2022, riazaTauPrologProlog2024}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm and 2cm,
+    every node/.style={draw, align=center, rounded corners, font=\small},
+    every path/.style={<->, thick}
+]
+
+\node[draw, thick, minimum width=4.5cm, minimum height=4.5cm, label=above:{Main Thread}] (main) {};
+\node[minimum width=3.5cm, minimum height=2cm, below=0.5cm of main.north] (ui) {UI};
+\node[minimum width=3.5cm, minimum height=1cm, below=0.5cm of ui] (adapter) {Prolog Adapter};
+\node[draw, thick, minimum width=4.5cm, minimum height=4.5cm, right=4cm of main, label=above:{Web Worker}] (worker) {};
+\node[minimum width=3.5cm, minimum height=2cm, below=0.5cm of worker.north] (engine) {Prolog Engine};
+\node[minimum width=3.5cm, minimum height=1cm, below=0.5cm of engine] (processor) {Message Processor};
+
+\draw (ui.south) -- (adapter.north);
+\draw (adapter.east) -- (processor.west) node[midway, draw=none] {JSON\\message passing};
+\draw (processor.north) -- (engine.south);
+
+\end{tikzpicture}
+\caption{Web Worker architecture}
+\label{fig:web-worker-arch}
+\end{figure}
+
+In order to use this approach in WebPL, I added configuration options to the adapter for WebPL to run the Prolog interpreter in a Web Worker. When the main thread wants to interact with the Prolog interpreter, the adapter sends a message to the Web Worker, which performs the computation and sends the result back to the main thread (Figure \ref{fig:web-worker-arch}). These messages are simple JSON objects containing the function to call and its arguments.
+
+Since there is no guarantee that messages will be serviced in order, each message is assigned a unique ID which is also present in the response. Before a message is sent, a \texttt{Promise} is created, which is JavaScript's representation of a pending asynchronous operation. This promise is both returned to the caller, and its \emph{resolution} and \emph{rejection} functions are stored in a map, indexed by the message ID. When a response is received, the corresponding resolution or rejection function is called with the response or error, respectively. This is shown in Figure \ref{fig:web-worker}.
+
+\begin{figure}[H]
+\centering
+\begin{minted}{typescript}
+function post(fn, data) {
+  let id = nextId++;
+  let result = new Promise((res, rej) => pending.set(id, { res, rej }));
+  worker.postMessage({ id, fn, data });
+  return result;
+}
+
+function recv({ id, ok, data }) {
+  let { res, rej } = pending.get(id);
+  if (ok) res(data);
+  else rej(data);
+  pending.delete(id);
+}
+
+worker.onmessage = e => recv(e.data);
+\end{minted}
+\caption{Message-passing API for Web Workers}
+\label{fig:web-worker}
+\end{figure}
