@@ -29,10 +29,13 @@ Supported built-in predicates (Section \ref{sec:builtins}) are shown in Table \r
 \texttt{=\textbackslash=/2} & Succeeds if the first argument is not equal (arithmetic) to the second argument. \\
 \texttt{=:=/2} & Succeeds if the first argument is equal (arithmetic) to the second argument. \\
 \texttt{==/2} & Succeeds if the first argument is equal (term) to the second argument. \\
+\texttt{delay/2} & Delays the evaluation of the second argument until the first is bound (see Section \ref{sec:attributed-variables}). \\
+\texttt{freeze/2} & Delays the evaluation of the second argument until the first is bound to a non-variable (see Section \ref{sec:attributed-variables}). \\
 \texttt{integer/1} & Succeeds if the argument is an integer. \\
 \texttt{float/1} & Succeeds if the argument is a floating point number. \\
 \texttt{atom/1} & Succeeds if the argument is an atom. \\
 \texttt{var/1} & Succeeds if the argument is a variable. \\
+\texttt{nonvar/1} & Succeeds if the argument is not a variable. \\
 \texttt{compound/1} & Succeeds if the argument is a compound term. \\
 \texttt{number/1} & Succeeds if the argument is a number (integer or float). \\
 \texttt{!/0} & Cut operator. \\

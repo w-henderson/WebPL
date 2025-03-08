@@ -1,8 +1,6 @@
 \chapter{Implementation}
 
-This chapter gives an overview of the implementation of the project.
-
-% TODO: overview
+This chapter gives an overview of the implementation of the project, discussing the implementation and optimisation of the core Prolog interpreter (Section \ref{sec:core-interpreter}), its garbage collector (Section \ref{sec:gc-impl}), the JavaScript foreign function interface (Section \ref{sec:js-ffi}), and the web-based development environment (Section \ref{sec:web-dev-env}).
 
 \section{Repository Overview}
 
@@ -12,14 +10,16 @@ This chapter gives an overview of the implementation of the project.
 \hline
 \textbf{Directory} & \textbf{Description} & \textbf{LOC} \\
 \hline
-\texttt{core/} & Implementation of the core interpreter in Rust, including the parser, garbage collector, and the JavaScript FFI. & TBD \\
+\texttt{core/} & Implementation of the core interpreter in Rust, including the parser, garbage collector, and the JavaScript FFI. & 2664 \\
 \texttt{core/src/wasm} & WebAssembly interface for the core interpreter and JavaScript FFI. & \\
 \texttt{core/src/tests} & Unit tests for the core interpreter. & \\
-\texttt{lib/} & Higher-level JavaScript library for the interpreter. & \\
-\texttt{web/} & Web-based development environment to demonstrate and benchmark the interpreter. & \\
+\texttt{lib/} & Higher-level JavaScript library for the interpreter. & 81 \\
+\texttt{web/} & Web-based development environment to demonstrate and benchmark the interpreter. & 778 \\
 \texttt{web/src/prolog} & TypeScript Prolog interface and wrappers for various Prolog interpreters. & \\
-\texttt{bench/} & Web-based benchmarking tools. & \\
+\texttt{bench/} & Web-based benchmarking tools. & 82 \\
 \texttt{docs/} & Documentation for the project. & \\
+\hline
+& \hfill \textbf{Total} & \textbf{3605} \\
 \hline
 \end{tabular}
 \caption{An overview of key directories in the repository}
@@ -27,6 +27,8 @@ This chapter gives an overview of the implementation of the project.
 \end{table}
 
 \section{Core Interpreter}
+
+\label{sec:core-interpreter}
 
 This section describes the implementation of the core Prolog interpreter, implemented in Rust.
 
@@ -40,7 +42,7 @@ In a traditional heap/stack architecture, the heap and stack are separate region
 
 In a merged heap/stack architecture, all terms are allocated in one contiguous region of memory. This avoids the problem of fragmentation, as the heap grows with allocations and shrinks with instant reclaiming and garbage collection (Section \ref{sec:gc-impl}). If the heap grows too large for the linear memory, it suffices, in theory, to execute the \texttt{memory.grow} WebAssembly instruction, with no additional work from the WebAssembly module required. In my implementation, the exact placement of the heap in the linear memory is decided by Rust's allocator, but once the heap grows sufficiently large, this has the same effect (Section \ref{sec:heap-placement}).
 
-A key advantage of this architecture is that terms are stored in chronological order on the heap, with older terms at lower addresses. This facilitates the implementation of several garbage collection optimisations, such as variable shunting (Section \ref{sec:variable-shunting}) and generational stack collection (Section \ref{sec:implementation-generational-gc}).
+A key advantage of this architecture is that terms are stored in chronological order on the heap, with older terms at lower addresses. This facilitates the implementation of several garbage collection optimisations, such as variable shunting (Section \ref{sec:variable-shunting}) and segmented garbage collection (Section \ref{sec:implementation-generational-gc}).
 
 Of course, other areas of memory are needed:
 
@@ -104,7 +106,7 @@ b(2).
 \centering
 \begin{tikzpicture}[box/.style={draw, rectangle}]
   \node[box] (B) at (0, 0) {\mintinline{prolog}{b(X)}};
-  \node[box, fill=lightgray] (A) at (3, 0) {\mintinline{prolog}{a(X)}};
+  \node[box, fill=black!5] (A) at (3, 0) {\mintinline{prolog}{a(X)}};
 
   \node (null) at (-2, 0) {\texttt{null}};
   \node (current) at (0, 2) {current goal};
@@ -124,17 +126,58 @@ b(2).
 \label{fig:goals}
 \end{figure}
 
-Figure \ref{fig:goals} illustrates this idea. Before resolving \mintinline{prolog}{a(X)} with \mintinline{prolog}{a(1)} (c), a choice point is created, containing a pointer to the current goal. After the resolution step, \mintinline{prolog}{a(X)} is ``popped from the goal stack'', which is implemented by setting the current goal pointer to its predecessor (d). Importantly, however, it remains in the graph, as upon backtracking to the choice point when \mintinline{prolog}{b(1)} fails, the current goal pointer is restored to that stored in the choice point. In order to prevent the goal stack growing indefinitely, each choice point also contains the number of goals in the stack when it was created, and the goal stack is truncated to this size upon backtracking. The goal stack is also garbage collected (Section \ref{sec:gc-impl}).
+Figure \ref{fig:goals} illustrates this idea. Before resolving \mintinline{prolog}{a(X)} with \mintinline{prolog}{a(1)} (c), a choice point is created, containing a pointer to the current goal. After the resolution step, \mintinline{prolog}{a(X)} is ``popped from the goal stack'', which is implemented by setting the current goal pointer to its predecessor (d). Importantly, however, it remains in the graph, as upon backtracking to the choice point when \mintinline{prolog}{b(1)} fails, the current goal pointer is restored to that stored in the choice point. In order to prevent the goal stack growing indefinitely, each choice point also contains the number of goals in the stack when it was created, and the goal stack is truncated to this size upon backtracking.
 
-\paragraph{Code Area} There is no separate code area, as the clauses of the program are stored on the heap using the same representation as regular terms, an idea suggested by Tarau \cite{tarauHitchhikersGuideReinventing2018}. Initially, my implementation did use a distinct code area with a different representation, but profiling revealed that, in the former implementation, up to 40\% of the execution time was spent copying terms onto the heap. Benchmarking confirmed that Tarau's approach reduced execution time by around 25\% across various benchmarks (Section \ref{sec:benchmarking}).
+To avoid the need to garbage collect the goal stack, goals are fully removed from the graph when they are popped if they are not reachable from any choice points. This is discussed further in Section \ref{sec:choice-point-elimination}.
 
-In this implementation, copying a clause onto the heap when a goal unifies with its head consists of a single \texttt{memcpy} followed by a linear scan of the copied clause terms to add the appropriate offset to any pointers. To efficiently identify the byte boundaries between terms in the body of the clause, each clause additionally includes a ``header'' containing $n$ variables, bound to each of the $n$ terms in its body.
+\paragraph{Code Area} There is no separate code area, as the clauses of the program are stored on the heap using the same representation as regular terms, an idea proposed by Tarau for his ``hitchhiker'' Prolog implementation \cite{tarauHitchhikersGuideReinventing2018}. Initially, the implementation did use a distinct code area with a different representation, but profiling revealed that, in that implementation, up to 40\% of the execution time was spent copying terms onto the heap. Benchmarking confirmed that Tarau's approach reduced mean execution time by around 25\% (Section \ref{sec:benchmarking}).
+
+In this implementation, copying a clause onto the heap when a goal unifies with its head consists of a single \texttt{memcpy} followed by a linear scan of the copied clause terms to add the appropriate offset to any pointers. To efficiently identify the byte boundaries between terms in the body of the clause, each clause additionally includes a ``header'' containing $n$ variables, bound to each of the $n$ terms in its body (Figure \ref{fig:clause-layout}).
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[xscale=1.2,yscale=0.8]
+
+\fill[thick, black!5] (2,0) rectangle (4,3);
+\draw[thick] (0.5,0) rectangle (7.5,3);
+
+\draw[thick] (2,0) -- (2,3);
+\draw[thick] (4,0) -- (4,3);
+
+\foreach \x in {1, 1.5, 5, 7} {
+    \draw[dashed] (\x,0) -- (\x,3);
+}
+
+\draw[thick] (0.75,2.75) -- (0.75,3.5);
+\draw[thick] (0.75,3.5) -- (4,3.5);
+\draw[->, thick] (4,3.5) -- (4,3);
+
+\draw[thick] (1.25,2.75) -- (1.25,3.75);
+\draw[thick] (1.25,3.75) -- (5,3.75);
+\draw[->, thick] (5,3.75) -- (5,3);
+
+\draw[thick] (1.75,2.75) -- (1.75,4);
+\draw[thick] (1.75,4) -- (7,4);
+\draw[->, thick] (7,4) -- (7,3);
+
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (0.5,0) -- (2,0) node[midway,yshift=-1.5em]{Header};
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (2,0) -- (4,0) node[midway,yshift=-1.5em]{Head};
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (4,0) -- (7.5,0) node[midway,yshift=-1.5em]{Body};
+
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (2,-1) -- (7.5,-1) node[midway,yshift=-1.5em]{Copied area};
+
+\end{tikzpicture}
+\caption{Memory layout of a clause on the heap}
+\label{fig:clause-layout}
+\end{figure}
+
+\paragraph{Lambda Table} Each lambda term (Section \ref{sec:term-representation}) contains an index into the \emph{lambda table}. The lambda table contains an entry for each lambda term in the program source, which comprises the JavaScript code and the names it uses to refer to its arguments (Section \ref{sec:js-ffi}).
 
 \subsection{Pointers}
 
 A common theme in the implementation of this project, taken from WebAssembly, is that of using indexing over pointers. The contiguous nature of the heap allows terms to be referred to by their index, and the same is true for the goal stack and choice point stack.
 
-Rust strongly discourages the use of raw pointers, instead preferring its memory-safe abstraction, references. Every object in Rust must have exactly one \emph{owner}, with multiple immutable references or a single mutable reference allowed, enforced at compile time by the \emph{borrow checker}. The Prolog heap does not fit nicely into this model: there may be multiple variables bound to the same term, both of which requiring mutable access to it (e.g. to update the term when unifying). One way to work around this is to use reference counting and \texttt{RefCell}, which facilitates runtime borrow checking, but this is very expensive in terms of performance. Instead, terms are referred to by their index in the heap. As we use a merged heap/stack architecture, this is straightforward to implement. Hereafter, any references to ``pointers to heap terms'' actually mean indices.
+Rust strongly discourages the use of raw pointers, instead preferring its memory-safe abstraction, references. Every object in Rust must have exactly one \emph{owner}, with multiple immutable references or a single mutable reference allowed, enforced at compile time by the \emph{borrow checker}. The Prolog heap does not fit nicely into this model: there may be multiple variables bound to the same term, both of which requiring mutable access to it (e.g. to update the term when unifying). One way to work around this is to use reference counting and \texttt{RefCell}, which facilitates runtime borrow checking, but this is very expensive in terms of performance. Instead, terms are referred to by their index in the heap (although this may be referred to as a ``pointer''). As we use a merged heap/stack architecture, this is straightforward to implement.
 
 The performance consequences of these approaches are discussed in more detail in Section \ref{sec:get-unchecked}.
 
@@ -144,25 +187,25 @@ The performance consequences of these approaches are discussed in more detail in
 
 Terms are stored on the heap as fixed-size blocks of 24 bytes. In Rust, these are represented as an enum (Figure \ref{fig:rust-term-representation}), Rust's sum type.
 
-Atoms are typed, being either strings, integers, or floats, with implicit casting from integers to floats permitted. The representation of variables includes a pointer to their bound object, as in the WAM, but additionally a boolean flag to indicate whether they are \emph{shunted} (Section \ref{sec:variable-shunting}), which is used in garbage collection. Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments. There is also a heap representation of cut, which is necessary because goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within the Prolog execution, are represented similarly to compound terms, except instead of storing a functor, they store a pointer to the representation of the JavaScript function (Section \ref{sec:js-ffi}).
+Atoms are typed, being either strings, integers, or floats, with implicit casting from integers to floats permitted. The representation of variables includes a pointer to their bound object, as in the WAM, but additionally a boolean flag to indicate whether they are \emph{shunted} (Section \ref{sec:variable-shunting}), which is used in garbage collection, and possibly a pointer to a \emph{suspended goal} (Section \ref{sec:attributed-variables}). Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments. There is also a heap representation of cut, which is necessary because goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within the Prolog execution (Section \ref{sec:js-ffi}), are represented by an index into the \emph{lambda table}, along with their arguments in the same way as a compound term.
 
 All other kinds of term supported in the Prolog syntax are syntactic sugar for terms represented as above, converted during parsing. For example, the arithmetic expression $2 + 3$ becomes the compound term \texttt{+(2, 3)}, and the list \texttt{[a, b]} becomes the compound term \texttt{.(a, .(b, []))}.
 
 \begin{figure}[H]
 \centering
-\begin{subfigure}{0.5\textwidth}
+\begin{subfigure}{0.7\textwidth}
 \centering
 \begin{minted}{rust}
 pub enum HeapTerm {
     Atom(Atom),
-    Var(HeapTermPtr, bool),
+    Var(HeapTermPtr, bool, bool, HeapTermPtr),
     Compound(StringId, usize),
     Cut(ChoicePointIdx),
-    Lambda(StringId, usize),
+    Lambda(LambdaId, usize),
 }
 \end{minted}
 \end{subfigure}%
-\begin{subfigure}{0.5\textwidth}
+\begin{subfigure}{0.3\textwidth}
 \centering
 \begin{minted}{rust}
 pub enum Atom {
@@ -220,7 +263,7 @@ pub trait Builtin<const ARITY: usize> {
 \label{fig:builtin-trait}
 \end{figure}
 
-Many built-in predicates are implemented almost identically, for example the extra-logical type testing predicates \texttt{var/1}, \texttt{atom/1}, and \texttt{integer/1} (among others), which only differ in the type they compare against. To avoid code duplication, these predicates are implemented using meta-programming, with a \emph{macro} generating the code for each type. Figure \ref{fig:builtin-macro} shows the macro for type testing predicates. It uses Rust's pattern matching syntax to match the heap representation of the term against a pattern \texttt{\$matcher} representing the type to check for.
+Many built-in predicates are implemented almost identically, for example the extra-logical type testing predicates \texttt{var/1} and \texttt{atom/1} (among others), which only differ in the type they compare against. To avoid code duplication, these predicates are implemented using meta-programming, with a \emph{macro} generating the code for each type. Figure \ref{fig:builtin-macro} shows the macro for type testing predicates. It uses Rust's pattern matching syntax to match the heap representation of the term against a pattern \texttt{\$matcher}.
 
 \begin{figure}[H]
 \centering
@@ -238,7 +281,6 @@ macro_rules! impl_type_check {
     };
 }
 
-impl_type_check!(IsIntegerBuiltin, HeapTerm::Atom(Atom::Integer(_)));
 impl_type_check!(IsAtomBuiltin, HeapTerm::Atom(_));
 impl_type_check!(IsVarBuiltin, HeapTerm::Var(_, _));
 \end{minted}
@@ -250,15 +292,42 @@ impl_type_check!(IsVarBuiltin, HeapTerm::Var(_, _));
 
 The cut operator, \texttt{!/0}, is an extra-logical predicate that commits to the clause in which it appears. In other words, backtracking past a cut causes the clause it appears in to fail.
 
-When a clause is copied onto the heap, a linear scan updates its variables by the appropriate offset (Section \ref{sec:memory-layout}). This linear scan also updates the heap representations of any instances of the cut operator to include the index of the current choice point, that is, the choice point before this clause was selected. When the cut operator becomes the current goal, the choice point stack is truncated to the choice point it refers to.
+When a clause is copied onto the heap, a linear scan updates its variables by the appropriate offset (Section \ref{sec:memory-layout}). This linear scan also updates the heap representations of any instances of the cut operator to include the index of the current choice point, that is, the choice point before this clause was selected. When the cut operator becomes the current goal and is executed, the choice point stack is truncated to the choice point referred to by the cut.
+
+\subsection{Attributed Variables}
+
+\label{sec:attributed-variables}
+
+\emph{Attributed variables}, or \emph{suspensions}, allow a term to be attached to a variable, which is then executed when the variable is bound \cite{holzbaurMetastructuresvsattributed1992}. This is useful in constraint logic programming, where constraints can be attached to variables and checked later when more information is available. Two common uses of attributed variables are in the \texttt{freeze/2} and \texttt{dif/2} predicates, the former delaying the execution of a goal until a variable is bound to a non-variable term, and the latter ensuring that two variables, when bound, cannot be unified.
+
+I implemented a basic form of attributed variables, where attributes are limited to Prolog goals, as described by Carlsson \cite{carlssonimplementationdiffreeze1986}. A \texttt{delay/2} built-in predicate is used as the basis for this implementation, which takes a term and a goal as arguments. If the term is not yet bound, the goal's index in the heap is stored in the heap representation of the variable as its \emph{suspended goal}, otherwise it is immediately pushed to the goal stack. The \texttt{delay/2} predicate succeeds in either case. This is shown in Figure \ref{fig:delay-impl}. When an attributed variable is bound, its suspended goal is pushed to the goal stack and removed from its heap representation.
+
+\begin{figure}[H]
+\centering
+\begin{minted}{rust}
+match &mut solver.heap.data[var] {
+    HeapTerm::Var(_, _, has_attr, attr) => {
+        *has_attr = true;
+        *attr = goal;
+    }
+    _ => solver.goals.push(goal),
+}
+\end{minted}
+\caption{Implementation of \texttt{delay/2}}
+\label{fig:delay-impl}
+\end{figure}
+
+While \texttt{delay/2} is sufficient to implement both the \texttt{freeze/2} and \texttt{dif/2} predicates, I implemented \texttt{freeze/2} directly as a built-in predicate to improve performance. The implementation of this predicate is identical to that of \texttt{delay/2}, except that it attaches the current goal (i.e. \texttt{freeze(..., ...)}) to the variable, rather than the goal passed as an argument, in order to account for intermediate unifications to variable terms.
 
 \subsection{Choice Point Elimination (incl. Last Call Optimisation)}
+
+\label{sec:choice-point-elimination}
 
 Last call optimisation (LCO) is traditionally implemented by reusing the stack frame for the last call of a determinate predicate (Section \ref{sec:preparation-implementation}). This is only applicable on the final clause of a predicate, as otherwise the predicate would not be determinate.
 
 However, in my implementation, we do not have a call stack, instead storing all terms on the heap and using a goal stack and choice point stack for control (Section \ref{sec:memory-layout}). Therefore, LCO must be implemented in two parts, one on the choice point stack and one on the goal stack.
 
-For the choice point stack, I implement a variant of last call optimisation, which I call \emph{choice point elimination}. This works by not creating a choice point for the final clause of a predicate, as its failure necessarily implies the failure of the entire predicate. Static analysis prior to execution is performed to group clauses into predicates to enable this optimisation. This has the same effect as traditional LCO: if a clause is determinate, it will not leave any choice points on the stack, as no choice point will be created for either the choice of the clause or the solution of any goals.
+For the choice point stack, I implemented a variant of last call optimisation, which I call \emph{choice point elimination}. This works by not creating a choice point for the final clause of a predicate, as its failure necessarily implies the failure of the entire predicate. Static analysis prior to execution is performed to group clauses into predicates to enable this optimisation. This has the same effect as traditional LCO: if a clause is determinate, it will not leave any choice points on the stack, as no choice point will be created for either the choice of the clause or the solution of any goals.
 
 Recall the implementation of the goal stack from Section \ref{sec:memory-layout}, namely that ``popping a goal from the stack'' does not remove it from the graph, rather moving the current goal pointer to its predecessor. Goals are only fully removed on backtracking, when the goal stack is truncated to the size it was when the choice point was created. As is, while a determinate predicate will use constant space on the choice point stack, it will use linear space on the goal stack.
 
@@ -308,7 +377,7 @@ match functor {
 \begin{subfigure}{.5\textwidth}
 \centering
 \begin{minted}{rust}
-match functor {
+match lookup_string(functor) {
     "+" => add(&a, &b),
     "-" => sub(&a, &b),
     "*" => mul(&a, &b),
@@ -330,26 +399,37 @@ Garbage collection is a crucial part of a merged heap/stack architecture \cite{l
 
 \subsection{Mark and Sweep}
 
-Initially, I implemented a naive mark-and-sweep garbage collector, based on the algorithm described by Knuth \cite{knuthArtComputerProgramming1997}.
+Initially, I implemented a naive mark-and-sweep garbage collector (Section \ref{sec:prep-mark-and-sweep}), based on the algorithm described by Knuth \cite{knuthArtComputerProgramming1997}.
 
 The mark phase uses the goal stack, choice point stack, and named variables in the query as the root set, marking all terms on the heap that are reachable from these roots. A term is marked by setting its entry in a separate vector called the \emph{garbage collection map} (Knuth calls these entries \texttt{LINK}s) to \texttt{GC\_MARKED}. The entries are initialised to \texttt{GC\_UNMARKED} at the start of each garbage collection.
 
-During the compaction phase, a linear scan of the heap is performed, shuffling marked terms down the heap to remove gaps. The heap is then truncated to the end of the last marked term. The garbage collection map is also updated to reflect the new locations of terms.
+During the compaction phase, a linear scan of the heap is performed, shuffling marked terms down the heap to remove gaps and updating the garbage collection map with their new locations. The heap is then truncated to the end of the last marked term.
 
 Finally, during the pointer rewriting phase, the heap is scanned again, and all pointers are updated using the garbage collection map. Pointers in the root set are similarly updated.
 
 \subsection{Precise Garbage Collection}
 
-The key aim of this part of the project was to implement a \emph{precise} garbage collector, as defined by Wielemaker and Neumerkel in their paper evaluating the garbage collectors of various Prolog implementations \cite{wielemakerPreciseGarbageCollection2008}:
+A key aim of this part of the project was to implement a \emph{precise} garbage collector, as defined by Wielemaker and Neumerkel in their paper evaluating the garbage collectors of various Prolog implementations \cite{wielemakerPreciseGarbageCollection2008}:
 
 \begin{quote}
 ``We define a `precise' garbage collector as a garbage collector that reclaims all data that can no longer be reached considering all possible execution paths from the current state without considering semantics.''
 \end{quote}
 
-They define five programs that must run indefinitely in bounded memory with a precise garbage collector. Two of these concern functionality not relevant to this project, regarding attributed variables and if/then/else constructs. The remaining three are shown in Figure \ref{fig:gc-programs}.
+They define five programs that must run indefinitely in bounded memory with a precise garbage collector. The final of these concerns if/then/else constructs, which are not implemented as part of this project, but the remaining four are shown in Figure \ref{fig:gc-programs}.
 
 \begin{figure}[H]
 \centering
+\begin{subfigure}{\textwidth}
+\centering
+\begin{minted}{prolog}
+run :- run(_).
+run(X) :- freeze(X, dummy(X)), X = 1, run(T).
+dummy(_).
+\end{minted}
+\caption{Permanent removal of attributes}
+\end{subfigure}
+\par\bigskip
+\par\bigskip
 \begin{subfigure}{.65\textwidth}
 \centering
 \begin{minted}{prolog}
@@ -393,7 +473,7 @@ In order to meet these criteria, a number of Prolog-specific garbage collection 
 
 \label{sec:variable-shunting}
 
-\emph{Variable shunting} replaces variables that are only seen in their bound state with their binding values \cite{sahlinVariableShuntingWAM1991}. These variables are those which were created and then bound without the creation of any choice points in between. I implement variable shunting using the ``timestamping'' algorithm described by Bekkers et al. \cite{bekkersDynamicMemoryManagement1992}.
+\emph{Variable shunting} replaces variables that are only seen in their bound state with their binding values \cite{sahlinVariableShuntingWAM1991}. These variables are those which were created and then bound without the creation of any choice points in between. I implemented variable shunting using the ``timestamping'' algorithm described by Bekkers et al. \cite{bekkersDynamicMemoryManagement1992}.
 
 Figure \ref{fig:shunt-program} shows a program that demonstrates the need for variable shunting. Y can be shunted to prevent the heap from growing indefinitely.
 
@@ -412,19 +492,15 @@ Bekkers et al. define the \emph{age} of a variable to be the serial number of th
 The timestamping algorithm works in two parts, the first during unification and the second during garbage collection, between the mark and compact phases.
 
 \begin{enumerate}
-\item Prior to unifying a variable with another term, the age of the variable is compared to the age of the current choice point. If the variable is older, it is pushed to the trail as normal. Otherwise, no choice points can exist since its creation, so variable shunting is applicable. The variable is not pushed to the trail and is instead marked as shunted by setting a flag in its heap representation. This is shown in Figure \ref{fig:unify-var}.
+\item When unifying a variable with another term, the age of the variable is compared to the age of the latest choice point. If the variable is older, it is pushed to the trail as normal. Otherwise, no choice points exist since its creation, so variable shunting is applicable. The variable is not pushed to the trail and is instead marked as shunted by setting a flag in its heap representation. This is shown in Figure \ref{fig:unify-var}.
 
 \begin{figure}[H]
 \centering
 \begin{minted}{rust}
 #[inline]
 fn unify_var(&mut self, a: HeapTermPtr, b: HeapTermPtr) -> bool {
-    if a < self.choice_point_age.0 {
-        self.trail.push(a);
-    } else {
-        self.heap.mark_shunted(a);
-    }
-
+    if a < self.choice_point_age.0 { self.trail.push(a); }
+    else { self.heap.mark_shunted(a); }
     self.heap.unify(a, b);
     true
 }
@@ -433,7 +509,7 @@ fn unify_var(&mut self, a: HeapTermPtr, b: HeapTermPtr) -> bool {
 \label{fig:unify-var}
 \end{figure}
 
-\item During garbage collection, an additional ``shunt'' phase is added between the mark and compact phases. The shunt phase iterates over the heap, from younger to older terms (reverse order), and for each shunted variable that was marked, performs one of two actions, based on the garbage collection map entry of the term it is bound to:
+\item During garbage collection, an additional ``shunt'' phase is added between the mark and compact phases. The shunt phase iterates over the heap, from younger to older terms (high indices to low indices), and for each shunted variable that was marked, performs one of two actions, based on the garbage collection map entry of the term it is bound to:
 \begin{enumerate}
 \item If the term is not yet mapped, the variable is mapped to the term.
 \item If the term is mapped to an index $i$, it must be a younger variable that has already been shunted by case (a). Therefore, the variable is also mapped to $i$.
@@ -466,11 +542,11 @@ These cases are illustrated in Figure \ref{fig:shunt-cases}. The following compa
 
 \emph{Early reset} is concerned with collecting terms that are only accessible from a choice point \cite{applebyGarbargecollectionProlog1988}.
 
-Recall the program in Figure \ref{fig:or-control} (or-control). The first clause of \texttt{run/1} creates a choice point to try the second clause if the first fails, then iterates through an infinite list. As is, the garbage collector is prevented from reclaiming items already iterated over because they are still reachable from the choice point: in the goal \texttt{run(X)}, \texttt{X} is bound to the infinitely-growing list by the execution of the first clause. The key insight behind early reset is that \texttt{X} will be unbound upon backtracking, before the second clause is reached, so it is safe to reset it if it is only reachable from the choice point.
+Recall the program in Figure \ref{fig:or-control} (or-control). The first clause of \texttt{run/1} creates a choice point to try the second clause if the first fails, then iterates through an infinite list. As is, the garbage collector is prevented from reclaiming items already iterated over because they are still reachable from the choice point: in the goal \texttt{run(X)}, \texttt{X} is bound to the infinitely-growing list by the execution of the first clause. The key insight behind early reset is that \texttt{X} will be unbound upon backtracking, before the second clause is reached, so it is safe to reset it ``early'' if it is only reachable from the choice point.
 
-This is implemented during the mark phase. The root set is ordered such that marking from the choice point stack is done last, so that terms only reachable from the choice point stack can be identified. The trail stack is then scanned from the point of each choice point to the end, and any variables that are currently unmarked (i.e. only reachable from the choice point stack, if at all) are reset.
+This is implemented during the mark phase. The root set is ordered such that marking from the choice point stack is done last, so that terms only reachable from the choice point stack can be identified. When marking each choice point, any variables that will be reset when backtracking to it that are currently unmarked (i.e. only reachable from the choice point stack, if at all) are reset.
 
-This introduces a new problem: the entries on the trail stack that have been early reset are now garbage themselves. This is resolved by extending the garbage collection algorithm to include a \emph{trail stack compaction} phase.
+This introduces a new problem: the entries on the trail stack that have been early reset are now garbage themselves. This is resolved by extending the garbage collection algorithm to include a \emph{trail stack compaction} phase, which works analogously to heap compaction.
 
 \subsection{Testing for Precise Garbage Collection}
 
@@ -494,9 +570,9 @@ While the naive mark-and-sweep garbage collector augmented with variable shuntin
 
 Generational garbage collection avoids scanning the entire heap by dividing it into generations, with the youngest generation being collected most frequently (Section \ref{sec:generational-gc}).
 
-\emph{Segmented garbage collection} applies this concept to Prolog \cite{applebyGarbargecollectionProlog1988}. Recall the concept of \emph{age} from the variable shunting algorithm (Section \ref{sec:variable-shunting}). This is used to divide the heap into generations, where each generation consists of a choice point and all terms not older than it, up to the next choice point. When a choice point (and hence a new generation) is created, all non-garbage terms in previous generations cannot become garbage until the choice point is popped upon backtracking. This means that each garbage collection needs only consider terms in generations for which garbage collection has not yet been performed.
+\emph{Segmented garbage collection} applies this concept to Prolog \cite{applebyGarbargecollectionProlog1988}. Recall the concept of \emph{age} from the variable shunting algorithm (Section \ref{sec:variable-shunting}). This is used to divide the heap into generations, where each generation consists of a choice point and all terms created since it with no choice points in between. When a choice point (and hence a new generation) is created, all non-garbage terms in previous generations cannot become garbage until the choice point is popped upon backtracking. This means that each garbage collection needs only consider terms in generations for which garbage collection has not yet been performed.
 
-This is implemented by keeping track of the age of the oldest choice point for which garbage collection has not yet been performed. Initially, this is set to 0. When a garbage collection is performed, the age is updated to the age of the current choice point. When a choice point is popped, the age is updated to the age of the choice point before it.
+This is implemented by keeping track of the age of the oldest choice point for which garbage collection has not yet been performed. Initially, this is set to 0. When a garbage collection is performed, the age is updated to the size of the heap, which would be the age of a new choice point if one were created immediately. When a choice point is popped, the age is updated to the age of the choice point before it.
 
 \section{JavaScript FFI}
 
@@ -506,7 +582,7 @@ In order to better integrate the Prolog interpreter with the web environment, I 
 
 \subsection{Syntax for JavaScript in Prolog}
 
-I augmented the Prolog syntax with a new term type, \emph{lambda terms}, which represent JavaScript code. A lambda term contains a JavaScript function, along with its arguments, which are Prolog terms. Figure \ref{fig:js-in-prolog} shows an example of a program that delegates to JavaScript to add two numbers.
+I augmented the Prolog syntax with a new term type, \emph{lambda terms}, which represent JavaScript code. A lambda term represents a JavaScript function, along with its arguments, which are Prolog terms. Figure \ref{fig:js-in-prolog} shows an example of a program that delegates to JavaScript to add two numbers.
 
 \begin{figure}[H]
 \centering
@@ -616,6 +692,8 @@ The function may return \texttt{false} to indicate logical failure, or throw an 
 
 \section{Web-Based Development Environment}
 
+\label{sec:web-dev-env}
+
 This section describes the implementation of a web-based development environment for the Prolog interpreter, inspired by the SWISH Prolog IDE \cite{wielemakerSWISHSWIPrologSharing2015}.
 
 \subsection{User Interface}
@@ -659,7 +737,7 @@ export default abstract class Prolog {
 
 This is an example of the \emph{adapter pattern} \cite{gammaDesignPatternsElements1995}, where an adapter is defined for each Prolog implementation, implementing the \texttt{Prolog} abstract class using the underlying Prolog system. I implemented adapters for this project (WebPL), SWI-Prolog, Tau Prolog, and Trealla Prolog, allowing them to be used interchangeably in the IDE.
 
-This also formed the basis of the benchmarking system (Section \ref{sec:benchmarking}).
+This abstraction also forms the basis of the benchmarking system (Section \ref{sec:benchmarking}).
 
 \subsection{Web Workers}
 

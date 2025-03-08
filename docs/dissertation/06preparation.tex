@@ -339,6 +339,8 @@ Why, then, does this program appear to work correctly in practice? The answer is
 
 \subsection{Mark-and-Sweep}
 
+\label{sec:prep-mark-and-sweep}
+
 \emph{Mark-and-sweep} garbage collection is a simple algorithm that operates in two phases. The \emph{root set} contains pointers to objects that are known to be live, which are recursively followed to mark all reachable objects. Then, the heap is traversed again, and any unmarked objects are deallocated, often by \emph{compacting} the heap to remove the gaps left by deallocated objects.
 
 Warren applied this algorithm to Prolog, using the local stack as the root set \cite{warrenImplementingPrologCompiling1977}. He emphasised, however, that due to the high cost of running the algorithm, it should only be run when necessary (i.e. when the heap is full), and that classifying variables into locals and globals (to minimise heap usage) is crucial for performance.

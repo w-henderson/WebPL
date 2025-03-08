@@ -1,7 +1,7 @@
 \documentclass[oneside, 12pt]{book}
 
 \usepackage[utf8]{inputenc}
-\usepackage[a4paper, top=1.5in, bottom=1.5in, left=1in, right=1in]{geometry}
+\usepackage[a4paper, top=3cm, bottom=3cm, left=2cm, right=2cm]{geometry}
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage[hidelinks]{hyperref}
@@ -20,6 +20,7 @@
 \RecustomVerbatimEnvironment{Verbatim}{BVerbatim}{}
 \usetikzlibrary{shapes.multipart}
 \usetikzlibrary{positioning}
+\usetikzlibrary{decorations.pathreplacing}
 \makeatletter
 \AtBeginEnvironment{minted}{\dontdofcolorbox}
 \def\dontdofcolorbox{\renewcommand\fcolorbox[4][]{##4}}
