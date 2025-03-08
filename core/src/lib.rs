@@ -38,7 +38,7 @@ static GC_COOLDOWN: usize = 16;
 #[derive(Clone, Copy, Debug)]
 pub enum HeapTerm {
     Atom(Atom),
-    Var(HeapTermPtr, bool, HeapTermPtr), // ptr, shunted, attribute
+    Var(HeapTermPtr, bool, HeapTermPtr), // ptr, shunted, goal attribute
     Compound(StringId, usize),
     Cut(ChoicePointIdx),
     Lambda(LambdaId, usize),
@@ -295,6 +295,13 @@ impl Solver {
             self.trail.push(a);
         } else {
             self.heap.mark_shunted(a);
+        }
+
+        if let HeapTerm::Var(_, _, attribute) = &mut self.heap.data[a] {
+            if *attribute != 0 {
+                self.goals.push_pending(*attribute);
+                *attribute = 0;
+            }
         }
 
         self.heap.unify(a, b);

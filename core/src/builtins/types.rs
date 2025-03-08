@@ -22,3 +22,7 @@ impl_type_check!(
 );
 impl_type_check!(IsVarBuiltin, HeapTerm::Var(_, _, _));
 impl_type_check!(IsCompoundBuiltin, HeapTerm::Compound(_, _));
+impl_type_check!(
+    IsNonVarBuiltin,
+    HeapTerm::Atom(_) | HeapTerm::Compound(_, _) | HeapTerm::Cut(_) | HeapTerm::Lambda(_, _)
+);

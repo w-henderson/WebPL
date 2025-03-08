@@ -1,4 +1,6 @@
 mod arithmetic;
+mod attributes;
+mod call;
 mod cmp;
 mod is;
 mod statistics;
@@ -33,6 +35,8 @@ pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, Built
                     str::COMPOUND => Some(types::IsCompoundBuiltin::eval(solver, goal_ptr + 1)),
                     str::NUMBER => Some(types::IsNumberBuiltin::eval(solver, goal_ptr + 1)),
                     str::VAR => Some(types::IsVarBuiltin::eval(solver, goal_ptr + 1)),
+                    str::NONVAR => Some(types::IsNonVarBuiltin::eval(solver, goal_ptr + 1)),
+                    str::CALL => Some(call::CallBuiltin::eval(solver, goal_ptr + 1)),
                     _ => None,
                 }
             } else if *arity == 2 {
@@ -47,6 +51,7 @@ pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, Built
                     str::AEQ => Some(cmp::EqBuiltin::eval(solver, goal_ptr + 1)),
                     str::STAT => Some(statistics::StatisticsBuiltin::eval(solver, goal_ptr + 1)),
                     str::EQUIV => Some(cmp::EquivBuiltin::eval(solver, goal_ptr + 1)),
+                    str::DELAY => Some(attributes::DelayBuiltin::eval(solver, goal_ptr + 1)),
                     _ => None,
                 }
             } else {
