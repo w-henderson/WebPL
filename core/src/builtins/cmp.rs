@@ -46,7 +46,7 @@ fn equiv(solver: &Solver, a: HeapTermPtr, b: HeapTermPtr) -> bool {
 
     match (solver.heap.get(a_root), solver.heap.get(b_root)) {
         (HeapTerm::Atom(a), HeapTerm::Atom(b)) => a == b,
-        (HeapTerm::Var(a, _), HeapTerm::Var(b, _)) => a == b,
+        (HeapTerm::Var(a, _, _, _), HeapTerm::Var(b, _, _, _)) => a == b,
         (HeapTerm::Compound(f, a), HeapTerm::Compound(g, b)) => {
             f == g && a == b && (1..=*a).all(|i| equiv(solver, a_root + i, b_root + i))
         }

@@ -91,7 +91,7 @@ impl Term {
             HeapTerm::Atom(Atom::String(id)) => Term::String(heap.get_atom(*id).to_string()),
             HeapTerm::Atom(Atom::Integer(i)) => Term::Number(*i as f64),
             HeapTerm::Atom(Atom::Float(f)) => Term::Number(*f),
-            HeapTerm::Var(ptr, _) => Term::Variable(*ptr),
+            HeapTerm::Var(ptr, _, _, _) => Term::Variable(*ptr),
             HeapTerm::Compound(functor, arity) => Term::Compound(
                 heap.get_atom(*functor).to_string(),
                 (1..=*arity)

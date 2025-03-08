@@ -14,7 +14,7 @@ pub fn eval(solver: &mut Solver, term: HeapTermPtr) -> Result<Atom, BuiltinError
                 Err(BuiltinError::NotANumber(term))
             }
         }
-        HeapTerm::Var(_, _) => Err(BuiltinError::InsufficientlyInstantiated(term)),
+        HeapTerm::Var(_, _, _, _) => Err(BuiltinError::InsufficientlyInstantiated(term)),
         HeapTerm::Compound(f, arity) if *arity == 2 => {
             let f = *f;
             let a = eval(solver, term_ptr + 1)?;

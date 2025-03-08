@@ -183,3 +183,57 @@ test!(typecheck, |solver: SolverFn| {
 
     assert_eq!(solver_4.step().unwrap(), None);
 });
+
+test!(call, |solver: SolverFn| {
+    let mut solver_1 = solver("", "call(X is 3 + 4).");
+    assert_eq!(
+        solver_1.step().unwrap(),
+        Some(vec![("X".into(), "7".into())])
+    );
+    assert_eq!(solver_1.step().unwrap(), None);
+});
+
+test!(freeze, |solver: SolverFn| {
+    let mut solver_1 = solver("", "freeze(X, X = 1), X = 2.");
+    let mut solver_2 = solver("", "freeze(X, X = 1), X = Y, Y = 2.");
+    let mut solver_3 = solver("", "freeze(X, X = 1), Y = 2, X = Y.");
+    let mut solver_4 = solver("", "freeze(X, X = 1), Y = 2, X = 1.");
+
+    assert_eq!(solver_1.step().unwrap(), None);
+    assert_eq!(solver_2.step().unwrap(), None);
+    assert_eq!(solver_3.step().unwrap(), None);
+    assert_eq!(
+        solver_4.step().unwrap(),
+        Some(vec![("X".into(), "1".into()), ("Y".into(), "2".into())])
+    );
+    assert_eq!(solver_4.step().unwrap(), None);
+});
+
+test!(dif, |solver: SolverFn| {
+    let program = r#"
+        dif(X, Y) :- var(X), !, delay(X, dif(X, Y)).
+        dif(X, Y) :- var(Y), !, delay(Y, dif(X, Y)).
+        dif(X, Y) :- X =\= Y.
+    "#;
+
+    let mut solver_1 = solver(program, "dif(X, Y), X = 1, Y = 1.");
+    let mut solver_2 = solver(program, "dif(X, Y), X = 1, Y = 2.");
+    let mut solver_3 = solver(program, "dif(X, Y), X = Z, Y = 3, Z = 3.");
+    let mut solver_4 = solver(program, "dif(X, Y), X = Z, Y = 3, Z = 4.");
+
+    assert_eq!(solver_1.step().unwrap(), None);
+    assert_eq!(
+        solver_2.step().unwrap(),
+        Some(vec![("X".into(), "1".into()), ("Y".into(), "2".into())])
+    );
+    assert_eq!(solver_2.step().unwrap(), None);
+    assert_eq!(solver_3.step().unwrap(), None);
+    assert_eq!(
+        solver_4.step().unwrap(),
+        Some(vec![
+            ("X".into(), "4".into()),
+            ("Y".into(), "3".into()),
+            ("Z".into(), "X".into())
+        ])
+    );
+});

@@ -10,6 +10,7 @@ pub type GoalPtr = usize;
 pub struct Goals {
     pub(crate) current: Option<GoalPtr>,
     pub(crate) goals: Vec<Goal>,
+    pub(crate) pending: Option<HeapTermPtr>,
 }
 
 #[derive(Clone, Copy)]
@@ -46,11 +47,19 @@ impl Goals {
                 self.goals.pop();
             }
         }
+
+        if let Some(pending) = self.pending.take() {
+            self.push(pending);
+        }
     }
 
     pub fn push(&mut self, term: HeapTermPtr) {
         let prev = self.current.take();
         self.current = Some(self.alloc(term, prev));
+    }
+
+    pub fn push_pending(&mut self, term: HeapTermPtr) {
+        self.pending = Some(term);
     }
 
     pub fn is_complete(&self) -> bool {

@@ -32,7 +32,7 @@ impl Heap {
         self.data.extend_from_within(clause.head()..clause.body());
 
         for term in &mut self.data[result..] {
-            if let HeapTerm::Var(x, _) = term {
+            if let HeapTerm::Var(x, _, _, _) = term {
                 *x += offset;
             }
         }
@@ -48,7 +48,7 @@ impl Heap {
 
         for term in &mut self.data[result..] {
             match term {
-                HeapTerm::Var(x, _) => *x += offset,
+                HeapTerm::Var(x, _, _, _) => *x += offset,
                 HeapTerm::Cut(choice_point) => *choice_point += choice_point_idx,
                 _ => {}
             }
@@ -63,7 +63,7 @@ impl Heap {
         self.data[clause.goals()..clause.head()]
             .iter()
             .map(move |term| {
-                if let HeapTerm::Var(x, _) = term {
+                if let HeapTerm::Var(x, _, _, _) = term {
                     x + offset
                 } else {
                     unreachable!()
@@ -79,7 +79,7 @@ impl Heap {
 
     pub fn alloc_new_var(&mut self) -> HeapTermPtr {
         let result = self.data.len();
-        self.data.push(HeapTerm::Var(result, false));
+        self.data.push(HeapTerm::Var(result, false, false, 0));
         result
     }
 
@@ -93,7 +93,7 @@ impl Heap {
         // Follow the chain of variable bindings until we reach the root.
         loop {
             match &self.data[var] {
-                HeapTerm::Var(x, _) if *x != var => var = *x,
+                HeapTerm::Var(x, _, _, _) if *x != var => var = *x,
                 _ => return var,
             }
         }
@@ -101,21 +101,21 @@ impl Heap {
 
     pub fn unify(&mut self, a: HeapTermPtr, b: HeapTermPtr) {
         match &mut self.data[a] {
-            HeapTerm::Var(x, _) => *x = b,
+            HeapTerm::Var(x, _, _, _) => *x = b,
             _ => unreachable!(),
         }
     }
 
     pub fn unbind(&mut self, term: HeapTermPtr) {
         match &mut self.data[term] {
-            HeapTerm::Var(x, _) => *x = term,
+            HeapTerm::Var(x, _, _, _) => *x = term,
             _ => unreachable!(),
         }
     }
 
     pub fn mark_shunted(&mut self, term: HeapTermPtr) {
         match &mut self.data[term] {
-            HeapTerm::Var(_, shunted) => *shunted = true,
+            HeapTerm::Var(_, shunted, _, _) => *shunted = true,
             _ => unreachable!(),
         }
     }
