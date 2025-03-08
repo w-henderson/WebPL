@@ -49,7 +49,8 @@ fn precise_gc_1() {
     test_constant_memory(
         r#"
             run :- run(_).
-            run(X) :- X = 1, run(T).
+            run(X) :- freeze(X, dummy(X)), X = 1, run(T).
+            dummy(_).
         "#,
         "run.",
     );

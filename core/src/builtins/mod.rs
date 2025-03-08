@@ -52,6 +52,7 @@ pub fn eval(solver: &mut Solver, goal: HeapTermPtr) -> Option<Result<bool, Built
                     str::STAT => Some(statistics::StatisticsBuiltin::eval(solver, goal_ptr + 1)),
                     str::EQUIV => Some(cmp::EquivBuiltin::eval(solver, goal_ptr + 1)),
                     str::DELAY => Some(attributes::DelayBuiltin::eval(solver, goal_ptr + 1)),
+                    str::FREEZE => Some(attributes::FreezeBuiltin::eval(solver, goal_ptr + 1)),
                     _ => None,
                 }
             } else {

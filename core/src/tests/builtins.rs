@@ -194,15 +194,10 @@ test!(call, |solver: SolverFn| {
 });
 
 test!(freeze, |solver: SolverFn| {
-    let program = r#"
-        freeze(X, G) :- var(X), delay(X, freeze(X, G)).
-        freeze(X, G) :- nonvar(X), call(G).
-    "#;
-
-    let mut solver_1 = solver(program, "freeze(X, X = 1), X = 2.");
-    let mut solver_2 = solver(program, "freeze(X, X = 1), X = Y, Y = 2.");
-    let mut solver_3 = solver(program, "freeze(X, X = 1), Y = 2, X = Y.");
-    let mut solver_4 = solver(program, "freeze(X, X = 1), Y = 2, X = 1.");
+    let mut solver_1 = solver("", "freeze(X, X = 1), X = 2.");
+    let mut solver_2 = solver("", "freeze(X, X = 1), X = Y, Y = 2.");
+    let mut solver_3 = solver("", "freeze(X, X = 1), Y = 2, X = Y.");
+    let mut solver_4 = solver("", "freeze(X, X = 1), Y = 2, X = 1.");
 
     assert_eq!(solver_1.step().unwrap(), None);
     assert_eq!(solver_2.step().unwrap(), None);

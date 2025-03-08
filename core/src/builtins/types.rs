@@ -20,7 +20,7 @@ impl_type_check!(
     IsNumberBuiltin,
     HeapTerm::Atom(Atom::Integer(_)) | HeapTerm::Atom(Atom::Float(_))
 );
-impl_type_check!(IsVarBuiltin, HeapTerm::Var(_, _, _));
+impl_type_check!(IsVarBuiltin, HeapTerm::Var(_, _, _, _));
 impl_type_check!(IsCompoundBuiltin, HeapTerm::Compound(_, _));
 impl_type_check!(
     IsNonVarBuiltin,

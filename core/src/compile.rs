@@ -86,7 +86,7 @@ impl ast::Term {
                 let var = heap.string_map.alloc(var);
 
                 if let Some((_, unified)) = var_map.iter().find(|(x, _)| *x == var) {
-                    (heap.alloc(HeapTerm::Var(*unified, true, 0)), None) // shunted
+                    (heap.alloc(HeapTerm::Var(*unified, true, false, 0)), None) // shunted
                 } else {
                     let result = heap.alloc_new_var();
                     var_map.push((var, result));
@@ -105,7 +105,7 @@ impl ast::Term {
 
                 for (i, arg) in args.iter().enumerate() {
                     let (arg, _) = arg.alloc(heap, var_map, lambdas);
-                    heap.data[args_heap + i] = HeapTerm::Var(arg, false, 0);
+                    heap.data[args_heap + i] = HeapTerm::Var(arg, false, false, 0);
                 }
 
                 (result, Some(ClauseName(functor, args.len())))
@@ -127,7 +127,7 @@ impl ast::Term {
 
                 for (i, arg) in args.iter().enumerate() {
                     let (arg, _) = ast::Term::Variable(arg.clone()).alloc(heap, var_map, lambdas);
-                    heap.data[args_heap + i] = HeapTerm::Var(arg, false, 0);
+                    heap.data[args_heap + i] = HeapTerm::Var(arg, false, false, 0);
                 }
 
                 (result, None)
@@ -149,7 +149,7 @@ impl ast::Clause {
 
         for goal in &self.1 {
             let (goal, _) = goal.alloc(heap, var_map, lambdas);
-            heap.data[goals] = HeapTerm::Var(goal, false, 0);
+            heap.data[goals] = HeapTerm::Var(goal, false, false, 0);
             goals += 1;
         }
 
