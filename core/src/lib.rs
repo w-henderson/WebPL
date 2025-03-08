@@ -38,7 +38,7 @@ static GC_COOLDOWN: usize = 16;
 #[derive(Clone, Copy, Debug)]
 pub enum HeapTerm {
     Atom(Atom),
-    Var(HeapTermPtr, bool), // ptr, shunted
+    Var(HeapTermPtr, bool, HeapTermPtr), // ptr, shunted, attribute
     Compound(StringId, usize),
     Cut(ChoicePointIdx),
     Lambda(LambdaId, usize),
@@ -263,9 +263,11 @@ impl Solver {
             (HeapTerm::Atom(a), HeapTerm::Atom(b)) => a == b,
 
             // Unify variables downwards (i.e. newer variables point to older ones)
-            (HeapTerm::Var(a, _), HeapTerm::Var(b, _)) if *a < b_root => self.unify_var(*b, a_root),
-            (HeapTerm::Var(a, _), _) => self.unify_var(*a, b_root),
-            (_, HeapTerm::Var(b, _)) => self.unify_var(*b, a_root),
+            (HeapTerm::Var(a, _, _), HeapTerm::Var(b, _, _)) if *a < b_root => {
+                self.unify_var(*b, a_root)
+            }
+            (HeapTerm::Var(a, _, _), _) => self.unify_var(*a, b_root),
+            (_, HeapTerm::Var(b, _, _)) => self.unify_var(*b, a_root),
 
             (HeapTerm::Compound(f, a_arity), HeapTerm::Compound(g, b_arity)) => {
                 if f != g || a_arity != b_arity {

@@ -196,7 +196,7 @@ impl GarbageCollector {
             self.map[ptr] = GC_MARKED;
 
             match &heap.data[ptr] {
-                HeapTerm::Var(next, _) => ptr = *next,
+                HeapTerm::Var(next, _, _) => ptr = *next,
                 HeapTerm::Compound(_, arity) if *arity > 0 => {
                     for i in 1..=(arity - 1) {
                         self.mark(heap, ptr + i);
@@ -216,7 +216,7 @@ impl GarbageCollector {
             .skip(self.start_heap_ptr.0)
             .rev()
         {
-            if let HeapTerm::Var(ptr, true) = term {
+            if let HeapTerm::Var(ptr, true, _) = term {
                 match self.map[*ptr] {
                     GC_MARKED => self.map[i] = GC_SHUNTED | *ptr, // End of shunted chain
                     GC_UNMARKED => (),                            // Dead variable
@@ -294,7 +294,7 @@ impl GarbageCollector {
 
         // Rewrite internal pointers
         for term in heap.data.iter_mut().skip(self.start_heap_ptr.0) {
-            if let HeapTerm::Var(ptr, _) = term {
+            if let HeapTerm::Var(ptr, _, _) = term {
                 *ptr = self.map[*ptr]
             }
         }
@@ -338,7 +338,7 @@ impl GarbageCollector {
     // pointers from the old generation to the new generation.
     fn update_old_pointers(&mut self, heap: &mut Heap, trail: &Trail) {
         for var in trail.vars.iter().skip(self.start_trail_ptr.0) {
-            if let HeapTerm::Var(ptr, _) = &mut heap.data[*var] {
+            if let HeapTerm::Var(ptr, _, _) = &mut heap.data[*var] {
                 if *var < self.start_heap_ptr.0
                     && *ptr >= self.start_heap_ptr.0
                     && self.map[*ptr] < GC_UNMARKED
