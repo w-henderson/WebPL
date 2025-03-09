@@ -77,7 +77,7 @@ fn alloc_wasm(solver: &mut Solver, a: JsValue) -> Result<HeapTermPtr, String> {
 
         for (i, arg) in args.iter().enumerate() {
             let arg = alloc_wasm(solver, arg)?;
-            solver.heap.data[args_heap + i] = HeapTerm::Var(arg, false);
+            solver.heap.data[args_heap + i] = HeapTerm::Var(arg, false, false, 0);
         }
 
         Ok(ptr)
