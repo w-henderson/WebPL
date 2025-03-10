@@ -103,7 +103,10 @@ impl Goal {
 impl GCRewritable for Goals {
     fn rewrite(&mut self, from: usize, map: &[usize], _: &[usize]) {
         for Goal(term, _) in self.goals.iter_mut().skip(from) {
-            *term = map[*term];
+            // TODO: make determinacy analysis fully accurate to avoid garbage on the goal stack from cuts
+            if *term < map.len() {
+                *term = map[*term];
+            }
         }
     }
 }

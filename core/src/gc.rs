@@ -3,9 +3,9 @@ use crate::heap::Heap;
 use crate::trail::Trail;
 use crate::{ChoicePoint, HeapTerm, HeapTermPtr, Solver};
 
-const GC_MARKED: usize = 0;
-const GC_SHUNTED: usize = 1 << (std::mem::size_of::<usize>() * 8 - 1);
-const GC_UNMARKED: usize = usize::MAX >> 1;
+pub const GC_MARKED: usize = 0;
+pub const GC_SHUNTED: usize = 1 << (std::mem::size_of::<usize>() * 8 - 1);
+pub const GC_UNMARKED: usize = usize::MAX >> 1;
 
 pub struct GarbageCollector {
     map: Vec<usize>,
