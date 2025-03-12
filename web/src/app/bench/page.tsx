@@ -33,7 +33,12 @@ export default function BenchPage() {
   const [log, setLog] = useState<string>("");
   const [state, setState] = useState<"idle" | "running" | "complete">("idle");
   const [results, setResults] = useState<any>(null);
-  const [enabledEngines, setEnabledEngines] = useState<string[]>(ENGINES);
+  const [enabledEngines, setEnabledEngines] = useState<string[]>([
+    "WebPL",
+    "WebPL (GC)",
+    "SWI-Prolog",
+    "Trealla Prolog",
+  ]);
 
   useEffect(() => {
     (async () => {
@@ -86,10 +91,13 @@ export default function BenchPage() {
         },
         log: s => setLog(log => log + s),
         clean: async () => {
-          SWIPL_ = new SWIPL();
-          SWIPL_EXPERIMENTAL = new SWIPLExperimental();
-          await SWIPL_.init();
-          await SWIPL_EXPERIMENTAL.init();
+          if (engine.name === "SWI-Prolog") {
+            SWIPL_ = new SWIPL();
+            await SWIPL_.init();
+          } else {
+            SWIPL_EXPERIMENTAL = new SWIPLExperimental();
+            await SWIPL_EXPERIMENTAL.init();
+          }
         }
       });
     }
