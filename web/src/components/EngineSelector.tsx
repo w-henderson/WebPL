@@ -12,7 +12,7 @@ import { InfoCircle } from "iconoir-react";
 
 const engines = [
   { name: "WebPL", engine: WebPL },
-  { name: "WebPL (with GC)", engine: WebPLGC },
+  { name: "WebPL (GC)", engine: WebPLGC },
   { name: "SWI-Prolog", engine: SWIPL },
   { name: "Trealla Prolog", engine: TreallaProlog },
   { name: "Tau Prolog", engine: TauProlog }
