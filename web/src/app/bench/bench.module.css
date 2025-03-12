@@ -49,3 +49,13 @@ main.container span.running {
   color: var(--text);
   cursor: default;
 }
+
+main.container>div {
+  display: flex;
+  flex-wrap: wrap;
+  place-items: center;
+  place-content: center;
+  margin-top: 16px;
+  gap: 16px;
+  max-width: 600px;
+}
