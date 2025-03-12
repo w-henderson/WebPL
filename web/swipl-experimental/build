@@ -1,0 +1,10 @@
+#!/bin/bash
+docker build . -t swipl-experimental-image
+docker create --name swipl-experimental swipl-experimental-image
+docker cp swipl-experimental:/swipl-devel/build.wasm/src/swipl-web.wasm ./swipl-wasm/dist/swipl/swipl-web.wasm
+docker cp swipl-experimental:/swipl-devel/build.wasm/src/swipl-web.js ./swipl-wasm/dist/swipl/swipl-web.js
+docker cp swipl-experimental:/swipl-devel/build.wasm/src/swipl-web.data ./swipl-wasm/dist/swipl/swipl-web.data
+docker cp swipl-experimental:/swipl-devel/build.wasm/src/swipl-bundle.js ./swipl-wasm/dist/swipl/swipl-bundle.js
+docker cp swipl-experimental:/swipl-devel/build.wasm/src/swipl-bundle-no-data.js ./swipl-wasm/dist/swipl/swipl-bundle-no-data.js
+docker cp swipl-experimental:/swipl-devel/build.wasm/src/swipl.js ./swipl-wasm/dist/swipl/swipl.js
+docker rm swipl-experimental

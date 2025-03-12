@@ -1,0 +1,19 @@
+{
+  "name": "swipl-experimental",
+  "version": "4.0.18",
+  "contributors": [
+    "Raivo Laanemets",
+    "Jesse Wright",
+    "Jan Wielemaker"
+  ],
+  "license": "BSD-2-Clause",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.data",
+    "dist/**/*.wasm"
+  ]
+}
