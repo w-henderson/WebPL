@@ -1,0 +1,26 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script type="module">
+    import init, { Solver } from './vendor/webpl/webpl.js';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    console.log(urlParams.get("program"))
+    const program = atob(urlParams.get('program').replace(/-/g, "+").replace(/_/g, "/"));
+    const query = atob(urlParams.get('query').replace(/-/g, "+").replace(/_/g, "/"));
+
+    await init();
+
+    window.solver = new Solver(program, query);
+    window.solver.all();
+
+    document.write(`<div id="result">${performance.memory.totalJSHeapSize}</div>`);
+  </script>
+
+  Running...
+</body>
+</html>
