@@ -1,0 +1,30 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script src="/vendor/swipl/swipl-web.js"></script>
+
+  <script type="module">
+    const urlParams = new URLSearchParams(window.location.search);
+    console.log(urlParams.get("program"))
+    const program = atob(urlParams.get('program').replace(/-/g, "+").replace(/_/g, "/"));
+    const query = atob(urlParams.get('query').replace(/-/g, "+").replace(/_/g, "/"));
+
+    window.swipl = await SWIPL({
+      arguments: ["-q"],
+      locateFile: path => `/vendor/swipl/${path}`
+    });
+    await swipl.prolog.load_string(program, "n_queens.pl");
+    for (let x of swipl.prolog.query(query)) {
+      continue;
+    }
+
+    document.write(`<div id="result">${performance.memory.totalJSHeapSize}</div>`);
+  </script>
+
+  Running...
+</body>
+</html>

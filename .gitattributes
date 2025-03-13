@@ -1,3 +1,4 @@
 web/vendor/* linguist-vendored
 web/swipl-experimental/* linguist-vendored
 bench/suite/* linguist-vendored
+bench/memory/root* linguist-vendored

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+~/texcount.pl -1 -sum *.tex > lines.txt
+cloc ../.. --vcs=git --include-ext=rs,tsx,js --exclude-dir=vendor --quiet --csv | tail -n 1 | awk -F, '{print $NF}' > code.txt

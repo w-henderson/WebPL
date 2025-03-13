@@ -1,0 +1,29 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script type="module">
+    import { Prolog, load } from './vendor/trealla-prolog/trealla.mjs';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    console.log(urlParams.get("program"))
+    const program = atob(urlParams.get('program').replace(/-/g, "+").replace(/_/g, "/"));
+    const query = atob(urlParams.get('query').replace(/-/g, "+").replace(/_/g, "/"));
+
+    await load();
+    window.tpl = new Prolog();
+    await tpl.consultText(program);
+    const q = tpl.query(query);
+    for await (let x of q) {
+      continue;
+    }
+
+    document.write(`<div id="result">${performance.memory.totalJSHeapSize}</div>`);
+  </script>
+
+  Running...
+</body>
+</html>
