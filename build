@@ -1,5 +1,3 @@
 #!/bin/bash
 wasm-pack build --target web ./core --out-dir ../lib/wasm
 (cd ./bench && npm run build)
-rm -rf ./web/public/webpl
-cp -r ./lib/wasm ./web/public/webpl
