@@ -258,7 +258,7 @@ This section gives an overview of WebAssembly.
 
 \subsection{Memory Model}
 
-The WebAssembly specification \cite{webassemblycommunitygroupWebAssemblySpecification202025} is very restrictive about how memory is accessed. The two areas of memory that are particularly relevant are the \emph{stack} and the \emph{linear memory}.
+The WebAssembly specification \cite{rossbergWebAssemblyCoreSpecification2022} is very restrictive about how memory is accessed. The two areas of memory that are particularly relevant are the \emph{stack} and the \emph{linear memory}.
 
 \paragraph{Stack}
 
@@ -358,6 +358,8 @@ One complication with this approach is the existence of pointers from the old ge
 \section{Tools}
 
 \subsection{Rust}
+
+\label{sec:rust}
 
 Rust was chosen as the implementation language for the Prolog interpreter due to its strong support for WebAssembly and its focus on safety and performance. The officially-supported tool \texttt{wasm-bindgen} was used to facilitate interaction between Rust and JavaScript, alongside its companion tool \texttt{wasm-pack} for building and packaging the WebAssembly module \cite{crichtonwasmbindgenhttpsgithubcom2014}.
 

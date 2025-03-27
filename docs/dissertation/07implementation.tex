@@ -175,11 +175,11 @@ In this implementation, copying a clause onto the heap when a goal unifies with 
 
 \subsection{Pointers}
 
+\label{sec:pointers}
+
 A common theme in the implementation of this project, taken from WebAssembly, is that of using indexing over pointers. The contiguous nature of the heap allows terms to be referred to by their index, and the same is true for the goal stack and choice point stack.
 
 Rust strongly discourages the use of raw pointers, instead preferring its memory-safe abstraction, references. Every object in Rust must have exactly one \emph{owner}, with multiple immutable references or a single mutable reference allowed, enforced at compile time by the \emph{borrow checker}. The Prolog heap does not fit nicely into this model: there may be multiple variables bound to the same term, both of which requiring mutable access to it (e.g. to update the term when unifying). One way to work around this is to use reference counting and \texttt{RefCell}, which facilitates runtime borrow checking, but this is very expensive in terms of performance. Instead, terms are referred to by their index in the heap (although this may be referred to as a ``pointer''). As we use a merged heap/stack architecture, this is straightforward to implement.
-
-The performance consequences of these approaches are discussed in more detail in Section \ref{sec:get-unchecked}.
 
 \subsection{Term Representation}
 
@@ -715,6 +715,8 @@ The user interface was implemented using the React JavaScript framework. Figure 
 
 \subsection{Prolog Interface}
 
+\label{sec:prolog-interface}
+
 A key goal of the web-based development environment is to support several Prolog implementations to facilitate comparison. Flach et al. highlight the need for a ``standard embedding interface to enable designing interactive web pages using multiple Prolog backends'' \cite{flachSimplyLogicalFirst2023}, which I aim to provide. The interface is defined in Figure \ref{fig:prolog-interface}.
 
 \begin{figure}[H]
@@ -737,7 +739,7 @@ export default abstract class Prolog {
 
 This is an example of the \emph{adapter pattern} \cite{gammaDesignPatternsElements1995}, where an adapter is defined for each Prolog implementation, implementing the \texttt{Prolog} abstract class using the underlying Prolog system. I implemented adapters for this project (WebPL), SWI-Prolog, Tau Prolog, and Trealla Prolog, allowing them to be used interchangeably in the IDE.
 
-This abstraction also forms the basis of the benchmarking system (Section \ref{sec:benchmarking}).
+This abstraction also forms the basis of the benchmarking system (Section \ref{sec:execution-time}).
 
 \subsection{Web Workers}
 
