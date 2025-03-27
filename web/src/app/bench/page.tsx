@@ -78,7 +78,7 @@ export default function BenchPage() {
       });
     }
 
-    for (const engine of [SWIPL_, SWIPL_EXPERIMENTAL]) {
+    for (let engine of [SWIPL_, SWIPL_EXPERIMENTAL]) {
       if (!enabledEngines.includes(engine.name)) continue;
       results[engine.name] = await run(engine.name, {
         solve: async (program: string, query: string) => {
@@ -93,9 +93,11 @@ export default function BenchPage() {
         clean: async () => {
           if (engine.name === "SWI-Prolog") {
             SWIPL_ = new SWIPL();
+            engine = SWIPL_;
             await SWIPL_.init();
           } else {
             SWIPL_EXPERIMENTAL = new SWIPLExperimental();
+            engine = SWIPL_EXPERIMENTAL;
             await SWIPL_EXPERIMENTAL.init();
           }
         }

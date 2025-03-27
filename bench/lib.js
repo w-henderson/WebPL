@@ -53,24 +53,23 @@ export async function run(solverName, fns) {
       let benchmarkStart = performance.now();
       for (let i = 0; i < MAX_ITERS; i++) {
         let start = performance.now();
-        let memory = (await fn()).memory;
+        await fn();
         let end = performance.now();
 
         timeSamples.push(end - start);
-
-        if (memory !== undefined) {
-          memorySamples.push(memory);
-        }
 
         if (end - benchmarkStart > TARGET_TIME_PER_BENCHMARK && i > MIN_ITERS) {
           break;
         }
       }
 
+      if (fns.clean) await fns.clean();
+      let memory = (await fn()).memory;
+      if (memory) memorySamples.push(memory);
+
       let avgTime = Math.round((timeSamples.reduce((a, b) => a + b, 0) / timeSamples.length) * 100) / 100;
-      if (memorySamples.length > 0) {
-        let avgMemory = memorySamples.reduce((a, b) => a + b, 0) / memorySamples.length
-        fns.log(`${avgTime}ms, ${avgMemory} bytes\n`);
+      if (memory) {
+        fns.log(`${avgTime}ms, ${memory} bytes\n`);
       } else {
         fns.log(`${avgTime}ms\n`);
       }
