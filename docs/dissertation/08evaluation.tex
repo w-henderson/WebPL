@@ -251,3 +251,74 @@ Figure \ref{fig:unsafe} shows the relative execution time of each benchmark when
 The results are not consistent across benchmarks -- the more heavyweight benchmarks, such as \texttt{fib}, \texttt{queens\_8}, and \texttt{tak}, show a performance improvement of up to 10\% lower execution time, while the lighter benchmarks, such as \texttt{divide10}, \texttt{ops8}, and \texttt{times10}, show a performance degradation of up to 20\% higher execution time. This is likely due to the fact that the overhead of bounds checking is negligible for lightweight benchmarks, and using unsafe code reduces the compiler's optimisation opportunities.
 
 For this reason, alongside the fact that Rust strongly discourages the use of unsafe code, unsafe code was not used in the final version of WebPL.
+
+\subsection{Memory Layout}
+
+Using a Rust \texttt{enum} to represent terms leaves their exact layout in memory up to the compiler, which may use more memory than necessary to represent the term. The exact memory layout when compiled to WebAssembly can be inspected using experimental Rust compiler flags:
+
+\begin{verbatim}
+$ cargo +nightly rustc --target wasm32-unknown-unknown -- -Zprint-type-sizes
+\end{verbatim}
+
+Figure \ref{fig:memory-layout-wasm} shows the memory layout of an integer atom term and a variable term in WebAssembly. This reveals a lot of wasted space: boolean flags such as \texttt{shunted} and \texttt{attributed} use a byte each, and the tag indicating the type of the term uses 4 bytes, even though one would suffice.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+
+\fill[thick, black!5] (3,0) rectangle (6,1);
+\draw[thick] (0,0) rectangle (12,1);
+
+\draw[thick] (3,0) -- (3,1);
+\draw[thick] (6,0) -- (6,1);
+
+\node at (1.5,0.5) {\texttt{01 00 00 00}};
+\node at (4.5,0.5) {\texttt{00 00 00 00}};
+\node at (9,0.5) {\texttt{03 00 00 00 00 00 00 00}};
+
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (0,0) -- (3,0) node[midway,yshift=-1.5em]{integer atom tag};
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (3,0) -- (6,0) node[midway,yshift=-1.5em]{padding};
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (6,0) -- (12,0) node[midway,yshift=-1.5em]{integer value};
+
+\fill[thick, black!5] (10.5,-3) rectangle (12,-2);
+\draw[thick] (0,-3) rectangle (12,-2);
+
+\draw[thick] (3,-3) -- (3,-2);
+\draw[thick] (6,-3) -- (6,-2);
+\draw[thick] (9,-3) -- (9,-2);
+\draw[thick] (9.75,-3) -- (9.75,-2);
+\draw[thick] (10.5,-3) -- (10.5,-2);
+
+\node at (1.5,-2.5) {\texttt{03 00 00 00}};
+\node at (4.5,-2.5) {\texttt{04 00 00 00}};
+\node at (7.5,-2.5) {\texttt{00 00 00 00}};
+\node at (9.375,-2.5) {\texttt{00}};
+\node at (10.125,-2.5) {\texttt{00}};
+\node at (11.25,-2.5) {\texttt{00 00}};
+
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (0,-3) -- (3,-3) node[midway,yshift=-1.5em]{variable tag};
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (3,-3) -- (6,-3) node[midway,yshift=-1.5em]{unified ptr};
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (6,-3) -- (9,-3) node[midway,yshift=-1.5em]{attribute ptr};
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (9,-3) -- (9.75,-3) node[midway,yshift=-1.5em]{};
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (9.75,-3) -- (10.5,-3) node[midway,yshift=-1.5em]{};
+\draw [decorate,decoration={brace,amplitude=5pt,mirror,raise=1ex}] (10.5,-3) -- (12,-3) node[midway,yshift=-1.5em]{padding};
+
+\node (S) at (8,-4.5) {shunted};
+\node (A) at (8,-5.25) {attributed};
+
+\draw (9,-4.5) -- (9.375,-3.333);
+\draw (9,-5.25) -- (10.125,-3.333);
+
+\node at (-0.5,0.5) [anchor=east] {\bf Integer};
+\node at (-0.5,-2.5) [anchor=east] {\bf Variable};
+
+\end{tikzpicture}
+\caption{Memory layout of Prolog terms in WebAssembly}
+\label{fig:memory-layout-wasm}
+\end{figure}
+
+Padding is used by the compiler to ensure that heap terms are aligned to 8-byte boundaries, which is a sensible choice for performance reasons. However, this is not strictly necessary in WebAssembly, as the WebAssembly specification explicitly states that unaligned accesses must be allowed by the WebAssembly implementation \cite{rossbergWebAssemblyCoreSpecification2022}.
+
+Therefore, if a more compact representation of terms were used, consolidating the tag and flags into a single byte and removing the padding, the size on the heap of each term could be reduced from 16 bytes to 9 bytes, reducing the heap usage by 44\%. It is possible that maintaining some alignment would still be a worthwhile trade-off, perhaps using 4-byte alignment, but this would require more investigation.
+
+Since Rust does not support this level of control over the memory layout without using unions and unsafe code, a pattern that is far from idiomatic, this is not a change that was implemented in WebPL. However, if the project were to be rewritten in a language like C or C++, this could be a worthwhile optimisation to explore.

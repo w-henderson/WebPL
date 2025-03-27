@@ -185,7 +185,7 @@ Rust strongly discourages the use of raw pointers, instead preferring its memory
 
 \label{sec:term-representation}
 
-Terms are stored on the heap as fixed-size blocks of 24 bytes. In Rust, these are represented as an enum (Figure \ref{fig:rust-term-representation}), Rust's sum type.
+Terms are stored on the heap as fixed-size blocks of 16 bytes. In Rust, these are represented as an enum (Figure \ref{fig:rust-term-representation}), Rust's sum type.
 
 Atoms are typed, being either strings, integers, or floats, with implicit casting from integers to floats permitted. The representation of variables includes a pointer to their bound object, as in the WAM, but additionally a boolean flag to indicate whether they are \emph{shunted} (Section \ref{sec:variable-shunting}), which is used in garbage collection, and possibly a pointer to a \emph{suspended goal} (Section \ref{sec:attributed-variables}). Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments. There is also a heap representation of cut, which is necessary because goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within the Prolog execution (Section \ref{sec:js-ffi}), are represented by an index into the \emph{lambda table}, along with their arguments in the same way as a compound term.
 
