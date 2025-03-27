@@ -1,7 +1,6 @@
 import os
 import json
-
-from numpy import median
+import numpy as np
 
 results_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "bench", "results")
 out_dir = os.path.join(os.path.dirname(__file__), "data")
@@ -14,13 +13,15 @@ def process(path):
     memoryCSV = [["Benchmark"]] + [[name] for name in benchmark_names]
 
     for solver in data.keys():
-        timeCSV[0].append(solver)
+        timeCSV[0] += [solver, solver + "#min", solver + "#max"]
         if len(data[solver][0]["memorySamples"]) > 0:
             memoryCSV[0].append(solver)
         for j, benchmark in enumerate(data[solver]):
-            timeCSV[j + 1].append(median(benchmark["timeSamples"]))
+            timeCSV[j + 1].append(np.median(benchmark["timeSamples"]))
+            timeCSV[j + 1].append(np.quantile(benchmark["timeSamples"], 0.25))
+            timeCSV[j + 1].append(np.quantile(benchmark["timeSamples"], 0.75))
             if len(benchmark["memorySamples"]) > 0:
-                memoryCSV[j + 1].append(median(benchmark["memorySamples"]))
+                memoryCSV[j + 1].append(np.median(benchmark["memorySamples"]))
 
     return timeCSV, memoryCSV
 
