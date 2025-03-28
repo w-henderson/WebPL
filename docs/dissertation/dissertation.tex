@@ -29,11 +29,16 @@
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{1em}
-\setstretch{1.25}
+\setstretch{1.15}
 \hyphenation{Prolog}
 \hyphenation{WebAssembly}
 \theoremstyle{definition}
 \newtheorem*{definition}{Definition}
+
+\usepackage{titlesec}
+\titleformat{\chapter}[display]{\normalfont\huge\bfseries}{\chaptertitlename~\thechapter}{20pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{-20pt}{10pt}
+\titlespacing*{name=\chapter,numberless}{0pt}{-20pt}{10pt}
 
 \begin{document}
 
