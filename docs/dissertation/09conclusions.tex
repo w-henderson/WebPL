@@ -1,11 +1,15 @@
 \chapter{Conclusions}
 
-The project was successful in achieving its aims of building a web-native Prolog implementation using WebAssembly, with performance surpassing that of existing Prolog systems while maintaining tight integration with the browser, thus meeting the success criteria. This dissertation has demonstrated my original hypothesis (Section \ref{sec:motivation}) that such a system can not only be built, but that it can also outperform existing Prolog systems.
+The project was a success: I built a web-native Prolog implementation using WebAssembly, with performance surpassing that of existing Prolog systems while maintaining tight integration with the browser, thus meeting the success criteria. This dissertation has demonstrated my original hypothesis (Section \ref{sec:motivation}) that such a system can not only be built, but that it can also outperform existing Prolog systems.
 
 Furthermore, the extension goals of building a browser-based development environment, implementing a precise garbage collector, and developing a JavaScript foreign function interface were also successfully completed, making WebPL a practical and usable Prolog system for the Web.
+
+Benchmarking showed that WebPL outperforms SWI-Prolog, Trealla Prolog, and Tau Prolog in most cases, even when WebAssembly exception handling is enabled in SWI-Prolog (Section \ref{sec:swi-prolog-optimisation}) to mitigate its performance issues. In addition, its memory usage and binary size are both significantly lower than those of other systems, making it suitable for use in resource-constrained environments such as mobile devices.
 
 \section{Reflections}
 
 
 
 \section{Future Work}
+
+ISO compliance
