@@ -1,15 +1,25 @@
 \chapter{Conclusions}
 
-The project was a success: I built a web-native Prolog implementation using WebAssembly, with performance surpassing that of existing Prolog systems while maintaining tight integration with the browser, thus meeting the success criteria. This dissertation has demonstrated my original hypothesis (Section \ref{sec:motivation}) that such a system can not only be built, but that it can also outperform existing Prolog systems.
+The project was a success: I built a web-native Prolog implementation using WebAssembly, with performance surpassing that of existing Prolog systems, while maintaining tight integration with the browser, thus meeting the success criteria. This demonstrated my original hypothesis (Section \ref{sec:motivation}) that such a system could be built.
 
 Furthermore, the extension goals of building a browser-based development environment, implementing a precise garbage collector, and developing a JavaScript foreign function interface were also successfully completed, making WebPL a practical and usable Prolog system for the Web.
 
-Benchmarking showed that WebPL outperforms SWI-Prolog, Trealla Prolog, and Tau Prolog in most cases, even when WebAssembly exception handling is enabled in SWI-Prolog (Section \ref{sec:swi-prolog-optimisation}) to mitigate its performance issues. In addition, its memory usage and binary size are both significantly lower than those of other systems, making it suitable for use in resource-constrained environments such as mobile devices.
+Benchmarking showed that WebPL outperforms SWI-Prolog, Trealla Prolog, and Tau Prolog in most cases, even when WebAssembly exception handling is enabled in SWI-Prolog to mitigate its performance issues (Section \ref{sec:swi-prolog-optimisation}). In addition, its memory usage and binary size are both significantly lower than those of other systems, making it suitable for use in resource-constrained environments such as mobile devices.
 
 \section{Reflections}
 
+I have learnt a huge amount during this project, especially regarding Prolog, garbage collection, and writing a dissertation. Aspects of the project I anticipated to be straightforward turned out to be challenging, in particular correctly implementing the core Prolog interpreter and the garbage collector, which gave rise to several obscure bugs which required deep understanding of the nuances of Prolog to remedy.
 
+I particularly enjoyed taking the initial prototype of WebPL and iteratively optimising and redesigning it, guided by benchmarking and profiling, to achieve a final result that was 1000x faster than the first working prototype. I am proud to have built a genuinely usable Prolog system that is fast and lightweight, and I hope that it may be useful to others in the future.
+
+Were I to do this project again, I would spend more time on the design of the Prolog interpreter to make it more modular and extensible. I found it very challenging to evaluate alternative design decisions after having made the initial choices, and the ability to configure the system at runtime would have made it easier to experiment with different implementations and allow the user to choose the most appropriate one for their use case.
 
 \section{Future Work}
 
-ISO compliance
+There are several areas I would have liked to explore further, but did not have time to do so. These include:
+
+\begin{itemize}
+\item \emph{JIT compilation}: The current implementation of WebPL is an interpreter, with limited pre-execution static analysis to optimise the execution of Prolog code. A just-in-time (JIT) compiler could be implemented to compile Prolog code either to the instruction set of a virtual machine, such as the WAM, or directly to WebAssembly. There are several key questions that such an implementation would need to address, including how to maintain WebPL's tight integration with the browser and with JavaScript from compiled code.
+\item \emph{ISO compliance}: Compliance with the ISO Prolog standard \cite{isoInformationtechnologyProgramming1995} is a goal of many Prolog implementations, and one that cements an implementation's credibility. WebPL is not currently compliant with the ISO standard, instead implementing a subset of the standard that is sufficient for this dissertation, but full ISO compliance would be a worthy goal for future work.
+\item \emph{C++ implementation}: Many of the limitations of WebPL arise from the use of the Rust programming language (Section \ref{sec:rust-evaluation}). Reimplementing the project in C++ may provide more opportunities for optimisation and more flexibility and control over the exact behaviour of the system. While C++ does not make the strong memory safety guarantees of Rust, WebAssembly prevents memory safety bugs from causing security vulnerabilities.
+\end{itemize}
