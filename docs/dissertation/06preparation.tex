@@ -192,7 +192,7 @@ In a \emph{structure-copying} implementation, whenever a clause in the program i
 
 Certain Prolog implementations combine some of these areas. For example, the WAM does not use a separate control stack, preferring to store choice points on the local stack. Tarau's ``hitchhiker'' virtual machine stores code on the heap rather than in a separate code area, as its encoding of instructions is the same as that of terms \cite{tarauHitchhikersGuideReinventing2018}. Li's Logic Virtual Machine (LVM) combines the stack and the heap into a single memory area to improve locality, which is managed by a garbage collector \cite{liEfficientMemoryManagement2000}.
 
-\paragraph{Last Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller, and not create a choice point, if the clause is \emph{determinate}. That is, if the failure of the last predicate in the body implies the failure of the entire clause. Last call optimisation enables programs like in Figure \ref{fig:lco} to run in constant stack space.
+\paragraph{Last-Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller, and not create a choice point, if the clause is \emph{determinate}. That is, if the failure of the last predicate in the body implies the failure of the entire clause. Last-call optimisation enables programs like in Figure \ref{fig:lco} to run in constant stack space.
 
 \begin{figure}[H]
 \begin{center}
@@ -308,6 +308,8 @@ WebAssembly was introduced in 2017 as a solution to the problem of running safe,
 This section gives an overview of WebAssembly.
 
 \subsection{Memory Model}
+
+\label{sec:wasm-memory-model}
 
 The WebAssembly specification \cite{rossbergWebAssemblyCoreSpecification2022} is very restrictive about how memory is accessed. The two areas of memory that are particularly relevant are the \emph{stack} and the \emph{linear memory}.
 
