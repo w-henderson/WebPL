@@ -255,7 +255,7 @@ One complication with this approach is the existence of pointers from the old ge
 
 \label{sec:webdev}
 
-For many years, the platform on which applications would run was the operating system (OS), with applications executing native code but delegating to the OS via system calls for privileged functionality such as I/O. I will call these applications \emph{native}. However, this requires applications to be built separately for different operating systems and architectures, manually installed, and trusted -- while the OS ensures processes are isolated from each other, any program can access data stored on the computer and perform malicious actions.
+For many years, the platform on which applications would run was the operating system (OS), executing native code but delegating to the OS via system calls for privileged functionality such as I/O. I will call these applications \emph{native}. However, this requires applications to be built separately for different OSes and architectures, manually installed, and trusted -- the OS only ensures that processes are isolated from each other.
 
 For these reasons, more and more modern applications are delivered through the browser. I will call these applications \emph{browser-based} or \emph{web applications}. Initially only for accessing information, the browser is now the platform on which word processors like Google Docs, videoconferencing applications like Microsoft Teams, and even development environments like Visual Studio Code are built. These applications are written in a higher-level language like JavaScript, which is interpreted by a JavaScript engine, part of the browser, with the browser providing built-in functions to access lower-level functionality, e.g. I/O. In this model, the browser is the only application that needs to be manually installed and trusted by the user.
 
@@ -265,7 +265,7 @@ Figure \ref{fig:web-platform} highlights the difference between native and web a
 \centering
 \begin{subfigure}{0.5\textwidth}
   \centering
-  \begin{tikzpicture}
+  \begin{tikzpicture}[yscale=0.8]
     \fill[thick, black!5] (0,2) rectangle (5,3);
     \draw[thick] (0,0) rectangle (5,1);
     \draw[thick] (0,1) rectangle (5,2);
@@ -278,7 +278,7 @@ Figure \ref{fig:web-platform} highlights the difference between native and web a
 \end{subfigure}%
 \begin{subfigure}{0.5\textwidth}
   \centering
-  \begin{tikzpicture}
+  \begin{tikzpicture}[yscale=0.8]
     \fill[thick, black!5] (0.25,3) rectangle (4.75,3.75);
     \draw[thick] (0,0) rectangle (5,1);
     \draw[thick] (0,1) rectangle (5,2);
@@ -294,6 +294,7 @@ Figure \ref{fig:web-platform} highlights the difference between native and web a
 \caption{Native and web applications}
 \label{fig:web-platform}
 \end{figure}
+\vspace*{-2em}
 
 \subsection{Why WebAssembly?}
 
@@ -301,7 +302,7 @@ JavaScript has been the de facto language for web development since its introduc
 
 As web applications have increased in complexity, the consequences of JavaScript's complicated history have become more apparent. Being a high-level interpreted language, JavaScript is not well-suited for computationally intensive tasks. Similarly, its poor design as a language by modern standards, for example its lack of static typing, makes large codebases difficult to maintain \cite{ocarizajr.JavaScriptErrorsWild2011, biermanUnderstandingTypeScript2014}.
 
-For these reasons, supporting other programming languages on the Web has been a much discussed topic. Early proprietary attempts, such as Java applets, ActiveX, and Flash, have all since been deprecated due to security concerns about running native code in the browser\footnote{Early attempts to support other programming languages on the Web allowed native code to be directly embedded into the web page, and while attempts were made to sufficiently ``sandbox'' such code, this proved very difficult.}. More recently, Emscripten has been used to compile C and C++ code to a subset of JavaScript called asm.js, which is designed to be easily optimised by the JIT compilers of JavaScript engines \cite{zakaiEmscriptenLLVMtoJavaScriptcompiler2011}. While this approach mitigates many of the security concerns of the previous technologies, it remains inherently limited by the performance of JavaScript.
+For these reasons, supporting other programming languages on the Web has been a much discussed topic. Early proprietary attempts, such as Java applets, ActiveX, and Flash, have all since been deprecated due to security concerns about running native code in the browser\footnote{Early attempts to support other programming languages on the Web allowed native code to be directly embedded into the web page, which proved very difficult to sufficiently ``sandbox''.}. More recently, Emscripten has been used to compile C and C++ code to a subset of JavaScript called asm.js, which is designed to be easily optimised by the JIT compilers of JavaScript engines \cite{zakaiEmscriptenLLVMtoJavaScriptcompiler2011}. While this approach mitigates many of the security concerns of the previous technologies, it remains inherently limited by the performance of JavaScript.
 
 WebAssembly was introduced in 2017 as a solution to the problem of running safe, fast, portable, low-level code on the Web \cite{haasBringingwebspeed2017}. It is a binary instruction format for a stack-based virtual machine that is designed to be a compilation target for high-level languages, and able to run in the browser at near-native speed.
 
@@ -315,10 +316,11 @@ The WebAssembly specification \cite{rossbergWebAssemblyCoreSpecification2022} is
 
 \paragraph{Stack}
 
-A WebAssembly program executes as a \emph{stack machine}: operands of instructions are implicitly taken from the top of the stack, and results pushed back onto the stack. The stack also contains labels for control flow instructions, and \emph{activation frames} for function calls, which include local variables. Unlike the stack in a traditional programming language like C, the WebAssembly stack is not addressable; instead, local variables can only be referenced by their index from the stack pointer, meaning that stack-allocated variables cannot be passed to functions by reference. To illustrate this, consider the C program in Figure \ref{fig:stack-c}. Unintuitively, the compiler must allocate the local variable \texttt{x} in the linear memory, rather than on the stack, in order to pass it to the function \texttt{foo}. Were \texttt{foo} to take its argument by value, the compiler could allocate \texttt{x} on the stack.
+A WebAssembly program executes as a \emph{stack machine}: operands of instructions are implicitly taken from the top of the stack, and results pushed back onto the stack. The stack also contains labels for control flow instructions, and \emph{activation frames} for function calls, which include local variables. Unlike the stack in a traditional programming language like C, the WebAssembly stack is not addressable; instead, local variables can only be referenced by their index from the stack pointer, meaning that stack-allocated variables cannot be passed to functions by reference. For example, in the C program below, the compiler must unintuitively allocate the local variable \texttt{x} in the linear memory, rather than on the stack, in order to pass it to the function \texttt{foo}.
 
-\begin{figure}[H]
-\centering
+\vspace*{-1em}
+
+\begin{center}
 \begin{minted}{c}
 extern int foo(int*);
 int main() {
@@ -326,9 +328,9 @@ int main() {
   return foo(&x);
 }
 \end{minted}
-\caption{C program that must allocate \texttt{x} in linear memory}
-\label{fig:stack-c}
-\end{figure}
+\end{center}
+
+\vspace*{-2em}
 
 \paragraph{Linear Memory}
 
@@ -336,74 +338,23 @@ The main storage of a WebAssembly program is the \emph{linear memory}, or simply
 
 \subsection{Interface with JavaScript}
 
+\label{sec:wasm-js-interface}
+
 A key design goal of WebAssembly is to be \emph{language-independent}, thus the WebAssembly specification makes no mention of JavaScript. Instead, it is up to the \emph{host environment} (e.g. the browser) to define and implement the necessary APIs for WebAssembly to interact with the outside world.
 
 \paragraph{Import and Export} WebAssembly modules can import and export functions to and from the host environment, allowing JavaScript code to call WebAssembly functions, and vice versa. However, only integers and floats can be passed between the two environments in this way.
 
-\paragraph{Shared Memory} To enable more complex data structures to be shared, the host environment exposes the WebAssembly module's linear memory to JavaScript as an array of bytes. This allows JavaScript code to serialise complex data structures into the linear memory, passing a pointer to the WebAssembly module, which can then access the data. WebAssembly functions can return complex data structures in the same way.
-
-\paragraph{Example} To illustrate this, consider the example in Figure \ref{fig:js-wasm} where JavaScript passes a value to WebAssembly through the linear memory, and WebAssembly calls back into JavaScript to output that value. The JavaScript \texttt{DataView} API is used to write an integer value to the linear memory, specifying little-endian byte order, and the WebAssembly function \texttt{get} loads the value and calls the imported JavaScript function \texttt{log} to output it.
-
-\begin{figure}[H]
-\centering
-\begin{subfigure}{\textwidth}
-\begin{minted}{javascript}
-/* Instantiate the WebAssembly module, providing `console.log` as an external
- * function to call from within WebAssembly. */
-WebAssembly.instantiate(fetch("a.wasm"), { env: { log: console.log } })
-  .then(({ instance }) => {
-    /* Use the built-in DataView API to write a value of a specific size and
-     * endianness to the linear memory, in this case writing the integer 1234
-     * as a 32-bit little-endian signed integer to address 0. */
-    const mem = new DataView(instance.exports.memory.buffer);
-    mem.setInt32(0, 1234, /*littleEndian=*/true);
-
-    /* Call the WebAssembly function `get`, passing the address of the value
-     * that was just written to the linear memory. */
-    instance.exports.get(0);
-  });
-\end{minted}
-\caption{JavaScript code to write to linear memory and call into WebAssembly}
-\end{subfigure}
-\par\bigskip
-\par\bigskip
-\begin{subfigure}{\textwidth}
-\begin{minted}{asm}
-(module
-  ;; Import external function `log` specified when instantiating the module.
-  (import "env" "log" (func $log (param i32)))
-
-  ;; Make the linear memory accessible from JavaScript.
-  (memory (export "memory") 1)
-
-  (func (export "get") (param $ptr i32)
-    local.get $ptr ;; push the pointer onto the stack
-    i32.load       ;; load the value from linear memory
-    call $log      ;; pass the value to the JavaScript function
-  )
-)
-\end{minted}
-\caption{WebAssembly code to read from linear memory and call into JavaScript}
-\end{subfigure}
-\caption{JavaScript-WebAssembly interaction}
-\label{fig:js-wasm}
-\end{figure}
+\paragraph{Shared Memory} To enable more complex data structures to be shared, the host environment exposes the WebAssembly module's linear memory to JavaScript as an array of bytes. This allows JavaScript code to serialise complex data structures into the linear memory, passing a pointer to the WebAssembly module, which can then access the data. WebAssembly functions can return complex data structures in the same way, illustrated in more detail in Appendix \ref{appendix:shared-memory}.
 
 \section{Tools}
 
 \label{sec:tools}
 
-This section describes the tools used in the implementation of the project, comprising the choice of programming language (Section \ref{sec:rust}), the dependencies used and their licences (Section \ref{sec:deps}), and the version control, continuous integration, and deployment tools used (Section \ref{sec:vc-ci-cd}).
-
-\subsection{Rust}
-
-\label{sec:rust}
+\paragraph{Rust}
 
 Rust was chosen as the implementation language for the Prolog interpreter due to its strong support for WebAssembly and its focus on safety and performance. The officially-supported tool \texttt{wasm-bindgen} was used to facilitate interaction between Rust and JavaScript, alongside its companion tool \texttt{wasm-pack} for building and packaging the compiled WebAssembly module \cite{crichtonwasmbindgenhttpsgithubcom2014}.
 
-\subsection{Dependencies and Licensing}
-
-\label{sec:deps}
+\paragraph{Dependencies and Licensing}
 
 Table \ref{tab:core-dependencies} lists the dependencies used in the implementation of the Prolog interpreter along with their licences, justifying the use of each one. Table \ref{tab:web-dependencies} lists the dependencies used in the implementation of the browser-based development environment.
 
@@ -442,9 +393,7 @@ Iconoir & MIT & Icons \\
 \label{tab:web-dependencies}
 \end{table}
 
-\subsection{Version Control, Continuous Integration, and Deployment}
-
-\label{sec:vc-ci-cd}
+\paragraph{Version Control}
 
 Git was used for version control, with the repository hosted on GitHub. Each phase of development was carried out on a separate branch, with pull requests used to merge completed features into the \texttt{main} branch.
 
@@ -458,36 +407,32 @@ Git was used for version control, with the repository hosted on GitHub. Each pha
 
 The project was developed using a \emph{spiral} methodology \cite{boehmspiralmodelsoftware1986}, with development proceeding in a number of phases, each of which comprising requirements analysis, design, implementation, and testing. Evaluation in each phase involved quantitative comparison to existing Prolog implementations as described in Chapter 4, as well as qualitative comparison regarding feature completeness, which was then used to inform focus areas for the next phase.
 
-The development phases were guided by the project proposal (Appendix \ref{appendix:proposal}), and were as follows:
+The development phases were guided by the project proposal (Appendix \ref{appendix:proposal}), beginning with the implementation of a pure Prolog AST interpreter and building upon this.
 
-\begin{enumerate}
-\item \textbf{Pure Prolog AST interpreter}: Implementing an interpreter for a pure subset of Prolog
-\item \textbf{Lexer and parser}: Implementing a lexer and parser to provide the AST to the interpreter
-\item \textbf{WebAssembly integration and optimisation}: Compiling the interpreter to WebAssembly, evaluating it in the browser, and making optimisations
-\item \textbf{Development environment}: Building a browser-based development environment for the interpreter
-\item \textbf{Garbage collection}: Implementing a garbage collector to improve memory efficiency
-\item \textbf{JavaScript foreign function interface}: Implementing an FFI to call JavaScript functions from within Prolog
-\end{enumerate}
-
-\paragraph{Testing} The project was tested using a combination of unit tests, integration tests, and manual testing. Unit tests were written for each phase to ensure its correctness before proceeding to the next phase. The benchmarking suite, described in Chapter 4, also served as a form of integration testing, as it was run in the browser and required the correct functioning of the system as a whole, with each benchmark program additionally acting as a test case. Manual testing was used to evaluate the browser-based development environment.
+The project was tested using a combination of unit tests, integration tests, and manual testing. Unit tests were written for each phase to ensure its correctness before proceeding to the next phase. The benchmarking suite, described in Chapter 4, also served as a form of integration testing, as it was run in the browser and required the correct functioning of the system as a whole, with each benchmark program additionally acting as a test case. Manual testing was used to evaluate the browser-based development environment.
 
 \section{Requirements Analysis}
 
 \label{sec:requirements}
 
-The core requirements for the project are stated in the project proposal (Appendix \ref{appendix:proposal}) and are as follows:
+The core requirements are stated in the project proposal (Appendix \ref{appendix:proposal}) and are as follows:
+
+\vspace*{-1em}
 
 \begin{quote}
 ``The project will be deemed a success if I have written a Prolog interpreter in Rust, compiled it to WebAssembly, and executed it in the browser, as well as having compared its performance with existing solutions, including SWI-Prolog compiled to WASM and Tau Prolog.''
 \end{quote}
 
+\vspace*{-1em}
+
 In the proposal, a number of extensions were also suggested. Following the background research outlined in this chapter, several of these were selected to be implemented as extensions. This research also highlighted the importance of a garbage collector in a practical Prolog implementation, so this was added as a further extension.
 
 \begin{itemize}
+\setlength{\itemsep}{0em}
 \item \textbf{Cut and Extra-Logical Predicates}: Implementing the cut operator and some extra-logical predicates, which are key components of a full Prolog implementation.
 \item \textbf{Development Environment}: A browser-based development environment to demonstrate and evaluate the interpreter.
 \item \textbf{Garbage Collection}: A garbage collector to improve memory efficiency.
-\item \textbf{JavaScript FFI}: A foreign function interface to call JavaScript functions from within Prolog, to improve integration with the browser.
+\item \textbf{JavaScript FFI}: An FFI to improve integration with the browser.
 \end{itemize}
 
 \section{Starting Point}

@@ -1,10 +1,55 @@
 \begin{appendices}
 
-\chapter{Project Proposal}
+\chapter{JavaScript-WebAssembly Interaction}
 
-\label{appendix:proposal}
+\label{appendix:shared-memory}
 
-\includepdf[pages=-]{../proposal/proposal.pdf}
+To illustrate the interaction described in \ref{sec:wasm-js-interface}, consider the example in Figure \ref{fig:js-wasm} where JavaScript passes a value to WebAssembly through the linear memory, and WebAssembly calls back into JavaScript to output that value. The JavaScript \texttt{DataView} API is used to write an integer value to the linear memory, specifying little-endian byte order, and the WebAssembly function \texttt{get} loads the value and calls the imported JavaScript function \texttt{log} to output it.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{\textwidth}
+\begin{minted}{javascript}
+/* Instantiate the WebAssembly module, providing `console.log` as an external
+ * function to call from within WebAssembly. */
+WebAssembly.instantiate(fetch("a.wasm"), { env: { log: console.log } })
+  .then(({ instance }) => {
+    /* Use the built-in DataView API to write a value of a specific size and
+     * endianness to the linear memory, in this case writing the integer 1234
+     * as a 32-bit little-endian signed integer to address 0. */
+    const mem = new DataView(instance.exports.memory.buffer);
+    mem.setInt32(0, 1234, /*littleEndian=*/true);
+
+    /* Call the WebAssembly function `get`, passing the address of the value
+     * that was just written to the linear memory. */
+    instance.exports.get(0);
+  });
+\end{minted}
+\caption{JavaScript code to write to linear memory and call into WebAssembly}
+\end{subfigure}
+\par\bigskip
+\par\bigskip
+\begin{subfigure}{\textwidth}
+\begin{minted}{asm}
+(module
+  ;; Import external function `log` specified when instantiating the module.
+  (import "env" "log" (func $log (param i32)))
+
+  ;; Make the linear memory accessible from JavaScript.
+  (memory (export "memory") 1)
+
+  (func (export "get") (param $ptr i32)
+    local.get $ptr ;; push the pointer onto the stack
+    i32.load       ;; load the value from linear memory
+    call $log      ;; pass the value to the JavaScript function
+  )
+)
+\end{minted}
+\caption{WebAssembly code to read from linear memory and call into JavaScript}
+\end{subfigure}
+\caption{JavaScript-WebAssembly interaction}
+\label{fig:js-wasm}
+\end{figure}
 
 \chapter{Built-in Predicates}
 
@@ -65,5 +110,43 @@ The \texttt{statistics/2} predicate takes a statistic name as its first argument
 \caption{Supported statistics}
 \label{table:statistics}
 \end{table}
+
+\chapter{Benchmark Programs}
+
+\label{appendix:benchmarks}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\hline
+\textbf{Benchmark} & \textbf{Description} \\
+\hline
+chat\_parser & Parse natural language \\
+crypt & Cryptomultiplication \\
+derive & Symbolic differentiation \\
+divide10 & Symbolic differentiation \\
+fib & Fibonacci sequence \\
+log10 & Symbolic differentiation \\
+mu & MU puzzle \\
+nreverse & Naive list reversal \\
+ops8 & Symbolic differentiation \\
+poly\_10 & Polynomial exponentiation \\
+qsort & Quicksort \\
+queens\_8 & 8-Queens problem \\
+query & Query deductive database \\
+tak & Takeuchi function \\
+times10 & Symbolic differentiation \\
+zebra & Zebra puzzle \\
+\hline
+\end{tabular}
+\caption{Selected benchmarks from the SWI-Prolog benchmark suite}
+\label{tab:benchmarks}
+\end{table}
+
+\chapter{Project Proposal}
+
+\label{appendix:proposal}
+
+\includepdf[pages=-]{../proposal/proposal.pdf}
 
 \end{appendices}
