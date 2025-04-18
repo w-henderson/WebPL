@@ -1,3 +1,6 @@
+%TC:group table 0 1
+%TC:group tabular 1 1
+
 \chapter{Implementation}
 
 This chapter gives an overview of the implementation of the project, discussing the implementation and optimisation of the core Prolog interpreter (Section \ref{sec:core-interpreter}), its garbage collector (Section \ref{sec:gc-impl}), the JavaScript foreign function interface (Section \ref{sec:js-ffi}), and the web-based development environment (Section \ref{sec:web-dev-env}).
@@ -38,9 +41,9 @@ This section describes the implementation of the core Prolog interpreter, WebPL,
 
 WebPL uses the merged heap/stack architecture proposed by Li \cite{liEfficientMemoryManagement2000} and described in Section \ref{sec:preparation-implementation}. Alongside the advantages identified by Li, notably improved cache performance, this architecture is uniquely suited to the linear memory model of WebAssembly.
 
-In a traditional heap/stack architecture, the heap and stack are separate regions of memory, often with few constraints imposed on the layout of the heap. Indeed, SWI-Prolog simply uses \texttt{malloc} to allocate memory for terms on the heap\footnote{\url{https://www.swi-prolog.org/pldoc/man?section=memlimit}}, imposing no constraints on where the C runtime decides to put the memory. Running natively, this is not a problem, as virtual memory is plentiful. However, WebAssembly's linear memory is contiguous and limited in size, so the heap must be carefully managed by the WebAssembly code itself to avoid fragmentation. In addition, the trail stack contains pointers to bound variables, which may appear either on the stack or on the heap, but WebAssembly does not allow pointers to stack-allocated objects (Section \ref{sec:wasm-memory-model}). Therefore, the stack must also be placed in the linear memory, which further complicates memory management.
+In a traditional heap/stack architecture, the heap and stack are separate regions of memory, often with few constraints imposed on the layout of the heap. Indeed, SWI-Prolog uses \texttt{malloc} to allocate memory for terms on the heap\footnote{\url{https://www.swi-prolog.org/pldoc/man?section=memlimit}}, imposing no constraints on where the C runtime puts the memory. Running natively, this is not a problem, as virtual memory is plentiful. However, WebAssembly's linear memory is contiguous and limited in size, so the heap must be carefully managed by the WebAssembly code itself to avoid fragmentation. In addition, the trail stack contains pointers to bound variables, which may appear either on the stack or on the heap, but WebAssembly does not allow pointers to stack-allocated objects (Section \ref{sec:wasm-memory-model}). Therefore, the stack must also be placed in the linear memory, which further complicates memory management.
 
-In a merged heap/stack architecture, all terms are allocated in one contiguous region of memory. This avoids the problem of fragmentation, as the heap grows with allocations and shrinks with instant reclaiming and garbage collection (Section \ref{sec:gc-impl}). If the heap grows too large for the linear memory, it suffices, in theory, to execute the \texttt{memory.grow} WebAssembly instruction, with no additional work from the WebAssembly module required. In my implementation, the placement of the heap in the linear memory is decided by Rust's allocator, but once the heap grows sufficiently large, this has the same effect.
+In a merged heap/stack architecture, all terms are allocated in one contiguous region of memory. This avoids the problem of fragmentation, as the heap grows with allocations and shrinks with instant reclaiming and garbage collection (Section \ref{sec:gc-impl}). If the heap grows too large for the linear memory, it suffices, in theory, to execute the \texttt{memory.grow} WebAssembly instruction, with no additional work from the WebAssembly module required. In WebPL, the placement of the heap in the linear memory is decided by Rust's allocator, but once the heap grows sufficiently large, this has the same effect.
 
 A key advantage of this architecture is that terms are stored in chronological order on the heap, with older terms at lower addresses. This facilitates the implementation of several garbage collection optimisations, such as variable shunting (Section \ref{sec:variable-shunting}) and segmented garbage collection (Section \ref{sec:implementation-generational-gc}).
 
@@ -52,7 +55,7 @@ Of course, other areas of memory are needed, also within the linear memory:
 
 \paragraph{Goal Stack} The goal stack contains the remaining goals to prove. When backtracking, goals that have previously been popped might be needed again, so while I refer to it as a stack, the goal stack is actually a graph, with goals represented as pairs $(\texttt{pred}, \texttt{goal})$ and the goal stack additionally storing a pointer to the current goal (the ``top of the stack'').
 
-Figure \ref{fig:goals} illustrates this idea. Before resolving \mintinline{prolog}{a(X)} with \mintinline{prolog}{a(1)} (c), a choice point is created, containing a pointer to the current goal. After the resolution step, \mintinline{prolog}{a(X)} is ``popped from the goal stack'', which is implemented by setting the current goal pointer to its predecessor (d). Importantly, however, it remains in the graph, as upon backtracking to the choice point when \mintinline{prolog}{b(1)} fails, the current goal pointer is restored to that stored in the choice point. In order to prevent the goal stack growing indefinitely, each choice point also contains the number of goals in the stack when it was created, and the goal stack is truncated to this size upon backtracking.
+Figure \ref{fig:goals} illustrates this idea. Before resolving \mintinline{prolog}{a(X)} with \mintinline{prolog}{a(1)} (c), a choice point is created, containing a pointer to the current goal. After the resolution step, \mintinline{prolog}{a(X)} is ``popped from the goal stack'', implemented by setting the current goal pointer to its predecessor (d). Importantly, however, it remains in the graph, as upon backtracking to the choice point when \mintinline{prolog}{b(1)} fails, the current goal pointer is restored to that stored in the choice point. In order to prevent the goal stack growing indefinitely, each choice point also contains the number of goals in the stack when it was created, and the goal stack is truncated to this size upon backtracking.
 
 \begin{figure}[H]
 \centering
@@ -173,7 +176,7 @@ Following this approach, copying a clause onto the heap when a goal unifies with
 
 \vspace*{-2em}
 
-\paragraph{Lambda Table} Each lambda term (Section \ref{sec:term-representation}) contains an index into the \emph{lambda table}. The lambda table contains an entry for each lambda term in the program source, which comprises the JavaScript code and the names it uses to refer to its arguments (Section \ref{sec:js-ffi}).
+\paragraph{Lambda Table} Each lambda term (Section \ref{sec:term-representation}) contains an index into the \emph{lambda table}. This contains an entry for each lambda term in the program source, which comprises the JavaScript code and the names it uses to refer to its arguments (Section \ref{sec:js-ffi}).
 
 \subsection{Pointers}
 
@@ -189,7 +192,7 @@ Rust strongly discourages the use of raw pointers, instead preferring its memory
 
 Terms are stored on the heap as fixed-size blocks of 16 bytes. In Rust, these are represented as an enum (Figure \ref{fig:rust-term-representation}), Rust's sum type.
 
-Atoms are typed, being either strings, integers, or floats. The representation of variables includes a pointer to their bound object if they are bound, or a pointer to themselves if not, as in the WAM, but additionally a boolean flag to indicate whether they are \emph{shunted} (Section \ref{sec:variable-shunting}), which is used in garbage collection, and possibly a pointer to a \emph{suspended goal} (Section \ref{sec:attributed-variables}). Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments (Figure \ref{fig:compound}). This allows their variable-sized arguments to be found in constant time, while keeping their layout contiguous. There is also a heap representation of cut, which is necessary because goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within the Prolog execution (Section \ref{sec:js-ffi}), are represented by an index into the \emph{lambda table}, along with their arguments in the same way as a compound term.
+Atoms are typed, being either strings, integers, or floats. The representation of variables includes a pointer to their bound object if they are bound, or to themselves otherwise, as in the WAM, but additionally a flag to indicate whether they are \emph{shunted} (Section \ref{sec:variable-shunting}), which is used in garbage collection, and possibly a pointer to a \emph{suspended goal} (Section \ref{sec:attributed-variables}). Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments (Figure \ref{fig:compound}). This allows their variable-sized arguments to be found in constant time, while keeping their layout contiguous. There is also a heap representation of cut, which is necessary because goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within the Prolog execution (Section \ref{sec:js-ffi}), are represented by an index into the \emph{lambda table}, along with their arguments like a compound term.
 
 \begin{figure}[H]
 \centering
@@ -259,7 +262,7 @@ pub enum Atom {
 
 \subsection{Parsing}
 
-The Prolog program is parsed into its abstract syntax tree (AST) using a parser generated by LALRPOP \cite{thelalrpopprojectdevelopersLALRPOPhttpsgithubcom2015} with an original custom grammar.
+The Prolog program is parsed into its abstract syntax tree (AST) using a parser generated by LALRPOP \cite{thelalrpopprojectdevelopersLALRPOPhttpsgithubcom2015} with a custom grammar.
 
 \begin{figure}[H]
 \centering
@@ -287,7 +290,7 @@ Figure \ref{fig:grammar} shows an extract from the grammar, showing the definiti
 
 In order to do useful computation, the interpreter must support a set of built-in predicates, such as arithmetic evaluation. The full list of built-in predicates is given in Appendix \ref{appendix:predicates}.
 
-Each predicate implements a Rust \emph{trait} called \texttt{Builtin}, which is similar to an interface in C++ or Java. The definition of this trait is shown in Figure \ref{fig:builtin-trait}. This trait has an associated constant, \texttt{ARITY}, which is the number of arguments the predicate takes. A pointer to the first argument is passed to the \texttt{eval} function. This function evaluates the predicate, potentially modifying the state of the interpreter through the mutable reference to the \texttt{Solver} object, returning a boolean if the predicate succeeded or failed with no errors, or returning an error of type \texttt{BuiltinError} otherwise, for example if an argument was insufficiently instantiated.
+Each predicate implements a Rust \emph{trait} called \texttt{Builtin}, which is similar to an interface in C++. The definition of this trait is shown in Figure \ref{fig:builtin-trait}. This trait has an associated constant, \texttt{ARITY}, which is the number of arguments the predicate takes. A pointer to the first argument is passed to the \texttt{eval} function. This function evaluates the predicate, potentially modifying the state of the interpreter through the mutable reference to the \texttt{Solver} object, returning a boolean if the predicate succeeded or failed with no errors, or returning an error of type \texttt{BuiltinError}, for example if an argument was insufficiently instantiated.
 
 \begin{figure}[H]
 \centering
@@ -301,7 +304,7 @@ pub trait Builtin<const ARITY: usize> {
 \label{fig:builtin-trait}
 \end{figure}
 
-Many built-in predicates are implemented almost identically, for example the extra-logical type testing predicates \texttt{var/1} and \texttt{atom/1} (among others), which only differ in the type they compare against. To avoid code duplication, these predicates are implemented using Rust's meta-programming, with a \emph{macro} generating the code for each type. Figure \ref{fig:builtin-macro} shows the macro for type testing predicates. It uses Rust's pattern matching syntax to match the heap representation of the term against a pattern \texttt{\$matcher}.
+Many built-in predicates are implemented almost identically, for example the extra-logical type-testing predicates \texttt{var/1} and \texttt{atom/1} (among others), which only differ in the type they compare against. To avoid code duplication, these predicates are implemented using Rust's meta-programming, with a \emph{macro} generating the code for each type. Figure \ref{fig:builtin-macro} shows the macro for type-testing predicates. It uses Rust's pattern matching syntax to match the heap representation of the term against a pattern \texttt{\$matcher}.
 
 \begin{figure}[H]
 \centering
@@ -357,7 +360,7 @@ match &mut solver.heap.data[var] {
 \label{fig:delay-impl}
 \end{figure}
 
-While \texttt{delay/2} is sufficient to implement both the \texttt{freeze/2} and \texttt{dif/2} predicates, I implemented \texttt{freeze/2} directly as a built-in predicate to improve performance. The implementation of this predicate is identical to that of \texttt{delay/2}, except that it attaches the current goal (i.e. \texttt{freeze(..., ...)}) to the variable, rather than the goal passed as an argument, in order to account for intermediate unifications to variable terms.
+While \texttt{delay/2} is sufficient to implement both the \texttt{freeze/2} and \texttt{dif/2} predicates, I implemented \texttt{freeze/2} directly as a built-in predicate to improve performance. The implementation of this predicate is identical to that of \texttt{delay/2}, except that it attaches the current goal (i.e. \texttt{freeze(..., ...)}) to the variable, rather than the goal passed as an argument, to account for intermediate unifications to variable terms.
 
 \subsection{Choice-Point Elimination (incl. Last-Call Optimisation)}
 
@@ -371,7 +374,7 @@ For the choice-point stack, I implemented a variant of last-call optimisation, w
 
 Recall the implementation of the goal stack from Section \ref{sec:memory-layout}, namely that ``popping a goal from the stack'' does not remove it from the graph, rather moving the current goal pointer to its predecessor. Goals are only fully removed on backtracking, when the goal stack is truncated to the size it was when the choice point was created. As is, while a determinate predicate will use constant space on the choice-point stack, it will use linear space on the goal stack.
 
-However, while this is generally necessary, when no choice points refer to a goal, it is sound to remove it from the graph entirely when it is popped. This is exactly the case in a determinate predicate. The goals of its body are pushed to the goal stack when a goal unifies with its head, and because of its determinacy and choice-point elimination, no choice points are created as these goals are popped and resolved one by one. Furthermore, as they will be allocated at the end of the memory for the goal graph, no fragmentation occurs when they are removed. This is implemented by passing a boolean flag to the \texttt{Goal::pop} function, indicating whether the goal can be safely removed from the graph (Figure \ref{fig:goal-pop}).
+However, while this is generally necessary, when no choice points refer to a goal, it is sound to remove it from the graph entirely when it is popped. This is exactly the case in a determinate predicate. The goals of its body are pushed to the goal stack when a goal unifies with its head, and because of its determinacy and choice-point elimination, no choice points are created as these goals are popped and resolved one by one. Furthermore, as they will be allocated at the end of the memory for the goal graph, no fragmentation occurs when they are removed. This is implemented by passing a flag to the \texttt{Goal::pop} function, indicating whether the goal can be safely removed from the graph (Figure \ref{fig:goal-pop}).
 
 \begin{figure}[H]
 \centering
@@ -393,9 +396,9 @@ impl Goal {
 
 \subsection{String Interning}
 
-Strings are expensive to copy because they must be dynamically allocated in the linear memory. Comparing two strings for equality is also orders of magnitude more expensive than a simple arithmetic comparison, requiring both memory reads and $O(n)$ comparisons (where $n$ is the length of the string), as opposed to a single WebAssembly instruction for arithmetic comparison.
+Strings are expensive to copy because they must be dynamically allocated in the linear memory. Comparing two strings for equality is also far more expensive than an arithmetic comparison, requiring both memory reads and $O(n)$ comparisons (for strings of length $n$), as opposed to a single WebAssembly instruction for arithmetic comparison.
 
-For this reason, the implementation avoids using \texttt{String} objects wherever possible by using \emph{string interning}. All strings are allocated in a specific area of memory, and all references to each string are replaced with its index in that area. A hash table, mapping strings to their indices, is used to ensure that no duplicate strings appear.
+For this reason, WebPL avoids using \texttt{String} objects wherever possible by using \emph{string interning}. All strings are allocated in a specific area of memory, and all references to each string are replaced with its index in that area. A hash table, mapping strings to their indices, is used to prevent duplicates.
 
 A further optimisation initialises the string area with fixed mappings for commonly-used strings, such as the names of built-in predicates and arithmetic operators. For example, the string \texttt{"+"} is always at index 9, stored as a constant \texttt{str::ADD} in the Rust code, so a real string comparison is not necessary, even with runtime-generated strings (due to the uniqueness of string mapping). Figure \ref{fig:fixed-string-indices} shows how this optimises the arithmetic evaluation code (simplified).
 
@@ -435,7 +438,7 @@ match lookup_string(functor) {
 
 \label{sec:gc-impl}
 
-Garbage collection is a crucial part of a merged heap/stack architecture \cite{liEfficientMemoryManagement2000}. This section describes the implementation of the garbage collector in WebPL, first discussing its foundation in the mark-and-sweep algorithm (Section \ref{sec:mark-and-sweep}), then defining its goal of being ``precise'' (Section \ref{sec:precise-gc}). The optimisations made to achieve this goal are described in Sections \ref{sec:variable-shunting} and \ref{sec:early-reset}, with Section \ref{sec:gc-testing} explaining how I ensured that the implementation is indeed precise. Finally, Section \ref{sec:implementation-generational-gc} describes how the garbage collector was adapted to use generational garbage collection to reduce the overhead of garbage collection.
+Garbage collection is a crucial part of a merged heap/stack architecture \cite{liEfficientMemoryManagement2000}. This section describes the implementation of the garbage collector in WebPL, first discussing its foundation in the mark-and-sweep algorithm (Section \ref{sec:mark-and-sweep}), then defining its goal of being ``precise'' (Section \ref{sec:precise-gc}). The optimisations made to achieve this goal are described in Sections \ref{sec:variable-shunting} and \ref{sec:early-reset}, with Section \ref{sec:gc-testing} explaining how I verified that the implementation is indeed precise. Finally, Section \ref{sec:implementation-generational-gc} describes how the garbage collector was adapted to use generational garbage collection to reduce the overhead of garbage collection.
 
 \subsection{Mark and Sweep}
 
@@ -605,7 +608,7 @@ Variable shunting and early reset prove sufficient to meet the criteria for prec
 \item Perform a garbage collection, then measure the size of the heap.
 \item Run the program for a further fixed number of iterations.
 \item Perform a garbage collection and measure the size of the heap, passing the test if the heap size is less than or equal to that in step 2.
-\item Make one resolution step, then go back to step 4. Repeat this a fixed number of times in order to get to the same point in the execution as the first measurement, at which point the test passes.
+\item Make one resolution step, then go back to step 4. Repeat this a fixed number of times to get to the same point in the execution as the first measurement, at which point the test passes.
 \end{enumerate}
 
 \subsection{Generational Garbage Collection}
@@ -619,6 +622,8 @@ Generational garbage collection avoids scanning the entire heap by dividing it i
 \emph{Segmented garbage collection} applies this concept to Prolog \cite{applebyGarbargecollectionProlog1988}. Recall the concept of \emph{age} from the variable shunting algorithm (Section \ref{sec:variable-shunting}). This is used to divide the heap into generations, where each generation consists of a choice point and all terms created since it with no choice points in between. When a choice point (and hence a new generation) is created, all non-garbage terms in previous generations cannot become garbage until the choice point is popped upon backtracking. This means that each garbage collection needs only consider terms in generations for which garbage collection has not yet been performed.
 
 This is implemented by keeping track of the age of the oldest choice point for which garbage collection has not yet been performed. Initially, this is set to 0. When a garbage collection is performed, the age is updated to the size of the heap, which would be the age of a new choice point if one were created immediately. When a choice point is popped, the age is updated to the age of the choice point before it.
+
+% TODO: say something about trail being write barrier?
 
 \section{JavaScript FFI}
 
@@ -689,10 +694,10 @@ a(X, b(3, c))   =>
 
 \subsection{Execution of JavaScript}
 
-When the current goal is a lambda term, its JavaScript code is executed as follows:
+When the current goal is a lambda term, its JavaScript code is executed:
 
 \begin{enumerate}
-\item The Rust code converts the arguments to JavaScript objects as described in the previous section.
+\item The Rust code converts the arguments to JavaScript objects.
 \item Rust calls out to an external JavaScript function called \texttt{eval\_js}, passing it the JavaScript function, serialised arguments, and callback functions for various internal operations (e.g. unification).
 \item The \texttt{eval\_js} function converts the function to a JavaScript \texttt{Function} object, sets up its environment with the callback functions to enable it to interact with the Prolog interpreter, then calls it with the arguments (Figure \ref{fig:js-execution}).
 \end{enumerate}
@@ -721,7 +726,7 @@ By controlling the environment in which the JavaScript code is executed by expli
 \textbf{Function} & \textbf{Description} \\
 \hline
 \texttt{unify} & Performs unification. Both terms must be valid JavaScript representations of Prolog terms (Section \ref{sec:js-prolog-mapping}), which will be converted back to Prolog terms and allocated on the heap if necessary. Variable bindings are checked to ensure they refer to terms that exist. \\
-\texttt{fetch} & Makes a synchronous HTTP request to the given URL, returning the response as a string. This is implemented in JavaScript, and is simply a wrapper around the \texttt{XMLHttpRequest} API, provided for convenience. \\
+\texttt{fetch} & Makes a synchronous HTTP request to the given URL, returning the response as a string. This is implemented in JavaScript as a wrapper around \texttt{XMLHttpRequest}, provided for convenience. \\
 \texttt{compound} & Creates a compound term from a functor and some arguments. \\
 \texttt{list} & Converts a JavaScript list into its linked-list Prolog representation. \\
 \hline

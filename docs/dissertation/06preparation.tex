@@ -1,3 +1,6 @@
+%TC:group table 0 1
+%TC:group tabular 1 1
+
 \chapter{Preparation}
 
 This chapter introduces Prolog (Section \ref{sec:prolog}) and how garbage collection techniques can be applied to it (Section \ref{sec:prolog-gc}). It also discusses web development with WebAssembly (Section \ref{sec:webdev}), before describing the tools (Section \ref{sec:tools}) and development methodology (Section \ref{sec:dev-methodology}) used in the implementation of the Prolog interpreter. Finally, a requirements analysis is performed (Section \ref{sec:requirements}) and the starting point of the project stated (Section \ref{sec:starting-point}).
@@ -25,11 +28,11 @@ $$
 
 Prolog clauses are built up from \emph{terms}, which may be
 \begin{itemize}
-\item \emph{atoms}, which are either \emph{constants} (e.g. \texttt{a}, \texttt{42}, \texttt{foo}) or \emph{variables} (e.g. \texttt{X}, \texttt{Var}), or
+\item \emph{atoms}, which are either \emph{constants} (e.g. \texttt{foo}, \texttt{1209}) or \emph{variables} (e.g. \texttt{X}, \texttt{Var}), or
 \item \emph{compound terms}, which consist of a \emph{functor} (an atom) and a list of \emph{arguments}, which are terms themselves (e.g. \texttt{is\_even(X)}, \texttt{city(cambridge, united\_kingdom)}).
 \end{itemize}
 
-A Prolog program comprises a set of clauses, along with a \emph{query}, which is a goal clause. The aim of the Prolog execution is to find a \emph{substitution} (an assignment of terms to variables) that makes the query true with respect to the program.
+A Prolog program comprises a set of clauses and a \emph{query}, which is a goal clause. The aim of the Prolog execution is to find a \emph{substitution} (an assignment of terms to variables) that makes the query true with respect to the program.
 
 \subsection{Most General Unification}
 
@@ -105,9 +108,9 @@ The execution of this program explores the search tree shown in Figure \ref{fig:
 \label{fig:prolog-search-tree}
 \end{figure}
 
-The tree is searched depth-first, left-to-right, with clauses selected in the order they are defined in the program. Each time there are multiple candidate clauses to resolve the current goal with, a \emph{choice point} is created, which stores the state of the execution at that point. If a dead end is reached, we \emph{backtrack} to the most recent choice point and try the next possible clause.
+The tree is searched depth-first, left-to-right, with clauses selected in program order. Whenever there are multiple candidate clauses to resolve the current goal with, a \emph{choice point} is created, which stores the state of the execution at that point. If a dead end is reached, we \emph{backtrack} to the most recent choice point and try the next possible clause.
 
-The \emph{empty clause} represents a contradiction, so deriving it means that a refutation of the negated query has been successfully reached, and the current substitution can be returned as a solution. If all choice points have been exhausted without reaching the empty clause, no refutation can be found, so the query fails.
+The \emph{empty clause} represents a contradiction, so deriving it means that a refutation of the negated query has been reached, and the current substitution can be returned as a solution. If all choice points have been exhausted without reaching the empty clause, no refutation can be found, so the query fails.
 
 \subsection{Implementation}
 
@@ -115,7 +118,7 @@ The \emph{empty clause} represents a contradiction, so deriving it means that a 
 
 This subsection highlights some of the key decisions that must be made when building a Prolog implementation.
 
-\paragraph{Unification} There are two common ways of implementing the unification subroutine, their signatures depicted in Figure \ref{fig:unification-impl} in Rust syntax. The first of these does not mutate the terms, instead returning an object representing their most general unifier, or failing, which I will call \emph{substitution-based}. This is the approach taken by Tau Prolog \cite{riazaTauPrologProlog2024}. The second approach directly manipulates the term representations themselves to make them identical, or fails, as in the Warren Abstract Machine (WAM) \cite{warrenAbstractPrologInstruction1983}, which I will call \emph{mutation-based}.
+\paragraph{Unification} There are two common ways of implementing the unification subroutine, their signatures depicted in Figure \ref{fig:unification-impl} in Rust syntax. The first of these does not mutate the terms, instead returning an object representing their most general unifier, or failing, which I call \emph{substitution-based}. This is the approach taken by Tau Prolog \cite{riazaTauPrologProlog2024}. The second approach directly manipulates the term representations themselves to make them identical, or fails, as in the Warren Abstract Machine (WAM) \cite{warrenAbstractPrologInstruction1983}, which I call \emph{mutation-based}.
 
 \begin{figure}[H]
 \centering
@@ -127,7 +130,7 @@ fn unify2(a: &mut Term, b: &mut Term) -> Option<()>;
 \label{fig:unification-impl}
 \end{figure}
 
-In a \emph{structure-copying} implementation, whenever a clause in the program is resolved with a goal, the terms representing that clause are copied and the variables in the copy are bound according to the unifier. A \emph{structure-sharing} implementation recognises that different instances of the same term differ only in their variable bindings, so shares a \emph{prototype} between them, representing the individual instances as \emph{molecules} that store the variable bindings. Unification is more efficient with the former approach, but the latter can be more memory-efficient \cite{linewtermrepresentation1998}. These two representations are illustrated in Figure \ref{fig:term-representations}.
+In a \emph{structure-copying} implementation, whenever a clause in the program is resolved with a goal, the terms representing that clause are copied and the variables in the copy bound according to the unifier. A \emph{structure-sharing} implementation recognises that different instances of the same term differ only in their variable bindings, so shares a \emph{prototype} between them, representing the individual instances as \emph{molecules} that store the variable bindings. Unification is more efficient with the former approach, but the latter can be more memory-efficient \cite{linewtermrepresentation1998}. These two representations are illustrated in Figure \ref{fig:term-representations}.
 
 \begin{figure}[H]
 \centering
@@ -176,7 +179,7 @@ In a \emph{structure-copying} implementation, whenever a clause in the program i
 \label{fig:term-representations}
 \end{figure}
 
-\paragraph{Variable Representation} Variables in Prolog are commonly represented as pointers to the term they are bound to, often with a mutation-based implementation. Unbound variables may be represented by a pointer to themselves, as in the Warren Abstract Machine (WAM) \cite{warrenAbstractPrologInstruction1983}, or by a null pointer. Another approach, taken by Tau Prolog \cite{riazaTauPrologProlog2024}, is to assign an identifier to each variable when it is created, and store the bindings in a separate substitution data structure, which is more amenable to the substitution-based implementation.
+\paragraph{Variable Representation} Variables in Prolog are commonly represented as pointers to the term they are bound to, often with a mutation-based implementation. Unbound variables may be represented by a pointer to themselves, as in the WAM, or by a null pointer. Another approach, taken by Tau Prolog, is to assign an identifier to each variable upon creation, and store the bindings in a separate substitution data structure, which is more amenable to the substitution-based implementation.
 
 \paragraph{Backtracking} When backtracking, variables that have been bound since the last choice point must be reset (unbound). This is often achieved by maintaining a stack called the \emph{trail}, which records variable bindings.
 
@@ -210,9 +213,9 @@ len_acc([_|T], A, N) :- A1 is A + 1, len_acc(T, A1, N).
 
 \label{sec:prolog-gc}
 
-When backtracking to a choice point, any terms that were created since that choice point should now be deallocated. This can be achieved by storing pointers to the top of the stack and the heap at each choice point, and truncating the stack and heap to these pointers when backtracking. This is known as \emph{instant reclaiming} \cite{bekkersDynamicMemoryManagement1992}.
+When backtracking to a choice point, any terms that were created since that choice point can be deallocated. This can be achieved by storing pointers to the top of the stack and the heap at each choice point, and truncating the stack and heap to these pointers when backtracking. This is known as \emph{instant reclaiming} \cite{bekkersDynamicMemoryManagement1992}.
 
-However, instant reclaiming is insufficient for \emph{iterative} Prolog programs, that is, those which never backtrack. Consider the (contrived) program shown in Figure \ref{fig:iterative}, which sums the first $N$ natural numbers in constant stack space due to LCO.
+However, instant reclaiming is insufficient for \emph{iterative} Prolog programs, that is, those which never backtrack. Consider the (contrived) program shown in Figure \ref{fig:iterative}, which sums the first $N$ natural numbers in constant stack space with LCO.
 
 \begin{figure}[H]
 \begin{center}
@@ -237,7 +240,7 @@ To ensure programs like this do not run out of memory, many Prolog implementatio
 
 \label{sec:prep-mark-and-sweep}
 
-\emph{Mark-and-sweep} garbage collection is a simple algorithm that operates in two phases. The \emph{root set} contains pointers to objects that are live, which are recursively followed to mark all reachable objects. Then, the heap is traversed again, and any unmarked objects are deallocated, often by \emph{compacting} the heap to remove the gaps left by deallocated objects.
+\emph{Mark-and-sweep} garbage collection operates in two phases. The \emph{root set} contains pointers to objects that are live, which are recursively followed to mark all reachable objects. Then, the heap is traversed again, and any unmarked objects are deallocated, often by \emph{compacting} the heap to remove the gaps left by deallocated objects.
 
 Warren applied this algorithm to Prolog, using the local stack as the root set \cite{warrenImplementingPrologCompiling1977}. He emphasised, however, that due to the high cost of running the algorithm, it should only be run when necessary (i.e. when the heap is full), and that compile-time classification of variables into locals and globals (to minimise heap usage) is crucial for performance.
 
@@ -247,17 +250,17 @@ Warren applied this algorithm to Prolog, using the local stack as the root set \
 
 \emph{Generational garbage collection} attempts to mitigate the high performance cost of garbage collecting the entire heap by observing that most objects die young. This is called the \emph{generational hypothesis}.
 
-The heap is divided into \emph{generations}, often two: the \emph{young generation}, where new objects are allocated, and the \emph{old generation}, where objects that survive a collection cycle are promoted. The young generation is collected with frequent \emph{minor} collections, while infrequent \emph{major} collections cover the entire heap.
+The heap is divided into \emph{generations}, often two: the \emph{young generation}, where new objects are allocated, and the \emph{old generation}, where objects that survive a collection are promoted. The young generation is collected with frequent \emph{minor} collections, while infrequent \emph{major} collections cover the entire heap.
 
-One complication with this approach is the existence of pointers from the old generation to the young generation. These must be considered part of the root set during a minor collection, so must be tracked by the garbage collector. Fortunately, in Prolog, there is already a mechanism for tracking pointers: the trail. Including the trail in the root set is sufficient to ensure that all reachable objects are marked, and that all pointers are correctly updated, without the need to scan the entire heap \cite{bekkersDynamicMemoryManagement1992}.
+One complication with this approach is the existence of pointers from the old generation to the young generation. These must be considered part of the root set during a minor collection, so must be tracked by the garbage collector. Fortunately, in Prolog, there is already a mechanism for tracking pointers: the trail. Including the trail in the root set is sufficient to ensure that all reachable objects are marked, and that all pointers are correctly updated, without scanning the entire heap \cite{bekkersDynamicMemoryManagement1992}.
 
 \section{Web Development with WebAssembly}
 
 \label{sec:webdev}
 
-For many years, the platform on which applications would run was the operating system (OS), executing native code but delegating to the OS via system calls for privileged functionality such as I/O. I will call these applications \emph{native}. However, this requires applications to be built separately for different OSes and architectures, manually installed, and trusted -- the OS only ensures that processes are isolated from each other.
+For many years, the platform on which applications would run was the operating system (OS), executing native code but delegating to the OS via system calls for privileged functionality such as I/O. I call these applications \emph{native}. However, this requires applications to be built separately for different OSes and architectures, manually installed, and trusted.
 
-For these reasons, more and more modern applications are delivered through the browser. I will call these applications \emph{browser-based} or \emph{web applications}. Initially only for accessing information, the browser is now the platform on which word processors like Google Docs, videoconferencing applications like Microsoft Teams, and even development environments like Visual Studio Code are built. These applications are written in a higher-level language like JavaScript, which is interpreted by a JavaScript engine, part of the browser, with the browser providing built-in functions to access lower-level functionality, e.g. I/O. In this model, the browser is the only application that needs to be manually installed and trusted by the user.
+For these reasons, more and more modern applications are delivered through the browser. I call these applications \emph{browser-based} or \emph{web applications}. Initially only for accessing information, the browser is now the platform on which word processors like Google Docs, videoconferencing applications like Teams, and even development environments like VSCode are built. These applications are written in a higher-level language like JavaScript, interpreted by the browser's JavaScript engine, with the browser providing built-in functions to access lower-level functionality, e.g. I/O. In this model, the browser is the only application that needs to be manually installed and trusted by the user.
 
 Figure \ref{fig:web-platform} highlights the difference between native and web applications.
 
@@ -298,25 +301,23 @@ Figure \ref{fig:web-platform} highlights the difference between native and web a
 
 \subsection{Why WebAssembly?}
 
-JavaScript has been the de facto language for web development since its introduction in 1995. Originally designed as a simple scripting language to bring interactivity to web pages, and famously built in just 10 days, JavaScript has been continuously extended to become the most widely used programming language in the world \cite{wirfs-brockJavaScriptfirst202020a}.
+JavaScript has been the de facto language for web development since its introduction in 1995. Originally designed to bring interactivity to web pages, and famously built in 10 days, JavaScript has been continuously extended to become the world's most widely used programming language \cite{wirfs-brockJavaScriptfirst202020a}.
 
-As web applications have increased in complexity, the consequences of JavaScript's complicated history have become more apparent. Being a high-level interpreted language, JavaScript is not well-suited for computationally intensive tasks. Similarly, its poor design as a language by modern standards, for example its lack of static typing, makes large codebases difficult to maintain \cite{ocarizajr.JavaScriptErrorsWild2011, biermanUnderstandingTypeScript2014}.
+As web applications have increased in complexity, the consequences of JavaScript's complicated history have become more apparent. Being a high-level interpreted language, JavaScript is not well-suited for computationally intensive tasks. Similarly, its poor design as a language, for example its lack of static typing, makes large codebases difficult to maintain \cite{ocarizajr.JavaScriptErrorsWild2011, biermanUnderstandingTypeScript2014}.
 
-For these reasons, supporting other programming languages on the Web has been a much discussed topic. Early proprietary attempts, such as Java applets, ActiveX, and Flash, have all since been deprecated due to security concerns about running native code in the browser\footnote{Early attempts to support other programming languages on the Web allowed native code to be directly embedded into the web page, which proved very difficult to sufficiently ``sandbox''.}. More recently, Emscripten has been used to compile C and C++ code to a subset of JavaScript called asm.js, which is designed to be easily optimised by the JIT compilers of JavaScript engines \cite{zakaiEmscriptenLLVMtoJavaScriptcompiler2011}. While this approach mitigates many of the security concerns of the previous technologies, it remains inherently limited by the performance of JavaScript.
+For these reasons, supporting other programming languages on the Web has been a much discussed topic. Early proprietary attempts, such as Java applets, ActiveX, and Flash, have all since been deprecated due to security concerns\footnote{Early attempts to support other programming languages on the Web allowed native code to be directly embedded into the web page, which proved very difficult to sufficiently ``sandbox''.}. More recently, Emscripten has been used to compile C and C++ code to a subset of JavaScript called asm.js, designed to be easily optimised by the JIT compilers of JavaScript engines \cite{zakaiEmscriptenLLVMtoJavaScriptcompiler2011}. While this approach mitigates the security concerns of the previous technologies, it remains inherently limited by the performance of JavaScript.
 
 WebAssembly was introduced in 2017 as a solution to the problem of running safe, fast, portable, low-level code on the Web \cite{haasBringingwebspeed2017}. It is a binary instruction format for a stack-based virtual machine that is designed to be a compilation target for high-level languages, and able to run in the browser at near-native speed.
-
-This section gives an overview of WebAssembly.
 
 \subsection{Memory Model}
 
 \label{sec:wasm-memory-model}
 
-The WebAssembly specification \cite{rossbergWebAssemblyCoreSpecification2022} is very restrictive about how memory is accessed. The two areas of memory that are particularly relevant are the \emph{stack} and the \emph{linear memory}.
+The WebAssembly specification \cite{rossbergWebAssemblyCoreSpecification2022} is restrictive about how memory is accessed. The two areas of memory that are particularly relevant are the \emph{stack} and the \emph{linear memory}.
 
 \paragraph{Stack}
 
-A WebAssembly program executes as a \emph{stack machine}: operands of instructions are implicitly taken from the top of the stack, and results pushed back onto the stack. The stack also contains labels for control flow instructions, and \emph{activation frames} for function calls, which include local variables. Unlike the stack in a traditional programming language like C, the WebAssembly stack is not addressable; instead, local variables can only be referenced by their index from the stack pointer, meaning that stack-allocated variables cannot be passed to functions by reference. For example, in the C program below, the compiler must unintuitively allocate the local variable \texttt{x} in the linear memory, rather than on the stack, in order to pass it to the function \texttt{foo}.
+A WebAssembly program executes as a \emph{stack machine}: operands of instructions are taken from the top of the stack, and results pushed back onto the stack. The stack also contains labels for control flow instructions, and \emph{activation frames} for function calls, which include local variables. Unlike the stack in a traditional language like C, the WebAssembly stack is not addressable; instead, local variables can only be referenced by their index from the stack pointer, meaning that stack-allocated variables cannot be passed to functions by reference. For example, in the C program below, the compiler must unintuitively allocate the local variable \texttt{x} in the linear memory, rather than on the stack, in order to pass it to the function \texttt{foo}.
 
 \vspace*{-1em}
 
@@ -334,7 +335,7 @@ int main() {
 
 \paragraph{Linear Memory}
 
-The main storage of a WebAssembly program is the \emph{linear memory}, or simply the \emph{memory}. It is a contiguous array of bytes, addressed by 32-bit pointers. These pointers are simply indices into the array, starting from zero (yes, zero is a valid address in WebAssembly). The memory is disjoint from the rest of the WebAssembly program. WebAssembly provides a \texttt{memory.grow} instruction to request that the host environment (e.g. the browser) increases the size of the contiguous memory area (an operation like \texttt{realloc}), however, there is no way to free memory.
+The main storage of a WebAssembly program is the \emph{linear memory}, or \emph{memory}, a contiguous array of bytes addressed by 32-bit pointers. These pointers are simply indices into the array. The memory is disjoint from the rest of the WebAssembly program. WebAssembly provides a \texttt{memory.grow} instruction to request that the host environment increases the size of the contiguous memory area (an operation like \texttt{realloc}), however, there is no way to free memory.
 
 \subsection{Interface with JavaScript}
 
@@ -344,7 +345,7 @@ A key design goal of WebAssembly is to be \emph{language-independent}, thus the 
 
 \paragraph{Import and Export} WebAssembly modules can import and export functions to and from the host environment, allowing JavaScript code to call WebAssembly functions, and vice versa. However, only integers and floats can be passed between the two environments in this way.
 
-\paragraph{Shared Memory} To enable more complex data structures to be shared, the host environment exposes the WebAssembly module's linear memory to JavaScript as an array of bytes. This allows JavaScript code to serialise complex data structures into the linear memory, passing a pointer to the WebAssembly module, which can then access the data. WebAssembly functions can return complex data structures in the same way, illustrated in more detail in Appendix \ref{appendix:shared-memory}.
+\paragraph{Shared Memory} To enable more complex data structures to be shared, the browser exposes the WebAssembly module's linear memory to JavaScript as an array of bytes. This allows JavaScript code to serialise complex data structures into the linear memory, passing a pointer to the WebAssembly module, which can then access the data. WebAssembly functions can return complex data structures in the same way, illustrated in more detail in Appendix \ref{appendix:shared-memory}.
 
 \section{Tools}
 
@@ -356,7 +357,7 @@ Rust was chosen as the implementation language for the Prolog interpreter due to
 
 \paragraph{Dependencies and Licensing}
 
-Table \ref{tab:core-dependencies} lists the dependencies used in the implementation of the Prolog interpreter along with their licences, justifying the use of each one. Table \ref{tab:web-dependencies} lists the dependencies used in the implementation of the browser-based development environment.
+Table \ref{tab:core-dependencies} lists the dependencies used in the implementation of the Prolog interpreter along with their licences, justifying the use of each. Table \ref{tab:web-dependencies} lists the dependencies used in the implementation of the browser-based development environment.
 
 \begin{table}[H]
 \centering
@@ -399,17 +400,17 @@ Git was used for version control, with the repository hosted on GitHub. Each pha
 
 \paragraph{Continuous Integration} GitHub Actions, a GitHub service to automatically run code on repository events, was used for continuous integration, compiling and running the test suite on each push to the repository. GitHub's ``branch protection'' feature was employed to ensure that commits to the \texttt{main} branch could only be made through pull requests, and that all checks must pass before merging.
 
-\paragraph{Deployment} The browser-based development environment was automatically built and deployed to Cloudflare Pages, a static website hosting service, on each push to the \texttt{main} branch, again using GitHub Actions.
+\paragraph{Deployment} The browser-based development environment was automatically built and deployed to Cloudflare Pages, a static website hosting service, on each push to the \texttt{main} branch, using GitHub Actions.
 
 \section{Development Methodology}
 
 \label{sec:dev-methodology}
 
-The project was developed using a \emph{spiral} methodology \cite{boehmspiralmodelsoftware1986}, with development proceeding in a number of phases, each of which comprising requirements analysis, design, implementation, and testing. Evaluation in each phase involved quantitative comparison to existing Prolog implementations as described in Chapter 4, as well as qualitative comparison regarding feature completeness, which was then used to inform focus areas for the next phase.
+The project was developed using a \emph{spiral} methodology \cite{boehmspiralmodelsoftware1986}, with development proceeding in a number of phases, each of which comprising requirements analysis, design, implementation, and testing. Evaluation in each phase involved quantitative comparison to existing Prolog implementations as described in Chapter 4, alongside qualitative comparison regarding feature completeness, which was then used to inform focus areas for the next phase.
 
-The development phases were guided by the project proposal (Appendix \ref{appendix:proposal}), beginning with the implementation of a pure Prolog AST interpreter and building upon this.
+The development phases were guided by the project proposal (Appendix \ref{appendix:proposal}), beginning with the implementation of a pure Prolog AST interpreter.
 
-The project was tested using a combination of unit tests, integration tests, and manual testing. Unit tests were written for each phase to ensure its correctness before proceeding to the next phase. The benchmarking suite, described in Chapter 4, also served as a form of integration testing, as it was run in the browser and required the correct functioning of the system as a whole, with each benchmark program additionally acting as a test case. Manual testing was used to evaluate the browser-based development environment.
+The project was tested using unit tests, integration tests, and manual testing. Unit tests were written for each phase to ensure its correctness before proceeding to the next phase. The benchmarking suite, described in Chapter 4, also served as a form of integration testing, as it was run in the browser and required the correct functioning of the system as a whole, with each benchmark program additionally acting as a test case. Manual testing was used to evaluate the browser-based development environment.
 
 \section{Requirements Analysis}
 
@@ -439,4 +440,4 @@ In the proposal, a number of extensions were also suggested. Following the backg
 
 \label{sec:starting-point}
 
-As detailed in the project proposal (Appendix \ref{appendix:proposal}), I began the project from scratch, although with prior knowledge of Rust. I had little experience with Prolog, having only used it briefly in the Part IB Prolog course. No code was written before the beginning of Michaelmas Term 2024.
+As detailed in the project proposal (Appendix \ref{appendix:proposal}), I began the project from scratch, with prior knowledge of Rust. I had little experience with Prolog, having only used it briefly in the Part IB course. No code was written before October 2024.
