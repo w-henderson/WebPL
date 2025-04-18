@@ -3,11 +3,11 @@
 
 \chapter{Evaluation}
 
-This chapter evaluates the performance of the Prolog implementation, WebPL, in terms of execution time (Section \ref{sec:execution-time}), memory usage (Section \ref{sec:memory-usage}), and binary size (Section \ref{sec:binary-size}), and compares it to existing Prolog implementations for the Web. Then, the factors contributing to the performance differences are explored, and some possible improvements to SWI-Prolog are described (Section \ref{sec:swi-prolog-optimisation}). Finally, the use of the Rust programming language is evaluated (Section \ref{sec:rust-evaluation}).
+This chapter evaluates the performance of the Prolog implementation, WebPL, in terms of execution time (Section \ref{sec:execution-time}), memory usage (Section \ref{sec:memory-usage}), and binary size (Section \ref{sec:binary-size}), and compares it to existing Prolog implementations for the Web. Then, factors contributing to the performance differences are explored, and possible improvements to SWI-Prolog are described (Section \ref{sec:swi-prolog-optimisation}). Finally, the use of the Rust programming language is evaluated (Section \ref{sec:rust-evaluation}).
 
 \section{Benchmark Programs}
 
-To evaluate the performance of the Prolog implementation, a subset of the SWI-Prolog benchmark suite \cite{wielemakerSWIPrologbenchmarksuite2010}, itself derived from a collection of widely-used Prolog benchmarks \cite{haygoodPrologBenchmarkSuite1989}, was selected. This consisted of 16 benchmarks, as the 19 which use features that are not supported in WebPL were excluded.
+To evaluate the performance of the Prolog implementation, a subset of the SWI-Prolog benchmark suite \cite{wielemakerSWIPrologbenchmarksuite2010}, itself derived from a collection of widely-used Prolog benchmarks \cite{haygoodPrologBenchmarkSuite1989}, was selected. This consisted of 16 benchmarks, excluding the 19 which use features not supported in WebPL.
 
 The benchmarks selected for this evaluation cover a range of tasks, including parsing natural language, symbolic differentiation, list manipulation, arithmetic, and solving puzzles such as the 8-Queens problem. The full benchmark suite is detailed in Appendix \ref{appendix:benchmarks}.
 
@@ -34,31 +34,31 @@ Table \ref{tab:chrome-time} shows the median execution time of each benchmark fo
 \addlinespace\hline\addlinespace
 Benchmark & WebPL & WebPL+GC & SWI & Trealla & Tau \\
 \addlinespace\hline\addlinespace
-chat\_parser  & \textcolor{ForestGreen}{17.22}  &  18.51  &  74.44  &  26.90  &  1610.90  \\
-crypt        &   0.64  &   \textcolor{ForestGreen}{0.63}  &   3.00  &   3.62  &   120.77  \\
-derive       &   0.29  &   \textcolor{ForestGreen}{0.28}  &   1.20  &   0.45  &    13.25  \\
-divide10     &   0.27  &   \textcolor{ForestGreen}{0.24}  &   1.08  &   0.39  &    12.99  \\
-fib          &   \textcolor{ForestGreen}{4.84}  &   7.41  &   9.72  &   5.08  &  3040.73  \\
-log10        &   \textcolor{ForestGreen}{0.27}  &   \textcolor{ForestGreen}{0.27}  &   1.08  &   0.41  &    13.40  \\
-mu           &   \textcolor{ForestGreen}{0.34}  &   0.36  &   1.32  &   0.62  &    15.03  \\
-nreverse     &   \textcolor{ForestGreen}{0.29}  &   0.38  &   0.65  &   0.40  &    17.28  \\
-ops8         &   0.28  &   \textcolor{ForestGreen}{0.27}  &   1.10  &   0.46  &    13.18  \\
-poly\_10      &   \textcolor{ForestGreen}{5.48}  &  16.98$^*$  &  19.31  &   6.45  &  3481.89  \\
-qsort        &   \textcolor{ForestGreen}{0.32}  &   0.38  &   0.84  &   0.55  &    18.12  \\
-queens\_8     &   \textcolor{ForestGreen}{6.49}  &   7.30  &  17.87  &   8.38  &   267.43  \\
-query        &  \textcolor{ForestGreen}{0.77}  &   0.82  &   2.68  &   1.26  &    20.31  \\
-tak          &  \textcolor{ForestGreen}{15.33}  &  38.56$^*$  &  28.20  &  27.96  & 26691.83  \\
-times10      &   \textcolor{ForestGreen}{0.27}  &   \textcolor{ForestGreen}{0.27}  &   1.14  &   0.57  &    12.88  \\
-zebra        &   3.16  &   \textcolor{ForestGreen}{3.13}  &   7.82  &   9.76  &   901.52  \\
+chat\_parser  & \green{17.22}  &  18.51  &  74.44  &  26.90  &  1610.90  \\
+crypt        &   0.64  &   \green{0.63}  &   3.00  &   3.62  &   120.77  \\
+derive       &   0.29  &   \green{0.28}  &   1.20  &   0.45  &    13.25  \\
+divide10     &   0.27  &   \green{0.24}  &   1.08  &   0.39  &    12.99  \\
+fib          &   \green{4.84}  &   7.41  &   9.72  &   5.08  &  3040.73  \\
+log10        &   \green{0.27}  &   \green{0.27}  &   1.08  &   0.41  &    13.40  \\
+mu           &   \green{0.34}  &   0.36  &   1.32  &   0.62  &    15.03  \\
+nreverse     &   \green{0.29}  &   0.38  &   0.65  &   0.40  &    17.28  \\
+ops8         &   0.28  &   \green{0.27}  &   1.10  &   0.46  &    13.18  \\
+poly\_10      &   \green{5.48}  &  16.98$^*$  &  19.31  &   6.45  &  3481.89  \\
+qsort        &   \green{0.32}  &   0.38  &   0.84  &   0.55  &    18.12  \\
+queens\_8     &   \green{6.49}  &   7.30  &  17.87  &   8.38  &   267.43  \\
+query        &  \green{0.77}  &   0.82  &   2.68  &   1.26  &    20.31  \\
+tak          &  \green{15.33}  &  38.56$^*$  &  28.20  &  27.96  & 26691.83  \\
+times10      &   \green{0.27}  &   \green{0.27}  &   1.14  &   0.57  &    12.88  \\
+zebra        &   3.16  &   \green{3.13}  &   7.82  &   9.76  &   901.52  \\
 \addlinespace\hline\addlinespace
 \end{tabular}
-\caption{Execution time of benchmarks in Chrome 134 on macOS (milliseconds)}
+\caption{Execution time of benchmarks (milliseconds)}
 \label{tab:chrome-time}
 \end{table}
 
 \vspace*{-1.5em}
 
-Unexpectedly, the results show that WebPL is faster than all other Prolog implementations tested in every single benchmark without garbage collection, and all but two when garbage collection is enabled (marked with a *). Section \ref{sec:swi-prolog-optimisation} explores why this is the case, and how some modifications to the build process for SWI-Prolog can make its execution time more competitive with WebPL.
+Unexpectedly, the results show that WebPL is faster than all other Prolog implementations tested in every benchmark without garbage collection, and all but two when garbage collection is enabled (marked with a *). Section \ref{sec:swi-prolog-optimisation} explores why this is the case, and how some modifications to the build process for SWI-Prolog can make its execution time more competitive.
 
 \begin{figure}[H]
 \centering
@@ -67,13 +67,13 @@ Unexpectedly, the results show that WebPL is faster than all other Prolog implem
 \label{fig:relative-performance}
 \end{figure}
 
-Figure \ref{fig:relative-performance} shows the execution time of WebPL, relative to SWI-Prolog, based on the same data as Table \ref{tab:chrome-time}. WebPL was run twice, once with garbage collection enabled and once without.
+Figure \ref{fig:relative-performance} shows the execution time of WebPL, relative to SWI-Prolog, based on the same data as Table \ref{tab:chrome-time}.
 
-This reveals that for three benchmarks, \texttt{fib}, \texttt{poly\_10}, and \texttt{tak}, enabling garbage collection has a significant impact on performance, increasing execution time by 53\%, 210\%, and 152\% respectively. These benchmarks are the most memory-intensive, so garbage collection runs more frequently, leading to a significant performance penalty.
+This reveals that for three benchmarks, \texttt{fib}, \texttt{poly\_10}, and \texttt{tak}, enabling garbage collection has a significant impact on performance, increasing execution time by 53\%, 210\%, and 152\% respectively. These benchmarks are the most memory-intensive, so garbage collection runs more frequently, leading to significantly decreased performance.
 
-The WebPL garbage collection scheduler invokes the garbage collector whenever heap utilisation exceeds a certain threshold (by default, 90\%). If garbage collection does not reduce heap utilisation below this threshold, garbage collection is not invoked again until the heap has been resized, which occurs when the heap is full, and the threshold has been met again. In addition, there is a fixed timeout between garbage collections to avoid invoking the garbage collector too frequently.
+The WebPL garbage collection scheduler invokes the garbage collector whenever heap utilisation exceeds a certain threshold (by default, 90\%). If this does not reduce heap utilisation below the threshold, garbage collection is not invoked again until the heap has been resized, which occurs when the heap is full, and the threshold met again. In addition, there is a timeout between garbage collections to avoid invoking the garbage collector too frequently.
 
-This is a more aggressive strategy than that used by SWI-Prolog, which does not take into account the allocated size of the heap when deciding when to invoke the garbage collector, instead considering the used size of the heap at the last garbage collection\footnote{\url{https://www.swi-prolog.org/pldoc/man?section=gc}}. Therefore, SWI-Prolog is less conservative of memory (Section \ref{sec:memory-usage}), and may end up resizing the heap unnecessarily, but avoids the performance penalty of frequent garbage collections.
+This is a more aggressive strategy than that of SWI-Prolog, which does not consider the allocated size of the heap when deciding when to invoke the garbage collector, instead considering the used size of the heap at the last garbage collection\footnote{\url{https://www.swi-prolog.org/pldoc/man?section=gc}}. Therefore, SWI-Prolog is less conservative of memory (Section \ref{sec:memory-usage}), and may end up resizing the heap unnecessarily, but avoids the performance penalty of frequent garbage collections.
 
 \section{Memory Usage}
 
@@ -81,15 +81,13 @@ This is a more aggressive strategy than that used by SWI-Prolog, which does not 
 
 A notable criticism of existing Prolog implementations for the Web is their high memory usage (Section \ref{sec:motivation}).
 
-Two approaches were taken in evaluating memory usage. The first was to use the browser's \texttt{performance.memory} API to measure the memory usage of a browser tab running the Prolog interpreter (Section \ref{sec:web-page-memory-usage}). However, this also includes the size of the WebAssembly binary, which is also located in the memory of the browser tab. The second approach was to use the Prolog implementation's own memory usage statistics, but this is only available in WebPL and SWI-Prolog (Section \ref{sec:prolog-heap-usage}).
+Two approaches were taken in evaluating memory usage. The browser's \texttt{performance.memory} API was used to measure the memory usage of a browser tab running the Prolog interpreter (Section \ref{sec:web-page-memory-usage}). However, this also includes the size of the WebAssembly binary, located in the memory of the browser tab. The Prolog implementation's own memory usage statistics were therefore also used, but this is only available in WebPL and SWI-Prolog (Section \ref{sec:prolog-heap-usage}).
 
 \subsection{Web Page Memory Usage}
 
 \label{sec:web-page-memory-usage}
 
-To evaluate the memory usage of each Prolog implementation for each benchmark, a Python script using the Selenium browser automation library was developed. For each implementation and each benchmark, the script starts a new instance of the browser, loads the implementation and benchmark, runs the benchmark once, and then measures the memory usage of the browser tab using the \texttt{performance.memory} API. As memory used by WebAssembly cannot be freed, the resulting measurement is the peak memory usage during the execution of the benchmark.
-
-Table \ref{tab:chrome-memory} shows the peak memory usage of each benchmark for each implementation tested.
+To evaluate the memory usage of each Prolog implementation for each benchmark, a Python script using the Selenium browser automation library was developed. For each implementation and each benchmark, the script starts a new browser instance, loads the implementation and benchmark, runs the benchmark once, and measures the memory usage of the tab using \texttt{performance.memory}. As memory used by WebAssembly cannot be freed, the resulting measurement is the peak memory usage during the execution of the benchmark, shown in Table \ref{tab:chrome-memory}.
 
 \begin{table}[H]
 \centering
@@ -98,35 +96,35 @@ Table \ref{tab:chrome-memory} shows the peak memory usage of each benchmark for 
 \addlinespace\hline\addlinespace
 Benchmark & WebPL & WebPL+GC & SWI & Trealla & Tau \\
 \addlinespace\hline\addlinespace
-chat\_parser & 6.02 & \textcolor{ForestGreen}{5.58} & 36.57 & 26.05 & 83.05 \\
-crypt & \textcolor{ForestGreen}{4.90} & \textcolor{ForestGreen}{4.90} & 36.71 & 25.10 & 29.72 \\
-derive & \textcolor{ForestGreen}{4.90} & \textcolor{ForestGreen}{4.90} & 36.95 & 25.09 & 5.71 \\
-divide10 & \textcolor{ForestGreen}{4.90} & \textcolor{ForestGreen}{4.90} & 36.45 & 25.09 & 5.46 \\
-fib & 36.77 & \textcolor{ForestGreen}{5.33} & 36.20 & 31.78 & 679.96 \\
-log10 & \textcolor{ForestGreen}{4.90} & \textcolor{ForestGreen}{4.90} & 36.70 & 25.09 & 5.46 \\
-mu & \textcolor{ForestGreen}{4.90} & \textcolor{ForestGreen}{4.90} & 36.45 & 25.09 & 5.96 \\
-nreverse & \textcolor{ForestGreen}{4.89} & \textcolor{ForestGreen}{4.89} & 36.45 & 25.21 & 9.46 \\
-ops8 & \textcolor{ForestGreen}{4.90} & \textcolor{ForestGreen}{4.90} & 36.45 & 25.09 & 5.46 \\
-poly\_10 & 36.78 & \textcolor{ForestGreen}{5.22} & 36.71 & 35.84 & 227.97 \\
-qsort & \textcolor{ForestGreen}{4.89} & 4.90 & 36.20 & 25.22 & 7.03 \\
-queens\_8 & \textcolor{ForestGreen}{4.90} & \textcolor{ForestGreen}{4.90} & 36.46 & 25.10 & 69.47 \\
-query & \textcolor{ForestGreen}{4.90} & \textcolor{ForestGreen}{4.90} & 36.71 & 25.33 & 5.72 \\
-tak & 133.39 & \textcolor{ForestGreen}{36.89} & 41.01 & 87.20 & 3186.35 \\
-times10 & \textcolor{ForestGreen}{4.90} & \textcolor{ForestGreen}{4.90} & 36.45 & 25.09 & 5.46 \\
-zebra & \textcolor{ForestGreen}{4.90} & \textcolor{ForestGreen}{4.90} & 36.45 & 25.10 & 104.97 \\
+chat\_parser & 6.02 & \green{5.58} & 36.57 & 26.05 & 83.05 \\
+crypt & \green{4.90} & \green{4.90} & 36.71 & 25.10 & 29.72 \\
+derive & \green{4.90} & \green{4.90} & 36.95 & 25.09 & 5.71 \\
+divide10 & \green{4.90} & \green{4.90} & 36.45 & 25.09 & 5.46 \\
+fib & 36.77 & \green{5.33} & 36.20 & 31.78 & 679.96 \\
+log10 & \green{4.90} & \green{4.90} & 36.70 & 25.09 & 5.46 \\
+mu & \green{4.90} & \green{4.90} & 36.45 & 25.09 & 5.96 \\
+nreverse & \green{4.89} & \green{4.89} & 36.45 & 25.21 & 9.46 \\
+ops8 & \green{4.90} & \green{4.90} & 36.45 & 25.09 & 5.46 \\
+poly\_10 & 36.78 & \green{5.22} & 36.71 & 35.84 & 227.97 \\
+qsort & \green{4.89} & 4.90 & 36.20 & 25.22 & 7.03 \\
+queens\_8 & \green{4.90} & \green{4.90} & 36.46 & 25.10 & 69.47 \\
+query & \green{4.90} & \green{4.90} & 36.71 & 25.33 & 5.72 \\
+tak & 133.39 & \green{36.89} & 41.01 & 87.20 & 3186.35 \\
+times10 & \green{4.90} & \green{4.90} & 36.45 & 25.09 & 5.46 \\
+zebra & \green{4.90} & \green{4.90} & 36.45 & 25.10 & 104.97 \\
 \addlinespace\hline\addlinespace
 \end{tabular}
-\caption{Memory usage of benchmarks in Chrome 134 on macOS (megabytes)}
+\caption{Memory usage of benchmarks (megabytes)}
 \label{tab:chrome-memory}
 \end{table}
 
-WebPL shows the lowest memory usage for all benchmarks with garbage collection enabled. However, the variance of memory usage across benchmarks is very small due to the comparatively much larger binary size being included in the memory of the browser tab (except for Tau Prolog, for which this is an accurate and useful measurement). To better evaluate the memory usage of the Prolog implementations themselves, another approach was taken.
+WebPL shows the lowest memory usage for all benchmarks with garbage collection enabled. However, the variance of memory usage across benchmarks is very small due to the often much larger binary size being included in the memory of the browser tab. To better evaluate the memory usage of the Prolog implementations themselves, another approach was taken.
 
 \subsection{Prolog Heap Usage}
 
 \label{sec:prolog-heap-usage}
 
-WebPL, like SWI-Prolog, provides a built-in \texttt{statistics/2} predicate to access statistics about the execution. One available statistic is the allocated size of the Prolog heap. By using this predicate at the end of the query to be benchmarked, the memory usage of the Prolog implementation itself can be measured. Figure \ref{fig:heap-usage} shows the allocated heap size of WebPL with garbage collection enabled for each benchmark, relative to that of SWI-Prolog.
+WebPL, like SWI-Prolog, provides a built-in \texttt{statistics/2} predicate to access statistics about the execution. One such statistic is the allocated size of the Prolog heap. By using this predicate at the end of the query to be benchmarked, the memory usage of the Prolog implementation itself can be measured. Figure \ref{fig:heap-usage} shows the allocated heap size of WebPL with garbage collection enabled for each benchmark, relative to that of SWI-Prolog.
 
 \begin{figure}[t]
 \centering
@@ -137,13 +135,13 @@ WebPL, like SWI-Prolog, provides a built-in \texttt{statistics/2} predicate to a
 
 For some benchmarks, WebPL uses much less memory than SWI-Prolog. This is because SWI-Prolog pre-allocates a fixed amount of memory for the heap to avoid the overhead of doing so during execution, while WebPL does not pre-allocate any memory, instead doubling the size of the heap each time it gets full. As a result, WebPL never allocates more than twice the memory it needs.
 
-For other benchmarks, WebPL uses only slightly less memory to SWI-Prolog. Only in the case of the \texttt{tak} benchmark does WebPL use more. These are the more memory-intensive benchmarks, possibly indicating that, in the limit, SWI-Prolog is more memory efficient. The use of the Rust programming language for WebPL limits the memory usage optimisations that can be made, which is discussed in more detail in Section \ref{sec:rust-evaluation}.
+For other benchmarks, WebPL uses only slightly less memory to SWI-Prolog. Only in the case of the \texttt{tak} benchmark does WebPL use more. These are the more memory-intensive benchmarks, possibly indicating that, in the limit, SWI-Prolog is more memory efficient. The use of the Rust programming language for WebPL limits the memory usage optimisations that can be made (Section \ref{sec:rust-evaluation}).
 
 \section{Binary Size}
 
 \label{sec:binary-size}
 
-Another important consideration for any web application is the amount of data that needs to be downloaded to the client. Unlike native applications, which are downloaded once and run locally, web applications are usually loaded from the server every time the client visits the page. This means that the size of the application can have a significant impact on the time it takes to load the page, especially on mobile devices with slower connections. This is a common weakness of WebAssembly applications, as WebAssembly binaries are often very large, often due to the inclusion of libraries, such as \texttt{libc}, which, unlike in native applications, cannot be dynamically linked.
+Another important consideration for any web application is how much data needs to be downloaded to the client. Unlike native applications, which are downloaded once and run locally, web applications are usually loaded from the server every time the client visits the page. Therefore, the size of the application can have a significant impact on the time it takes to load the page, especially on mobile devices with slower connections. This is a common weakness of WebAssembly applications, as WebAssembly binaries can be large, often due to the inclusion of libraries, such as \texttt{libc}, which, unlike in native applications, cannot be dynamically linked.
 
 Table \ref{tab:binary-size} shows the size of the WebAssembly binary (for WebPL, SWI-Prolog, and Trealla Prolog) or the JavaScript bundle (for Tau Prolog) for each Prolog implementation.
 
@@ -156,20 +154,20 @@ Implementation & Binary/Bundle Size \\
 WebPL & 0.84 MB \\
 SWI-Prolog & 7.95 MB \\
 Trealla Prolog & 4.48 MB \\
-Tau Prolog & \textcolor{ForestGreen}{0.57 MB} \\
+Tau Prolog & \green{0.57 MB} \\
 \addlinespace\hline\addlinespace
 \end{tabular}
 \caption{Binary/bundle size of Prolog implementations (megabytes)}
 \label{tab:binary-size}
 \end{table}
 
-While Tau Prolog, written in JavaScript, is the smallest, WebPL is the only WebAssembly implementation that is smaller than 1MB, and is only 48\% larger than Tau Prolog. This is a significant improvement over SWI-Prolog and Trealla Prolog. Section \ref{sec:binary-size-opt} explores why SWI-Prolog is so large, and how its size can be reduced.
+While Tau Prolog, written in JavaScript, is the smallest, WebPL is the only WebAssembly implementation smaller than 1MB, and is only 48\% larger than Tau Prolog, a significant improvement over SWI-Prolog and Trealla Prolog. Section \ref{sec:binary-size-opt} explores why SWI-Prolog is so large, and how its size can be reduced.
 
 \section{SWI-Prolog Optimisation}
 
 \label{sec:swi-prolog-optimisation}
 
-Given the unexpectedly poor performance of industry-standard SWI-Prolog in both execution time and binary size, this section explores some of the reasons for this, and how they can be mitigated.
+Given the unexpectedly poor performance of industry-standard SWI-Prolog in both execution time and binary size, I explored why this may be, and made some optimisations.
 
 \subsection{Profiling SWI-Prolog}
 
@@ -178,7 +176,7 @@ As identified in Section \ref{sec:prolog-comparison}, WebPL's execution time is 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{08evaluation_swiprofiling.png}
-\caption{Stack chart of SWI-Prolog execution of the \texttt{queens\_8} benchmark}
+\caption{Stack chart of SWI-Prolog execution}
 \label{fig:swi-prolog-profile}
 \end{figure}
 
@@ -209,9 +207,9 @@ SWI-Prolog is written in C, so it does not itself use exceptions. However, it su
 
 \subsection{Experimental WebAssembly Exception Support}
 
-While exceptions are not currently supported in WebAssembly, there is a proposal\footnote{\url{https://github.com/WebAssembly/exception-handling/blob/main/proposals/exception-handling/Exceptions.md}} to extend the language to do so. This has been experimentally implemented in Chrome's V8 JavaScript engine, and can be enabled with the \texttt{--enable-experimental-webassembly-features} flag.
+While exceptions are not currently supported in WebAssembly, there is a proposal\footnote{\url{https://github.com/WebAssembly/exception-handling/blob/main/proposals/exception-handling/Exceptions.md}} to do so. This has been experimentally implemented in Chrome's V8 JavaScript engine, and can be enabled with the \texttt{--enable-experimental-webassembly-features} flag.
 
-To evaluate the potential performance gains of this feature for SWI-Prolog, I modified the SWI-Prolog build process to enable experimental WebAssembly exception support in the Emscripten compiler, and in Node.js, which is used to run some SWI-Prolog tests. SWI-Prolog is built using the Docker container system, so I added the necessary flags in various places in the Dockerfile, as well as making a number of other changes to have it build on the Arm architecture.
+To evaluate the potential performance gains of this feature for SWI-Prolog, I modified the SWI-Prolog build process to enable experimental WebAssembly exception support in Emscripten and Node.js, which is used to run some SWI-Prolog tests. SWI-Prolog is built using the Docker container system, so I added the necessary flags in various places in the Dockerfile, as well as making further changes to have it build on the Arm architecture.
 
 \vspace*{-1em}
 
@@ -230,19 +228,19 @@ The benchmark suite was then re-run with the modified SWI-Prolog build in Chrome
 \label{fig:swi-prolog-exception}
 \end{figure}
 
-The results show that enabling experimental WebAssembly exception support in SWI-Prolog reduces execution time by an average of around 60\%, bringing it much closer to WebPL and surpassing its performance in some benchmarks.
+This shows that enabling experimental WebAssembly exception support in SWI-Prolog reduces execution time by an average of around 60\%, bringing it much closer to, and in some cases surpassing, WebPL.
 
 \subsection{Binary Size}
 
 \label{sec:binary-size-opt}
 
-The size of the SWI-Prolog WebAssembly binary is almost ten times larger than that of WebPL (Section \ref{sec:binary-size}). It has three distinct parts: the WebAssembly code itself (1.99 MB), Prolog source code for various libraries (5.80 MB), and JavaScript glue code (0.16 MB). Many of the libraries are not needed in most applications, so I explored ways to build a ``minimal'' version of SWI-Prolog as a fairer comparison.
+The size of the SWI-Prolog WebAssembly binary is almost ten times larger than that of WebPL (Section \ref{sec:binary-size}). It has three distinct parts: the WebAssembly code itself (1.99 MB), various libraries (5.80 MB), and JavaScript glue code (0.16 MB). Many of the libraries are not needed in most applications, so I explored ways to build a ``minimal'' version of SWI-Prolog as a fairer comparison.
 
-The SWI-Prolog build process provides a \texttt{-DSWIPL-PACKAGES=OFF} flag which disables the inclusion of all libraries except the standard library, reducing the size of the Prolog source code by nearly half to 2.99 MB and the WebAssembly code to 1.23 MB. However, the WebAssembly build depends on the \texttt{clib} library to load Prolog code from a URL. Building with just this library enabled results in WebAssembly code of 1.44 MB and Prolog source code of 3.27 MB.
+The SWI-Prolog build process provides a \texttt{-DSWIPL-PACKAGES=OFF} flag which disables the inclusion of all libraries except the standard library, reducing the size of the libraries by nearly half to 2.99 MB and the WebAssembly code to 1.23 MB. However, the WebAssembly build depends on the \texttt{clib} library to load Prolog code from a URL. Building with just this library enabled results in WebAssembly code of 1.44 MB and libraries of 3.27 MB.
 
-This is still 0.49 MB more than building without \texttt{clib}. To avoid this 0.49 MB dependency on \texttt{clib}, I rewrote part of the \texttt{wasm.pl} library in the SWI-Prolog source code to use SWI-Prolog's built-in pure-Prolog \texttt{url} library instead of \texttt{clib}, which is partially written in C.
+This is still 0.49 MB more than building without \texttt{clib}. To avoid this 0.49 MB dependency, I rewrote part of the \texttt{wasm.pl} library in the SWI-Prolog source code to use SWI-Prolog's built-in pure-Prolog \texttt{url} library instead of \texttt{clib}, which is partially written in C.
 
-Figure \ref{fig:binary-size} shows the size of each configuration of SWI-Prolog, and compares them to WebPL.
+Figure \ref{fig:binary-size} shows the size of each configuration, and compares them to WebPL.
 
 \begin{figure}[H]
 \centering
@@ -253,7 +251,7 @@ Figure \ref{fig:binary-size} shows the size of each configuration of SWI-Prolog,
 
 \vspace*{-1.5em}
 
-Another approach explored to reduce binary size was to use the \texttt{wasm-opt} tool, part of the Binaryen project \cite{zakaiBinaryenhttpsgithubcom2015}, configured to optimise as aggressively as possible for size using the \texttt{-Oz} flag. However, this only reduced the size of the SWI-Prolog binary by 0.38\%, and the WebPL binary by 0.62\%. This is likely because the compiler is already running code size optimisations by default; indeed, compiling WebPL without optimisations gives a binary size of 14.16 MB, which is more than 16 times larger than the optimised version.
+Another approach explored to reduce binary size was the \texttt{wasm-opt} tool, part of the Binaryen project \cite{zakaiBinaryenhttpsgithubcom2015}, configured to optimise aggressively for size using the \texttt{-Oz} flag. However, this only reduced the size of the SWI-Prolog binary by 0.38\%, and WebPL by 0.62\%. This is likely because the compiler is already running code size optimisations by default; indeed, compiling WebPL without optimisations gives a binary size of 14.16 MB, more than 16 times larger than the optimised version.
 
 While WebPL was built from scratch, conscious of the size of the binary, SWI-Prolog's WebAssembly port was not, and even intentionally avoided some optimisations that would have reduced its binary size in favour of keeping the port closer to the native version\footnote{\url{https://swi-prolog.discourse.group/t/wiki-discussion-swi-prolog-in-the-browser-using-wasm/5651/109}}.
 
@@ -261,17 +259,17 @@ While WebPL was built from scratch, conscious of the size of the binary, SWI-Pro
 
 \label{sec:rust-evaluation}
 
-WebPL is written in Rust to take advantage of its extensive support for WebAssembly and its performance (Section \ref{sec:tools}). This section explores aspects of Rust that may affect performance, both positively and negatively.
+WebPL is written in Rust to take advantage of its extensive support for WebAssembly and its performance (Section \ref{sec:tools}). This section explores aspects of Rust that may affect performance.
 
 \subsection{Unsafe Rust}
 
-Rust is known for its memory safety guarantees. Many of these are verified at compile time by the borrow checker, which enforces the ownership and borrowing rules of Rust and prevents the most common causes of memory errors, such as use-after-free and double-free errors. However, some checks are not possible to perform at compile time, such as bounds checking, and are instead performed at runtime, at a performance cost.
+Rust is known for its memory safety guarantees. Many of these are verified at compile time by the borrow checker, which enforces the ownership and borrowing rules of Rust and prevents common causes of memory errors, such as use-after-free and double-free errors. However, some checks cannot be performed at compile time, such as bounds checking, and are instead performed at runtime, at a performance cost.
 
-Rust provides an \texttt{unsafe} keyword that allows the programmer to bypass these checks. This is necessary for interfacing with external code that the borrow checker cannot verify, but can also be used cautiously to improve performance.
+Rust provides the \texttt{unsafe} keyword to bypass these checks. This is necessary for interfacing with external code that the borrow checker cannot verify, but can also be used cautiously to improve performance.
 
-WebPL represents the heap as an array of fixed-size terms (Section \ref{sec:memory-layout}), and therefore indexing into the heap involves a bounds check. By using \texttt{unsafe} to bypass this check, the performance of the Prolog interpreter may improve.
+WebPL represents the heap as an array of fixed-size terms (Section \ref{sec:memory-layout}), so indexing into the heap involves a bounds check. By using \texttt{unsafe} to bypass this check, the performance of the Prolog interpreter may improve.
 
-Figure \ref{fig:unsafe} shows the relative execution time of each benchmark when using \texttt{unsafe} code to bypass runtime checks, compared to the original version of WebPL.
+Figure \ref{fig:unsafe} shows the relative execution time of each benchmark without bounds-checking, compared to the original version of WebPL.
 
 \begin{figure}[H]
 \centering
@@ -280,19 +278,19 @@ Figure \ref{fig:unsafe} shows the relative execution time of each benchmark when
 \label{fig:unsafe}
 \end{figure}
 
-The results are not consistent across benchmarks -- the more heavyweight benchmarks, such as \texttt{fib}, \texttt{queens\_8}, and \texttt{tak}, show a performance improvement of up to 10\% lower execution time, while the lighter benchmarks, such as \texttt{divide10}, \texttt{ops8}, and \texttt{times10}, show a performance degradation of up to 20\% higher execution time. This is likely due to the fact that the overhead of bounds checking is negligible for lightweight benchmarks, and using unsafe code reduces the compiler's optimisation opportunities.
+The results are not consistent across benchmarks -- the more heavyweight benchmarks, like \texttt{fib}, \texttt{queens\_8}, and \texttt{tak}, show an improvement of up to 10\% lower execution time, while the lighter benchmarks, like \texttt{divide10}, \texttt{ops8}, and \texttt{times10}, show a degradation of up to 20\% higher execution time. This is likely due to the fact that the overhead of bounds-checking is negligible for lightweight benchmarks, and using unsafe code reduces the compiler's optimisation opportunities.
 
-For this reason, alongside the fact that Rust strongly discourages the use of unsafe code, unsafe code was not used in the final version of WebPL.
+For this reason, alongside that Rust discourages the use of unsafe code, unsafe code was not used in WebPL.
 
 \subsection{Memory Layout}
 
-Using a Rust \texttt{enum} to represent terms leaves their exact layout in memory up to the compiler, which may use more memory than necessary to represent the term. The exact memory layout when compiled to WebAssembly can be inspected using experimental Rust compiler flags:
+Using a Rust \texttt{enum} to represent terms leaves their layout in memory up to the compiler, which may use more memory than necessary to represent the term. The exact memory layout in WebAssembly can be inspected using experimental Rust compiler flags:
 
 \begin{verbatim}
 $ cargo +nightly rustc --target wasm32-unknown-unknown -- -Zprint-type-sizes
 \end{verbatim}
 
-Figure \ref{fig:memory-layout-wasm} shows the memory layout of an integer atom term and a variable term in WebAssembly. This reveals a lot of wasted space: Boolean flags such as \texttt{shunted} and \texttt{attributed} use a byte each, and the tag indicating the type of the term uses 4 bytes, even though one would suffice.
+Figure \ref{fig:memory-layout-wasm} shows the memory layout of an integer atom term and a variable term in WebAssembly. This reveals a lot of wasted space: flags \texttt{shunted} and \texttt{attributed} use a byte each, and the tag indicating the type of the term uses 4 bytes, even though one would suffice.
 
 \begin{figure}[H]
 \centering
@@ -349,8 +347,8 @@ Figure \ref{fig:memory-layout-wasm} shows the memory layout of an integer atom t
 \label{fig:memory-layout-wasm}
 \end{figure}
 
-Padding is used by the compiler to ensure that heap terms are aligned to 8-byte boundaries, which is a sensible choice for performance reasons, and strictly necessary on some architectures. However, this is not the case in WebAssembly, as the WebAssembly specification explicitly states that unaligned accesses must be allowed \cite{rossbergWebAssemblyCoreSpecification2022}, although the constraints of the underlying architecture may mean that unaligned accesses are much slower.
+Padding is used by the compiler to ensure that heap terms are aligned to 8-byte boundaries, which is sensible for performance reasons, and strictly necessary on some architectures. However, this is not the case in WebAssembly, as the WebAssembly specification explicitly states that unaligned accesses must be allowed \cite{rossbergWebAssemblyCoreSpecification2022}, although underlying hardware constraints may mean that unaligned accesses are slower.
 
-Therefore, if a more compact representation of terms were used, consolidating the tag and flags into a single byte and removing the padding, the size on the heap of each term could be reduced from 16 bytes to 9 bytes, reducing the heap usage by 44\%. It is possible that maintaining some alignment would still be a worthwhile trade-off, perhaps using 4-byte alignment, but this would require more investigation.
+Therefore, if a more compact representation of terms were used, consolidating the tag and flags into a single byte and removing padding, the size of each term could be reduced from 16 bytes to 9 bytes, reducing heap usage by 44\%. It is possible that maintaining some alignment would still be a worthwhile trade-off, perhaps 4-byte alignment, but this would require more investigation.
 
-Since Rust does not support this level of control over the memory layout without using unions and unsafe code, a pattern that is far from idiomatic, this is not a change that was easily possible to implement in WebPL. However, if the project were to be rewritten in a language like C or C++, this could be a worthwhile optimisation to explore.
+Since Rust does not support this level of control over the memory layout without using unions and unsafe code, a pattern that is far from idiomatic, this is not a change that was easily possible to implement in WebPL. However, if the project were to be rewritten in a language like C++, this could be a worthwhile optimisation to explore.

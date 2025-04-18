@@ -28,19 +28,19 @@ $$
 
 Prolog clauses are built up from \emph{terms}, which may be
 \begin{itemize}
-\item \emph{atoms}, which are either \emph{constants} (e.g. \texttt{foo}, \texttt{1209}) or \emph{variables} (e.g. \texttt{X}, \texttt{Var}), or
-\item \emph{compound terms}, which consist of a \emph{functor} (an atom) and a list of \emph{arguments}, which are terms themselves (e.g. \texttt{is\_even(X)}, \texttt{city(cambridge, united\_kingdom)}).
+\item \emph{atoms}, either \emph{constants} (e.g. \texttt{foo}, \texttt{1209}) or \emph{variables} (e.g. \texttt{X}, \texttt{Var}), or
+\item \emph{compound terms}, consisting of a \emph{functor} (atom) and a list of \emph{arguments}, themselves terms (e.g. \texttt{is\_even(X)}, \texttt{city(cambridge, united\_kingdom)}).
 \end{itemize}
 
-A Prolog program comprises a set of clauses and a \emph{query}, which is a goal clause. The aim of the Prolog execution is to find a \emph{substitution} (an assignment of terms to variables) that makes the query true with respect to the program.
+A Prolog program comprises a set of clauses and a \emph{query}, a goal clause. The aim of the Prolog execution is to find a \emph{substitution} (an assignment of terms to variables) that makes the query true with respect to the program.
 
 \subsection{Most General Unification}
 
-\emph{Unification} is the process of finding a \emph{substitution} that makes two terms equal. A substitution $\theta$ is a set of variable assignments, written $[t_1/x_1, \ldots, t_n/x_n]$, where $t_i$ are terms and $x_i$ distinct variables. A substitution is a \emph{unifier} of two terms $t_1$ and $t_2$ if $t_1\theta = t_2\theta$. The \emph{most general unifier} (MGU) $\theta$ of two terms is a unifier that is more general than any other unifier, that is, all other unifiers $\phi$ can be written as the composition of $\theta$ and another substitution $\psi$. This ensures that, if a solution exists, it will not be missed.
+\emph{Unification} is the process of finding a \emph{substitution} that makes two terms equal. A substitution $\theta$ is a set of variable assignments, written $[t_1/x_1, \ldots, t_n/x_n]$, where $t_i$ are terms and $x_i$ distinct variables. A substitution is a \emph{unifier} of two terms $t_1$ and $t_2$ if $t_1\theta = t_2\theta$. The \emph{most general unifier} (MGU) $\theta$ of two terms is the unifier such that all other unifiers $\phi$ can be written as the composition of $\theta$ and another substitution $\psi$. This ensures that, if a solution exists, it will not be missed.
 
 \paragraph{Martelli-Montanari Algorithm}
 
-The \emph{Martelli-Montanari algorithm} is an algorithm for computing the most general unifier of two terms $t_1$ and $t_2$ \cite{martelliEfficientUnificationAlgorithm1982}. It iteratively applies rules to a set of equations, starting with $\{t_1 = t_2\}$, until no more rules can be applied, at which point the remaining set of equations is the unifier.
+The \emph{Martelli-Montanari algorithm} is an algorithm for computing the MGU of two terms $t_1$ and $t_2$ \cite{martelliEfficientUnificationAlgorithm1982}. It iteratively applies rules to a set of equations, starting with $\{t_1 = t_2\}$, until no more rules can be applied, at which point the remaining set of equations is the unifier.
 
 The rules are shown in Figure \ref{fig:martelli-montanari}. $s$ and $t$ are terms, $X$ and $Y$ are variables, $f$ and $g$ are function symbols, and $S$ is a set of equations. $\text{vars}(t)$ denotes the set of variables occurring in $t$.
 
@@ -60,9 +60,9 @@ The condition $X \notin \text{vars}(t)$ is called the \emph{occurs check}, and i
 
 \subsection{Resolution}
 
-\emph{Resolution} enables the inference of new clauses from existing clauses. In particular, the more restrictive \emph{SLD resolution} (selective linear definite resolution) is the basis of Prolog's execution model.
+\emph{Resolution} enables the inference of new clauses from existing clauses. In particular, the more restrictive \emph{SLD resolution} is the basis of Prolog's execution model.
 
-Given a goal clause \texttt{?- A$_1$, $\ldots$, A$_n$}, and a definite clause \texttt{C :- B$_1$, $\ldots$, B$_m$}, such that $C$ and some $A_i$ unify with MGU $\theta$, a new goal clause can be derived by applying the resolution rule:
+Given a goal clause \texttt{?- A$_1$, $\ldots$, A$_n$}, and a definite clause \texttt{C :- B$_1$, $\ldots$, B$_m$}, such that $C$ and some $A_i$ unify with MGU $\theta$, a new goal clause can be derived by applying the SLD resolution rule:
 $$
 \frac{\texttt{C :- B$_1$, $\ldots$, B$_m$} \qquad \texttt{?- A$_1$, $\ldots$, A$_n$}}{(\texttt{?- A$_1$, $\ldots$, A$_{i-1}$, A$_{i+1}$, $\ldots$, A$_n$, B$_1$, $\ldots$, B$_m$})\theta}
 $$
@@ -108,9 +108,9 @@ The execution of this program explores the search tree shown in Figure \ref{fig:
 \label{fig:prolog-search-tree}
 \end{figure}
 
-The tree is searched depth-first, left-to-right, with clauses selected in program order. Whenever there are multiple candidate clauses to resolve the current goal with, a \emph{choice point} is created, which stores the state of the execution at that point. If a dead end is reached, we \emph{backtrack} to the most recent choice point and try the next possible clause.
+The tree is searched depth-first, left-to-right, with clauses selected in program order. Whenever there are multiple candidate clauses to resolve the current goal with, a \emph{choice point} is created, storing the execution state at that point. If a dead end is reached, we \emph{backtrack} to the most recent choice point and try the next possible clause.
 
-The \emph{empty clause} represents a contradiction, so deriving it means that a refutation of the negated query has been reached, and the current substitution can be returned as a solution. If all choice points have been exhausted without reaching the empty clause, no refutation can be found, so the query fails.
+The \emph{empty clause} represents a contradiction, so deriving it means that a refutation of the negated query has been reached, and the current substitution is a solution. If all choice points have been exhausted without reaching the empty clause, no refutation can be found, so the query fails.
 
 \subsection{Implementation}
 
@@ -118,7 +118,7 @@ The \emph{empty clause} represents a contradiction, so deriving it means that a 
 
 This subsection highlights some of the key decisions that must be made when building a Prolog implementation.
 
-\paragraph{Unification} There are two common ways of implementing the unification subroutine, their signatures depicted in Figure \ref{fig:unification-impl} in Rust syntax. The first of these does not mutate the terms, instead returning an object representing their most general unifier, or failing, which I call \emph{substitution-based}. This is the approach taken by Tau Prolog \cite{riazaTauPrologProlog2024}. The second approach directly manipulates the term representations themselves to make them identical, or fails, as in the Warren Abstract Machine (WAM) \cite{warrenAbstractPrologInstruction1983}, which I call \emph{mutation-based}.
+\paragraph{Unification} There are two common ways of implementing the unification subroutine, their signatures depicted in Figure \ref{fig:unification-impl} in Rust syntax. The first of these does not mutate the terms, instead returning an object representing their MGU, or failing, which I call \emph{substitution-based}. This is the approach taken by Tau Prolog \cite{riazaTauPrologProlog2024}. The second approach directly manipulates the term representations themselves to make them identical, or fails, as in the Warren Abstract Machine (WAM) \cite{warrenAbstractPrologInstruction1983}, which I call \emph{mutation-based}.
 
 \begin{figure}[H]
 \centering
@@ -130,7 +130,7 @@ fn unify2(a: &mut Term, b: &mut Term) -> Option<()>;
 \label{fig:unification-impl}
 \end{figure}
 
-In a \emph{structure-copying} implementation, whenever a clause in the program is resolved with a goal, the terms representing that clause are copied and the variables in the copy bound according to the unifier. A \emph{structure-sharing} implementation recognises that different instances of the same term differ only in their variable bindings, so shares a \emph{prototype} between them, representing the individual instances as \emph{molecules} that store the variable bindings. Unification is more efficient with the former approach, but the latter can be more memory-efficient \cite{linewtermrepresentation1998}. These two representations are illustrated in Figure \ref{fig:term-representations}.
+In a \emph{structure-copying} implementation, whenever a clause in the program is resolved with a goal, the terms representing that clause are copied and the variables in the copy bound according to the unifier. A \emph{structure-sharing} implementation recognises that different instances of the same term differ only in their variable bindings, so shares a \emph{prototype} between them, representing the individual instances as \emph{molecules} storing the bindings. Unification is more efficient with the former approach, but the latter can be more memory-efficient \cite{linewtermrepresentation1998}. These two representations are illustrated in Figure \ref{fig:term-representations}.
 
 \begin{figure}[H]
 \centering
@@ -152,7 +152,7 @@ In a \emph{structure-copying} implementation, whenever a clause in the program i
   \draw[->] (g) -- (y);
   \draw[->] (y) -- (5) [dashed];
 \end{tikzpicture}
-\caption{Structure-copying representation}
+\caption{Structure-copying}
 \end{subfigure}%
 \begin{subfigure}{.5\textwidth}
 \centering
@@ -173,7 +173,7 @@ In a \emph{structure-copying} implementation, whenever a clause in the program i
 
   \draw[->] (3.1,-0.92) to [out=180,in=0] (f);
 \end{tikzpicture}
-\caption{Structure-sharing representation}
+\caption{Structure-sharing}
 \end{subfigure}
 \caption{Representation of the term \texttt{f(X, g(Y))} with substitution $\{X \to 4, Y \to 5\}$}
 \label{fig:term-representations}
@@ -181,19 +181,19 @@ In a \emph{structure-copying} implementation, whenever a clause in the program i
 
 \paragraph{Variable Representation} Variables in Prolog are commonly represented as pointers to the term they are bound to, often with a mutation-based implementation. Unbound variables may be represented by a pointer to themselves, as in the WAM, or by a null pointer. Another approach, taken by Tau Prolog, is to assign an identifier to each variable upon creation, and store the bindings in a separate substitution data structure, which is more amenable to the substitution-based implementation.
 
-\paragraph{Backtracking} When backtracking, variables that have been bound since the last choice point must be reset (unbound). This is often achieved by maintaining a stack called the \emph{trail}, which records variable bindings.
+\paragraph{Backtracking} When backtracking, variables that have been bound since the last choice point must be reset (unbound). This is often achieved by maintaining a stack called the \emph{trail}, which records bindings.
 
-\paragraph{Memory Layout} There are several conceptually distinct areas of memory that a Prolog implementation often manages. These include
+\paragraph{Memory Layout} There are several conceptually distinct areas of memory that a Prolog implementation often manages, including
 
 \begin{itemize}
-\item the \emph{code area}, which stores the clauses of the program or the compiled instructions,
+\item the \emph{code area}, which stores the clauses or compiled instructions of the program,
 \item the \emph{local stack}, similar to the stack of a traditional programming language, which stores stack frames containing local terms (those certain not to be used outside the procedure) and return addresses,
-\item the \emph{global stack} or \emph{heap}, which stores global terms (those that are not local),
+\item the \emph{global stack} or \emph{heap}, which stores terms that are not local,
 \item the \emph{control stack}, which stores choice points, and
-\item the \emph{trail}, which records variable bindings to be undone on backtracking.
+\item the \emph{trail}, which records variable bindings.
 \end{itemize}
 
-Certain Prolog implementations combine some of these areas. For example, the WAM does not use a separate control stack, preferring to store choice points on the local stack. Tarau's ``hitchhiker'' virtual machine stores code on the heap rather than in a separate code area, as its encoding of instructions is the same as that of terms \cite{tarauHitchhikersGuideReinventing2018}. Li's Logic Virtual Machine (LVM) combines the stack and the heap into a single memory area to improve locality, which is managed by a garbage collector \cite{liEfficientMemoryManagement2000}.
+Certain Prolog implementations combine some areas. For example, the WAM does not use a separate control stack, preferring to store choice points on the local stack. Tarau's ``hitchhiker'' virtual machine stores code on the heap rather than in a separate code area, as its encoding of instructions is the same as that of terms \cite{tarauHitchhikersGuideReinventing2018}. Li's Logic Virtual Machine (LVM) combines the stack and the heap into a single area to improve locality, which is managed by a garbage collector \cite{liEfficientMemoryManagement2000}.
 
 \paragraph{Last-Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller, and not create a choice point, if the clause is \emph{determinate}. That is, if the failure of the last predicate in the body implies the failure of the entire clause. Last-call optimisation enables programs like in Figure \ref{fig:lco} to run in constant stack space.
 
@@ -205,7 +205,7 @@ len_acc([], N, N).
 len_acc([_|T], A, N) :- A1 is A + 1, len_acc(T, A1, N).
 \end{minted}
 \end{center}
-\caption{A program to compute the length of a list in constant stack space}
+\caption{Computing the length of a list in constant stack space}
 \label{fig:lco}
 \end{figure}
 
@@ -213,7 +213,7 @@ len_acc([_|T], A, N) :- A1 is A + 1, len_acc(T, A1, N).
 
 \label{sec:prolog-gc}
 
-When backtracking to a choice point, any terms that were created since that choice point can be deallocated. This can be achieved by storing pointers to the top of the stack and the heap at each choice point, and truncating the stack and heap to these pointers when backtracking. This is known as \emph{instant reclaiming} \cite{bekkersDynamicMemoryManagement1992}.
+When backtracking to a choice point, any terms that were created since that choice point can be deallocated. This can be achieved by storing pointers to the top of the stack and heap at each choice point, and truncating the stack and heap to these pointers when backtracking. This is known as \emph{instant reclaiming} \cite{bekkersDynamicMemoryManagement1992}.
 
 However, instant reclaiming is insufficient for \emph{iterative} Prolog programs, that is, those which never backtrack. Consider the (contrived) program shown in Figure \ref{fig:iterative}, which sums the first $N$ natural numbers in constant stack space with LCO.
 
@@ -232,15 +232,15 @@ sum_acc(N, acc(A), S) :-
 \label{fig:iterative}
 \end{figure}
 
-By wrapping the accumulator in a functor \texttt{acc}, we force the Prolog implementation to allocate it, at each iteration, on the heap instead of the stack. Since heap memory is only reclaimed when backtracking, and this program never backtracks, the heap grows linearly with $N$.
+By wrapping the accumulator in a functor \texttt{acc}, we force the implementation to allocate it, at each iteration, on the heap instead of the stack. Since heap memory is only reclaimed when backtracking, and this program never backtracks, the heap grows linearly with $N$.
 
-To ensure programs like this do not run out of memory, many Prolog implementation use a \emph{garbage collector} to reclaim memory that is no longer reachable. This section gives an overview of garbage collection.
+To ensure programs like this do not run out of memory, many Prolog implementations use a \emph{garbage collector} to reclaim memory that is no longer reachable.
 
 \subsection{Mark-and-Sweep}
 
 \label{sec:prep-mark-and-sweep}
 
-\emph{Mark-and-sweep} garbage collection operates in two phases. The \emph{root set} contains pointers to objects that are live, which are recursively followed to mark all reachable objects. Then, the heap is traversed again, and any unmarked objects are deallocated, often by \emph{compacting} the heap to remove the gaps left by deallocated objects.
+\emph{Mark-and-sweep} garbage collection operates in two phases. The \emph{root set} contains pointers to objects that are live, which are recursively followed to mark all reachable objects. Then, the heap is traversed again, and unmarked objects are deallocated, often by \emph{compacting} the heap to remove gaps left by deallocated objects.
 
 Warren applied this algorithm to Prolog, using the local stack as the root set \cite{warrenImplementingPrologCompiling1977}. He emphasised, however, that due to the high cost of running the algorithm, it should only be run when necessary (i.e. when the heap is full), and that compile-time classification of variables into locals and globals (to minimise heap usage) is crucial for performance.
 
@@ -248,19 +248,19 @@ Warren applied this algorithm to Prolog, using the local stack as the root set \
 
 \label{sec:generational-gc}
 
-\emph{Generational garbage collection} attempts to mitigate the high performance cost of garbage collecting the entire heap by observing that most objects die young. This is called the \emph{generational hypothesis}.
+\emph{Generational garbage collection} attempts to mitigate the high performance cost of garbage collecting the entire heap by observing that most objects die young (the \emph{generational hypothesis}).
 
-The heap is divided into \emph{generations}, often two: the \emph{young generation}, where new objects are allocated, and the \emph{old generation}, where objects that survive a collection are promoted. The young generation is collected with frequent \emph{minor} collections, while infrequent \emph{major} collections cover the entire heap.
+The heap is divided into \emph{generations}, often two: the \emph{young generation}, where new objects are allocated, and the \emph{old generation}, where objects that survive a collection are promoted. Frequent \emph{minor} collections cover the young generation, while infrequent \emph{major} collections cover the entire heap.
 
-One complication with this approach is the existence of pointers from the old generation to the young generation. These must be considered part of the root set during a minor collection, so must be tracked by the garbage collector. Fortunately, in Prolog, there is already a mechanism for tracking pointers: the trail. Including the trail in the root set is sufficient to ensure that all reachable objects are marked, and that all pointers are correctly updated, without scanning the entire heap \cite{bekkersDynamicMemoryManagement1992}.
+Pointers from the old generation to the young generation complicate this approach. These must be considered part of the root set during a minor collection, so must be tracked by the garbage collector. Fortunately, in Prolog, there is already a mechanism for tracking pointers: the trail. Including the trail in the root set is sufficient to ensure that all reachable objects are marked, and that all pointers are correctly updated, without scanning the entire heap \cite{bekkersDynamicMemoryManagement1992}.
 
 \section{Web Development with WebAssembly}
 
 \label{sec:webdev}
 
-For many years, the platform on which applications would run was the operating system (OS), executing native code but delegating to the OS via system calls for privileged functionality such as I/O. I call these applications \emph{native}. However, this requires applications to be built separately for different OSes and architectures, manually installed, and trusted.
+For many years, the platform on which applications would run was the operating system (OS), executing native code but delegating to the OS for privileged functionality such as I/O. I call these applications \emph{native}. However, this requires applications to be built separately for different OSes and architectures, manually installed, and trusted.
 
-For these reasons, more and more modern applications are delivered through the browser. I call these applications \emph{browser-based} or \emph{web applications}. Initially only for accessing information, the browser is now the platform on which word processors like Google Docs, videoconferencing applications like Teams, and even development environments like VSCode are built. These applications are written in a higher-level language like JavaScript, interpreted by the browser's JavaScript engine, with the browser providing built-in functions to access lower-level functionality, e.g. I/O. In this model, the browser is the only application that needs to be manually installed and trusted by the user.
+For these reasons, more and more modern applications are delivered through the browser. I call these applications \emph{browser-based} or \emph{web applications}. Initially only for accessing information, the browser is now the platform on which word processors like Google Docs, videoconferencing applications like Teams, and even editors like VSCode are built. These applications executed by the browser's JavaScript engine, with the browser providing built-in functions to access lower-level functionality like I/O. In this model, the browser is the only application that needs to be installed and trusted by the user.
 
 Figure \ref{fig:web-platform} highlights the difference between native and web applications.
 
@@ -303,9 +303,9 @@ Figure \ref{fig:web-platform} highlights the difference between native and web a
 
 JavaScript has been the de facto language for web development since its introduction in 1995. Originally designed to bring interactivity to web pages, and famously built in 10 days, JavaScript has been continuously extended to become the world's most widely used programming language \cite{wirfs-brockJavaScriptfirst202020a}.
 
-As web applications have increased in complexity, the consequences of JavaScript's complicated history have become more apparent. Being a high-level interpreted language, JavaScript is not well-suited for computationally intensive tasks. Similarly, its poor design as a language, for example its lack of static typing, makes large codebases difficult to maintain \cite{ocarizajr.JavaScriptErrorsWild2011, biermanUnderstandingTypeScript2014}.
+As web applications have increased in complexity, the consequences of JavaScript's complicated history have become more apparent. Being a high-level interpreted language, JavaScript is not well-suited for computationally-intensive tasks. Similarly, its poor design as a language, for example its lack of static typing, makes large codebases difficult to maintain \cite{ocarizajr.JavaScriptErrorsWild2011, biermanUnderstandingTypeScript2014}.
 
-For these reasons, supporting other programming languages on the Web has been a much discussed topic. Early proprietary attempts, such as Java applets, ActiveX, and Flash, have all since been deprecated due to security concerns\footnote{Early attempts to support other programming languages on the Web allowed native code to be directly embedded into the web page, which proved very difficult to sufficiently ``sandbox''.}. More recently, Emscripten has been used to compile C and C++ code to a subset of JavaScript called asm.js, designed to be easily optimised by the JIT compilers of JavaScript engines \cite{zakaiEmscriptenLLVMtoJavaScriptcompiler2011}. While this approach mitigates the security concerns of the previous technologies, it remains inherently limited by the performance of JavaScript.
+For these reasons, supporting other programming languages on the Web has been a much-discussed topic. Early proprietary attempts, such as Java applets, ActiveX, and Flash, have all since been deprecated due to security concerns\footnote{Early attempts to support other programming languages on the Web allowed native code to be embedded into the web page, which proved difficult to sufficiently ``sandbox''.}. More recently, Emscripten has been used to compile C and C++ code to asm.js, a subset of JavaScript designed to be easily optimised by the JIT compilers of JavaScript engines \cite{zakaiEmscriptenLLVMtoJavaScriptcompiler2011}. While this approach mitigates the security concerns of earlier technologies, it remains inherently limited by the performance of JavaScript.
 
 WebAssembly was introduced in 2017 as a solution to the problem of running safe, fast, portable, low-level code on the Web \cite{haasBringingwebspeed2017}. It is a binary instruction format for a stack-based virtual machine that is designed to be a compilation target for high-level languages, and able to run in the browser at near-native speed.
 
@@ -313,11 +313,11 @@ WebAssembly was introduced in 2017 as a solution to the problem of running safe,
 
 \label{sec:wasm-memory-model}
 
-The WebAssembly specification \cite{rossbergWebAssemblyCoreSpecification2022} is restrictive about how memory is accessed. The two areas of memory that are particularly relevant are the \emph{stack} and the \emph{linear memory}.
+The WebAssembly specification \cite{rossbergWebAssemblyCoreSpecification2022} is restrictive about how memory is accessed. Two areas of memory that are particularly relevant are the \emph{stack} and the \emph{linear memory}.
 
 \paragraph{Stack}
 
-A WebAssembly program executes as a \emph{stack machine}: operands of instructions are taken from the top of the stack, and results pushed back onto the stack. The stack also contains labels for control flow instructions, and \emph{activation frames} for function calls, which include local variables. Unlike the stack in a traditional language like C, the WebAssembly stack is not addressable; instead, local variables can only be referenced by their index from the stack pointer, meaning that stack-allocated variables cannot be passed to functions by reference. For example, in the C program below, the compiler must unintuitively allocate the local variable \texttt{x} in the linear memory, rather than on the stack, in order to pass it to the function \texttt{foo}.
+A WebAssembly program executes as a \emph{stack machine}: operands of instructions are taken from the top of the stack, and results pushed back onto the stack. The stack also contains labels for control flow instructions, and \emph{activation frames} for function calls, which include local variables. Unlike the stack in a traditional language like C, the WebAssembly stack is not addressable; instead, local variables can only be referenced by their index from the stack pointer, meaning that stack-allocated variables cannot be passed to functions by reference. For example, in the C program below, the compiler must unintuitively allocate the local variable \texttt{x} in the linear memory, rather than on the stack, to pass it to \texttt{foo}.
 
 \vspace*{-1em}
 
@@ -335,7 +335,7 @@ int main() {
 
 \paragraph{Linear Memory}
 
-The main storage of a WebAssembly program is the \emph{linear memory}, or \emph{memory}, a contiguous array of bytes addressed by 32-bit pointers. These pointers are simply indices into the array. The memory is disjoint from the rest of the WebAssembly program. WebAssembly provides a \texttt{memory.grow} instruction to request that the host environment increases the size of the contiguous memory area (an operation like \texttt{realloc}), however, there is no way to free memory.
+The main storage of a WebAssembly program is the \emph{linear memory}, or \emph{memory}, a contiguous array of bytes addressed by 32-bit pointers, indices into the array. The memory is disjoint from the rest of the WebAssembly program. WebAssembly provides a \texttt{memory.grow} instruction to request that the host environment increases the size of the contiguous memory area (an operation like \texttt{realloc}), however, there is no way to free memory.
 
 \subsection{Interface with JavaScript}
 

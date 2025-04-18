@@ -111,6 +111,26 @@ The \texttt{statistics/2} predicate takes a statistic name as its first argument
 \label{table:statistics}
 \end{table}
 
+\chapter{JavaScript FFI Built-In Functions}
+
+\label{appendix:js-ffi}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{12cm}}
+\hline
+\textbf{Function} & \textbf{Description} \\
+\hline
+\texttt{unify} & Performs unification. Both terms must be valid JavaScript representations of Prolog terms (Section \ref{sec:js-prolog-mapping}), which will be converted back to Prolog terms and allocated on the heap if necessary. Variable bindings are checked to ensure they refer to terms that exist. \\
+\texttt{fetch} & Makes a synchronous HTTP request to the given URL, returning the response as a string. This is implemented in JavaScript as a wrapper around \texttt{XMLHttpRequest}, provided for convenience. \\
+\texttt{compound} & Creates a compound term from a functor and some arguments. \\
+\texttt{list} & Converts a JavaScript list into its linked-list Prolog representation. \\
+\hline
+\end{tabular}
+\caption{Functions available to JavaScript code}
+\label{tab:js-ffi}
+\end{table}
+
 \chapter{Benchmark Programs}
 
 \label{appendix:benchmarks}
