@@ -1,0 +1,27 @@
+\chapter*{Proforma}
+
+{\large \begin{tabular}{ll}
+Candidate Number: & {\bf 2384E} \\
+Project Title: & {\bf A Prolog interpreter for the browser} \\
+Examination: & {\bf Computer Science Tripos -- Part II, 2025} \\
+Word Count: & {\bf 12,000}\footnotemark \\
+Code Line Count: & {\bf 3746}\footnotemark \\
+Project Originator: & {\bf The candidate} \\
+Supervisor: & {\bf Prof. Alan Mycroft}
+\end{tabular}}
+
+\footnotetext{Calculated with \texttt{texcount}, using \texttt{\%TC:group table 0 1} and \texttt{
+\%TC:group tabular 1 1} to include tables.}
+\footnotetext{Calculated with \texttt{cloc}.}
+
+\section*{Original Aims of the Project}
+
+The original aim of the project was to test the hypothesis that a Prolog implementation targeting WebAssembly, designed from the ground up specifically for the browser environment, may be able to achieve superior performance compared to existing solutions, while preserving tight integration with the browser environment. The project was to explore this hypothesis by building such a Prolog implementation.
+
+\section*{Work Completed}
+
+Alongside achieving the original aims, I implemented a number of extensions, including a browser-based development environment for the Prolog implementation, a precise garbage collector, and a foreign function interface that allows inline JavaScript code to be executed from Prolog. The project achieved significantly better results than all existing solutions tested in terms of execution time and memory usage.
+
+\section*{Special Difficulties}
+
+None.

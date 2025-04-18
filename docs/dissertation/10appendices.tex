@@ -1,0 +1,172 @@
+\begin{appendices}
+
+\chapter{JavaScript-WebAssembly Interaction}
+
+\label{appendix:shared-memory}
+
+To illustrate the interaction described in \ref{sec:wasm-js-interface}, consider the example in Figure \ref{fig:js-wasm} where JavaScript passes a value to WebAssembly through the linear memory, and WebAssembly calls back into JavaScript to output that value. The JavaScript \texttt{DataView} API is used to write an integer value to the linear memory, specifying little-endian byte order, and the WebAssembly function \texttt{get} loads the value and calls the imported JavaScript function \texttt{log} to output it.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{\textwidth}
+\begin{minted}{javascript}
+/* Instantiate the WebAssembly module, providing `console.log` as an external
+ * function to call from within WebAssembly. */
+WebAssembly.instantiate(fetch("a.wasm"), { env: { log: console.log } })
+  .then(({ instance }) => {
+    /* Use the built-in DataView API to write a value of a specific size and
+     * endianness to the linear memory, in this case writing the integer 1234
+     * as a 32-bit little-endian signed integer to address 0. */
+    const mem = new DataView(instance.exports.memory.buffer);
+    mem.setInt32(0, 1234, /*littleEndian=*/true);
+
+    /* Call the WebAssembly function `get`, passing the address of the value
+     * that was just written to the linear memory. */
+    instance.exports.get(0);
+  });
+\end{minted}
+\caption{JavaScript code to write to linear memory and call into WebAssembly}
+\end{subfigure}
+\par\bigskip
+\par\bigskip
+\begin{subfigure}{\textwidth}
+\begin{minted}{asm}
+(module
+  ;; Import external function `log` specified when instantiating the module.
+  (import "env" "log" (func $log (param i32)))
+
+  ;; Make the linear memory accessible from JavaScript.
+  (memory (export "memory") 1)
+
+  (func (export "get") (param $ptr i32)
+    local.get $ptr ;; push the pointer onto the stack
+    i32.load       ;; load the value from linear memory
+    call $log      ;; pass the value to the JavaScript function
+  )
+)
+\end{minted}
+\caption{WebAssembly code to read from linear memory and call into JavaScript}
+\end{subfigure}
+\caption{JavaScript-WebAssembly interaction}
+\label{fig:js-wasm}
+\end{figure}
+
+\chapter{Built-in Predicates}
+
+\label{appendix:predicates}
+
+\section{Predicates}
+
+Supported built-in predicates (Section \ref{sec:builtins}) are shown in Table \ref{table:predicates}.
+
+\begin{table}
+\centering
+\begin{tabular}{lp{12cm}}
+\hline
+\textbf{Predicate} & \textbf{Description} \\
+\hline
+\texttt{is/2} & Unifies the first argument with the result of evaluating the second argument, or fails if they do not unify. \\
+\texttt{=/2} & Unifies the first argument with the second argument, or fails if they do not unify. \\
+\texttt{>/2} & Succeeds if the first argument is greater than the second argument. \\
+\texttt{</2} & Succeeds if the first argument is less than the second argument. \\
+\texttt{>=/2} & Succeeds if the first argument is greater than or equal to the second argument. \\
+\texttt{=</2} & Succeeds if the first argument is less than or equal to the second argument. \\
+\texttt{=\textbackslash=/2} & Succeeds if the first argument is not equal (arithmetic) to the second argument. \\
+\texttt{=:=/2} & Succeeds if the first argument is equal (arithmetic) to the second argument. \\
+\texttt{==/2} & Succeeds if the first argument is equal (term) to the second argument. \\
+\texttt{delay/2} & Delays the evaluation of the second argument until the first is bound (see Section \ref{sec:attributed-variables}). \\
+\texttt{freeze/2} & Delays the evaluation of the second argument until the first is bound to a non-variable (see Section \ref{sec:attributed-variables}). \\
+\texttt{integer/1} & Succeeds if the argument is an integer. \\
+\texttt{float/1} & Succeeds if the argument is a floating point number. \\
+\texttt{atom/1} & Succeeds if the argument is an atom. \\
+\texttt{var/1} & Succeeds if the argument is a variable. \\
+\texttt{nonvar/1} & Succeeds if the argument is not a variable. \\
+\texttt{compound/1} & Succeeds if the argument is a compound term. \\
+\texttt{number/1} & Succeeds if the argument is a number (integer or float). \\
+\texttt{!/0} & Cut operator. \\
+\texttt{statistics/2} & Queries runtime statistics, see Table \ref{table:statistics}. \\
+\hline
+\end{tabular}
+\caption{Built-in predicates}
+\label{table:predicates}
+\end{table}
+
+\section{Statistics Predicate}
+
+The \texttt{statistics/2} predicate takes a statistic name as its first argument, unifying the current value of that statistic with the second argument. Available statistics are shown in Table \ref{table:statistics}.
+
+\begin{table}
+\centering
+\begin{tabular}{ll}
+\hline
+\textbf{Statistic} & \textbf{Description} \\
+\hline
+\texttt{memory} & Current heap memory usage in bytes. \\
+\texttt{allocated} & Current allocated heap size in bytes. \\
+\texttt{gc} & Number of garbage collections performed. \\
+\texttt{wasm\_memory} & Current size of the WebAssembly linear memory in bytes. \\
+\hline
+\end{tabular}
+\caption{Supported statistics}
+\label{table:statistics}
+\end{table}
+
+\chapter{JavaScript FFI Built-In Functions}
+
+\label{appendix:js-ffi}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lp{12cm}}
+\hline
+\textbf{Function} & \textbf{Description} \\
+\hline
+\texttt{unify} & Performs unification. Both terms must be valid JavaScript representations of Prolog terms (Section \ref{sec:js-prolog-mapping}), which will be converted back to Prolog terms and allocated on the heap if necessary. Variable bindings are checked to ensure they refer to terms that exist. \\
+\texttt{fetch} & Makes a synchronous HTTP request to the given URL, returning the response as a string. This is implemented in JavaScript as a wrapper around \texttt{XMLHttpRequest}, provided for convenience. \\
+\texttt{compound} & Creates a compound term from a functor and some arguments. \\
+\texttt{list} & Converts a JavaScript list into its linked-list Prolog representation. \\
+\hline
+\end{tabular}
+\caption{Functions available to JavaScript code}
+\label{tab:js-ffi}
+\end{table}
+
+\chapter{Benchmark Programs}
+
+\label{appendix:benchmarks}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\hline
+\textbf{Benchmark} & \textbf{Description} \\
+\hline
+chat\_parser & Parse natural language \\
+crypt & Cryptomultiplication \\
+derive & Symbolic differentiation \\
+divide10 & Symbolic differentiation \\
+fib & Fibonacci sequence \\
+log10 & Symbolic differentiation \\
+mu & MU puzzle \\
+nreverse & Naive list reversal \\
+ops8 & Symbolic differentiation \\
+poly\_10 & Polynomial exponentiation \\
+qsort & Quicksort \\
+queens\_8 & 8-Queens problem \\
+query & Query deductive database \\
+tak & Takeuchi function \\
+times10 & Symbolic differentiation \\
+zebra & Zebra puzzle \\
+\hline
+\end{tabular}
+\caption{Selected benchmarks from the SWI-Prolog benchmark suite}
+\label{tab:benchmarks}
+\end{table}
+
+\chapter{Project Proposal}
+
+\label{appendix:proposal}
+
+\includepdf[pages=-]{../proposal/proposal.pdf}
+
+\end{appendices}

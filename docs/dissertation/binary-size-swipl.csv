@@ -1,0 +1,5 @@
+engine,js,wasm,libraries
+WebPL,17898,862501,1
+SWI-Prolog (minimal),154601,1284732,3131621
+SWI-Prolog (clib),158083,1506374,3431664
+SWI-Prolog,167561,2089767,6081490

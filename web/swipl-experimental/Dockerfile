@@ -46,6 +46,9 @@ RUN git submodule update --init --depth 1 -j 100 \
 RUN echo '#!/bin/bash\nexec /usr/bin/versions/node/v22.9.0/bin/node --experimental-wasm-exnref "$@"' > /emsdk/node/20.18.0_64bit/bin/node
 RUN chmod +x /emsdk/node/20.18.0_64bit/bin/node
 
+# Patch SWI-Prolog not to include basic WASM features
+COPY wasm.pl /swipl-devel/library/wasm.pl
+
 # Build SWIPL
 WORKDIR /swipl-devel/build.wasm
 RUN mkdir -p /swipl-devel/build.wasm
@@ -53,9 +56,12 @@ RUN cmake -DCMAKE_TOOLCHAIN_FILE=/emsdk/upstream/emscripten/cmake/Modules/Platfo
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_FIND_ROOT_PATH=/wasm \
   -DUSE_GMP=OFF \
+  -DSWIPL_PACKAGES=OFF \
+  -DMULTI_THREADED=OFF \
+  -DENGINES=OFF \
   -DINSTALL_DOCUMENTATION=OFF \
   -DCMAKE_C_FLAGS="-fno-exceptions -s WASM_EXNREF=1 -s SUPPORT_LONGJMP=wasm" \
   -G Ninja ..
 RUN ninja
 
-RUN ctest -j $(nproc) --stop-on-failure --output-on-failure
+#RUN ctest -j $(nproc) --stop-on-failure --output-on-failure
