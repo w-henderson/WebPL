@@ -1,0 +1,34 @@
+name: Dissertation
+on:
+  push:
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs.yml"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup LaTeX
+        uses: wtfjoke/setup-tectonic@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Proposal
+        run: cd docs/proposal && tectonic proposal.tex
+
+      - name: Build Dissertation
+        run: cd docs/dissertation && tectonic -Z shell-escape dissertation.tex
+
+      - name: Upload PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: dissertation.pdf
+          path: docs/dissertation/dissertation.pdf
+          retention-days: 14
