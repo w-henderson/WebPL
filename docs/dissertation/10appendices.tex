@@ -4,7 +4,7 @@
 
 \label{appendix:shared-memory}
 
-To illustrate the interaction described in Section \ref{sec:wasm-js-interface}, consider the example in Figure \ref{fig:js-wasm} where JavaScript passes a value to WebAssembly through the linear memory, and WebAssembly calls back into JavaScript to output that value. The JavaScript \texttt{DataView} API is used to write an integer value to the linear memory, specifying little-endian byte order, and the WebAssembly function \texttt{get} loads the value and calls the imported JavaScript function \texttt{log} to output it.
+To illustrate the interaction described in Section~\ref{sec:wasm-js-interface}, consider the example in Figure~\ref{fig:js-wasm} where JavaScript passes a value to WebAssembly through the linear memory, and WebAssembly calls back into JavaScript to output that value. The JavaScript \texttt{DataView} API is used to write an integer value to the linear memory, specifying little-endian byte order, and the WebAssembly function \texttt{get} loads the value and calls the imported JavaScript function \texttt{log} to output it.
 
 \begin{figure}[H]
 \centering
@@ -57,7 +57,7 @@ WebAssembly.instantiate(fetch("a.wasm"), { env: { log: console.log } })
 
 \section{Predicates}
 
-Supported built-in predicates (Section \ref{sec:builtins}) are shown in Table \ref{table:predicates}.
+Supported built-in predicates (Section~\ref{sec:builtins}) are shown in Table~\ref{table:predicates}.
 
 \begin{table}
 \centering
@@ -74,8 +74,8 @@ Supported built-in predicates (Section \ref{sec:builtins}) are shown in Table \r
 \texttt{=\textbackslash=/2} & Succeeds if the first argument is not equal (arithmetic) to the second argument. \\
 \texttt{=:=/2} & Succeeds if the first argument is equal (arithmetic) to the second argument. \\
 \texttt{==/2} & Succeeds if the first argument is equal (term) to the second argument. \\
-\texttt{delay/2} & Delays the evaluation of the second argument until the first is bound (see Section \ref{sec:attributed-variables}). \\
-\texttt{freeze/2} & Delays the evaluation of the second argument until the first is bound to a non-variable (see Section \ref{sec:attributed-variables}). \\
+\texttt{delay/2} & Delays the evaluation of the second argument until the first is bound (see Section~\ref{sec:attributed-variables}). \\
+\texttt{freeze/2} & Delays the evaluation of the second argument until the first is bound to a non-variable (see Section~\ref{sec:attributed-variables}). \\
 \texttt{integer/1} & Succeeds if the argument is an integer. \\
 \texttt{float/1} & Succeeds if the argument is a floating point number. \\
 \texttt{atom/1} & Succeeds if the argument is an atom. \\
@@ -84,7 +84,7 @@ Supported built-in predicates (Section \ref{sec:builtins}) are shown in Table \r
 \texttt{compound/1} & Succeeds if the argument is a compound term. \\
 \texttt{number/1} & Succeeds if the argument is a number (integer or float). \\
 \texttt{!/0} & Cut operator. \\
-\texttt{statistics/2} & Queries runtime statistics, see Table \ref{table:statistics}. \\
+\texttt{statistics/2} & Queries runtime statistics, see Table~\ref{table:statistics}. \\
 \hline
 \end{tabular}
 \caption{Built-in predicates}
@@ -93,7 +93,7 @@ Supported built-in predicates (Section \ref{sec:builtins}) are shown in Table \r
 
 \section{Statistics Predicate}
 
-The \texttt{statistics/2} predicate takes a statistic name as its first argument, unifying the current value of that statistic with the second argument. Available statistics are shown in Table \ref{table:statistics}.
+The \texttt{statistics/2} predicate takes a statistic name as its first argument, unifying the current value of that statistic with the second argument. Available statistics are shown in Table~\ref{table:statistics}.
 
 \begin{table}
 \centering
@@ -121,7 +121,7 @@ The \texttt{statistics/2} predicate takes a statistic name as its first argument
 \hline
 \textbf{Function} & \textbf{Description} \\
 \hline
-\texttt{unify} & Performs unification. Both terms must be valid JavaScript representations of Prolog terms (Section \ref{sec:js-prolog-mapping}), which will be converted back to Prolog terms and allocated on the heap if necessary. Variable bindings are checked to ensure they refer to terms that exist. \\
+\texttt{unify} & Performs unification. Both terms must be valid JavaScript representations of Prolog terms (Section~\ref{sec:js-prolog-mapping}), which will be converted back to Prolog terms and allocated on the heap if necessary. Variable bindings are checked to ensure they refer to terms that exist. \\
 \texttt{fetch} & Makes a synchronous HTTP request to the given URL, returning the response as a string. This is implemented in JavaScript as a wrapper around \texttt{XMLHttpRequest}, provided for convenience. \\
 \texttt{compound} & Creates a compound term from a functor and some arguments. \\
 \texttt{list} & Converts a JavaScript list into its linked-list Prolog representation. \\

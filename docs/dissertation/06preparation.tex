@@ -3,7 +3,7 @@
 
 \chapter{Preparation}
 
-This chapter introduces Prolog (Section \ref{sec:prolog}) and how garbage collection techniques can be applied to it (Section \ref{sec:prolog-gc}). It also discusses web development with WebAssembly (Section \ref{sec:webdev}), before describing the tools (Section \ref{sec:tools}) and development methodology (Section \ref{sec:dev-methodology}) used in the implementation of the Prolog interpreter. Finally, a requirements analysis is performed (Section \ref{sec:requirements}) and the starting point of the project stated (Section \ref{sec:starting-point}).
+This chapter introduces Prolog (Section~\ref{sec:prolog}) and how garbage collection techniques can be applied to it (Section~\ref{sec:prolog-gc}). It also discusses web development with WebAssembly (Section~\ref{sec:webdev}), before describing the tools (Section~\ref{sec:tools}) and development methodology (Section~\ref{sec:dev-methodology}) used in the implementation of the Prolog interpreter. Finally, a requirements analysis is performed (Section~\ref{sec:requirements}) and the starting point of the project stated (Section~\ref{sec:starting-point}).
 
 \section{Prolog}
 
@@ -28,8 +28,8 @@ $$
 
 Prolog clauses are built up from \emph{terms}, which may be
 \begin{itemize}
-\item \emph{atoms}, either \emph{constants} (e.g. \texttt{foo}, \texttt{1209}) or \emph{variables} (e.g. \texttt{X}, \texttt{Var}), or
-\item \emph{compound terms}, consisting of a \emph{functor} (atom) and a list of \emph{arguments}, themselves terms (e.g. \texttt{is\_even(X)}, \texttt{city(cambridge, united\_kingdom)}).
+\item \emph{atoms}, either \emph{constants} (e.g.\ \texttt{foo}, \texttt{1209}) or \emph{variables} (e.g.\ \texttt{X}, \texttt{Var}), or
+\item \emph{compound terms}, consisting of a \emph{functor} (atom) and a list of \emph{arguments}, themselves terms (e.g.\ \texttt{is\_even(X)}, \texttt{city(cambridge, united\_kingdom)}).
 \end{itemize}
 
 A Prolog program comprises a set of clauses and a \emph{query}, a goal clause. The aim of the Prolog execution is to find a \emph{substitution} (an assignment of terms to variables) that makes the query true with respect to the program.
@@ -42,7 +42,7 @@ A Prolog program comprises a set of clauses and a \emph{query}, a goal clause. T
 
 The \emph{Martelli-Montanari algorithm} is an algorithm for computing the MGU of two terms $t_1$ and $t_2$ \cite{martelliEfficientUnificationAlgorithm1982}. It iteratively applies rules to a set of equations, starting with $\{t_1 = t_2\}$, until no more rules can be applied, at which point the remaining set of equations is the unifier.
 
-The rules are shown in Figure \ref{fig:martelli-montanari}. $s$ and $t$ are terms, $X$ and $Y$ are variables, $f$ and $g$ are function symbols, and $S$ is a set of equations. $\text{vars}(t)$ denotes the set of variables occurring in $t$.
+The rules are shown in Figure~\ref{fig:martelli-montanari}. $s$ and $t$ are terms, $X$ and $Y$ are variables, $f$ and $g$ are function symbols, and $S$ is a set of equations. $\text{vars}(t)$ denotes the set of variables occurring in $t$.
 
 \begin{figure}[H]
 \begin{align*}
@@ -83,7 +83,7 @@ country(denmark).
 \end{minted}
 \end{center}
 
-The execution of this program explores the search tree shown in Figure \ref{fig:prolog-search-tree}.
+The execution of this program explores the search tree shown in Figure~\ref{fig:prolog-search-tree}.
 
 \begin{figure}[H]
 \begin{center}
@@ -118,7 +118,7 @@ The \emph{empty clause} represents a contradiction, so deriving it means that a 
 
 This subsection highlights some of the key decisions that must be made when building a Prolog implementation.
 
-\paragraph{Unification} There are two common ways of implementing the unification subroutine, their signatures depicted in Figure \ref{fig:unification-impl} in Rust syntax. The first of these does not mutate the terms, instead returning an object representing their MGU, or failing, which I call \emph{substitution-based}. This is the approach taken by Tau Prolog \cite{riazaTauPrologProlog2024}. The second approach directly manipulates the term representations themselves to make them identical, or fails, as in the Warren Abstract Machine (WAM) \cite{warrenAbstractPrologInstruction1983}, which I call \emph{mutation-based}.
+\paragraph{Unification} There are two common ways of implementing the unification subroutine, their signatures depicted in Figure~\ref{fig:unification-impl} in Rust syntax. The first of these does not mutate the terms, instead returning an object representing their MGU, or failing, which I call \emph{substitution-based}. This is the approach taken by Tau Prolog \cite{riazaTauPrologProlog2024}. The second approach directly manipulates the term representations themselves to make them identical, or fails, as in the Warren Abstract Machine (WAM) \cite{warrenAbstractPrologInstruction1983}, which I call \emph{mutation-based}.
 
 \begin{figure}[H]
 \centering
@@ -130,7 +130,7 @@ fn unify2(a: &mut Term, b: &mut Term) -> Option<()>;
 \label{fig:unification-impl}
 \end{figure}
 
-In a \emph{structure-copying} implementation, whenever a clause in the program is resolved with a goal, the terms representing that clause are copied and the variables in the copy bound according to the unifier. A \emph{structure-sharing} implementation recognises that different instances of the same term differ only in their variable bindings, so shares a \emph{prototype} between them, representing the individual instances as \emph{molecules} storing the bindings. Unification is more efficient with the former approach, but the latter can be more memory-efficient \cite{linewtermrepresentation1998}. These two representations are illustrated in Figure \ref{fig:term-representations}.
+In a \emph{structure-copying} implementation, whenever a clause in the program is resolved with a goal, the terms representing that clause are copied and the variables in the copy bound according to the unifier. A \emph{structure-sharing} implementation recognises that different instances of the same term differ only in their variable bindings, so shares a \emph{prototype} between them, representing the individual instances as \emph{molecules} storing the bindings. Unification is more efficient with the former approach, but the latter can be more memory-efficient \cite{linewtermrepresentation1998}. These two representations are illustrated in Figure~\ref{fig:term-representations}.
 
 \begin{figure}[H]
 \centering
@@ -195,7 +195,7 @@ In a \emph{structure-copying} implementation, whenever a clause in the program i
 
 Certain Prolog implementations combine some areas. For example, the WAM does not use a separate control stack, preferring to store choice points on the local stack. Tarau's ``hitchhiker'' virtual machine stores code on the heap rather than in a separate code area, as its encoding of instructions is the same as that of terms \cite{tarauHitchhikersGuideReinventing2018}. Li's Logic Virtual Machine (LVM) combines the stack and the heap into a single area to improve locality, which is managed by a garbage collector \cite{liEfficientMemoryManagement2000}.
 
-\paragraph{Last-Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller, and not create a choice point, if the clause is \emph{determinate}, that is, if the failure of the last predicate in the body implies the failure of the entire clause. Last-call optimisation enables programs like in Figure \ref{fig:lco} to run in constant stack space.
+\paragraph{Last-Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller, and not create a choice point, if the clause is \emph{determinate}, that is, if the failure of the last predicate in the body implies the failure of the entire clause. Last-call optimisation enables programs like in Figure~\ref{fig:lco} to run in constant stack space.
 
 \begin{figure}[H]
 \begin{center}
@@ -215,7 +215,7 @@ len_acc([_|T], A, N) :- A1 is A + 1, len_acc(T, A1, N).
 
 When backtracking to a choice point, any terms that were created since that choice point can be deallocated. This can be achieved by storing pointers to the top of the stack and heap at each choice point, and truncating the stack and heap to these pointers when backtracking. This is known as \emph{instant reclaiming} \cite{bekkersDynamicMemoryManagement1992}.
 
-However, instant reclaiming is insufficient for \emph{iterative} Prolog programs, that is, those which never backtrack. Consider the (contrived) program shown in Figure \ref{fig:iterative}, which sums the first $N$ natural numbers in constant stack space with LCO.
+However, instant reclaiming is insufficient for \emph{iterative} Prolog programs, that is, those which never backtrack. Consider the (contrived) program shown in Figure~\ref{fig:iterative}, which sums the first $N$ natural numbers in constant stack space with LCO.
 
 \begin{figure}[H]
 \begin{center}
@@ -242,7 +242,7 @@ To ensure programs like this do not run out of memory, many Prolog implementatio
 
 \emph{Mark-and-sweep} garbage collection operates in two phases. The \emph{root set} contains pointers to objects that are live, which are recursively followed to mark all reachable objects. Then, the heap is traversed, and unmarked objects are deallocated, often by \emph{compacting} the heap to remove gaps left by deallocated objects.
 
-Warren applied this algorithm to Prolog, using the local stack as the root set \cite{warrenImplementingPrologCompiling1977}. He emphasised, however, that due to the high cost of running the algorithm, it should only be run when necessary (i.e. when the heap is full), and that compile-time classification of variables into locals and globals (to minimise heap usage) is crucial for performance.
+Warren applied this algorithm to Prolog, using the local stack as the root set \cite{warrenImplementingPrologCompiling1977}. He emphasised, however, that due to the high cost of running the algorithm, it should only be run when necessary (i.e.\ when the heap is full), and that compile-time classification of variables into locals and globals (to minimise heap usage) is crucial for performance.
 
 \subsection{Generational Garbage Collection}
 
@@ -262,7 +262,7 @@ For many years, the platform on which applications would run was the operating s
 
 For these reasons, more and more modern applications are delivered through the browser. I call these applications \emph{browser-based} or \emph{web applications}. The browser, initially only for accessing information, is now the platform on which word processors like Google Docs, videoconferencing applications like Teams, and even editors like VSCode are built. These applications are executed by the browser's JavaScript engine, with the browser providing built-in functions to access lower-level functionality like I/O. In this model, the browser is the only application that needs to be installed and trusted by the user.
 
-Figure \ref{fig:web-platform} highlights the difference between native and web applications.
+Figure~\ref{fig:web-platform} highlights the difference between native and web applications.
 
 \begin{figure}[H]
 \centering
@@ -341,11 +341,11 @@ The main storage of a WebAssembly program is the \emph{linear memory}, or \emph{
 
 \label{sec:wasm-js-interface}
 
-A key design goal of WebAssembly is to be \emph{language-independent}, thus the WebAssembly specification makes no mention of JavaScript. Instead, it is up to the \emph{host environment} (e.g. the browser) to define and implement the necessary APIs for WebAssembly to interact with the outside world.
+A key design goal of WebAssembly is to be \emph{language-independent}, thus the WebAssembly specification makes no mention of JavaScript. Instead, it is up to the \emph{host environment} (e.g.\ the browser) to define and implement the necessary APIs for WebAssembly to interact with the outside world.
 
 \paragraph{Import and Export} WebAssembly modules can import and export functions to and from the host environment, allowing JavaScript code to call WebAssembly functions, and vice versa. However, only integers and floats can be passed between the two environments in this way.
 
-\paragraph{Shared Memory} To enable more complex data structures to be shared, the browser exposes the WebAssembly module's linear memory to JavaScript as an array of bytes. This allows JavaScript code to serialise complex data structures into the linear memory, passing a pointer to the WebAssembly module, which can then access the data. WebAssembly functions can return complex data structures in the same way, illustrated in more detail in Appendix \ref{appendix:shared-memory}.
+\paragraph{Shared Memory} To enable more complex data structures to be shared, the browser exposes the WebAssembly module's linear memory to JavaScript as an array of bytes. This allows JavaScript code to serialise complex data structures into the linear memory, passing a pointer to the WebAssembly module, which can then access the data. WebAssembly functions can return complex data structures in the same way, illustrated in more detail in Appendix~\ref{appendix:shared-memory}.
 
 \section{Tools}
 
@@ -357,7 +357,7 @@ Rust was chosen as the implementation language for the Prolog interpreter due to
 
 \paragraph{Dependencies and Licensing}
 
-Table \ref{tab:core-dependencies} lists the dependencies used in the implementation of the Prolog interpreter along with their licences, justifying the use of each. Table \ref{tab:web-dependencies} lists the dependencies used in the implementation of the browser-based development environment.
+Table~\ref{tab:core-dependencies} lists the dependencies used in the implementation of the Prolog interpreter along with their licences, justifying the use of each. Table~\ref{tab:web-dependencies} lists the dependencies used in the implementation of the browser-based development environment.
 
 \begin{table}[H]
 \centering
@@ -408,7 +408,7 @@ Git was used for version control, with the repository hosted on GitHub. Each pha
 
 The project was developed using a \emph{spiral} methodology \cite{boehmspiralmodelsoftware1986}, with development proceeding in a number of phases, each of which comprising requirements analysis, design, implementation, and testing. Evaluation in each phase involved quantitative comparison to existing Prolog implementations as described in Chapter 4, alongside qualitative comparison regarding feature completeness, which was then used to inform focus areas for the next phase.
 
-The development phases were guided by the project proposal (Appendix \ref{appendix:proposal}), beginning with the implementation of a pure Prolog AST interpreter.
+The development phases were guided by the project proposal (Appendix~\ref{appendix:proposal}), beginning with the implementation of a pure Prolog AST interpreter.
 
 The project was tested using unit tests, integration tests, and manual testing. Unit tests were written for each phase to ensure its correctness before proceeding to the next phase. The benchmarking suite, described in Chapter 4, also served as a form of integration testing, as it was run in the browser and required the correct functioning of the system as a whole, with each benchmark program additionally acting as a test case. Manual testing was used to evaluate the browser-based development environment.
 
@@ -416,7 +416,7 @@ The project was tested using unit tests, integration tests, and manual testing. 
 
 \label{sec:requirements}
 
-The core requirements are stated in the project proposal (Appendix \ref{appendix:proposal}) and are as follows:
+The core requirements are stated in the project proposal (Appendix~\ref{appendix:proposal}) and are as follows:
 
 \vspace*{-1em}
 
@@ -440,4 +440,4 @@ In the proposal, a number of extensions were also suggested. Following the backg
 
 \label{sec:starting-point}
 
-As detailed in the project proposal (Appendix \ref{appendix:proposal}), I began the project from scratch, with prior knowledge of Rust. I had little experience with Prolog, having only used it briefly in the Part IB course. No code was written before October 2024.
+As detailed in the project proposal (Appendix~\ref{appendix:proposal}), I began the project from scratch, with prior knowledge of Rust. I had little experience with Prolog, having only used it briefly in the Part IB course. No code was written before October 2024.
