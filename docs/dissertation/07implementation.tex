@@ -41,11 +41,11 @@ This section describes the implementation of the core Prolog interpreter, WebPL,
 
 WebPL uses the merged heap/stack architecture proposed by Li \cite{liEfficientMemoryManagement2000} and described in Section \ref{sec:preparation-implementation}. Alongside the advantages identified by Li, notably improved cache performance, this architecture is uniquely suited to the linear memory model of WebAssembly.
 
-In a traditional heap/stack architecture, the heap and stack are separate regions of memory, often with few constraints imposed on the layout of the heap. Indeed, SWI-Prolog uses \texttt{malloc} to allocate memory for terms on the heap\footnote{\url{https://www.swi-prolog.org/pldoc/man?section=memlimit}}, imposing no constraints on its layout. Running natively, this is not a problem, as virtual memory is plentiful. However, WebAssembly's linear memory is contiguous, so the heap must be carefully managed by the WebAssembly code itself to avoid fragmentation. In addition, the trail stack contains pointers to bound variables, which may appear either on the stack or on the heap, but WebAssembly does not allow pointers to stack-allocated objects (Section \ref{sec:wasm-memory-model}). Therefore, the stack must also be placed in the linear memory, further complicating memory management.
+In a traditional heap/stack architecture, the heap and stack are separate regions of memory, often with few constraints imposed on the heap layout. Indeed, SWI-Prolog uses \texttt{malloc} to allocate memory for terms on the heap\footnote{\url{https://www.swi-prolog.org/pldoc/man?section=memlimit}}, imposing no constraints on its layout. Running natively, this is not a problem, as virtual memory is plentiful. However, WebAssembly's linear memory is contiguous, so the heap must be carefully managed by the WebAssembly code itself to avoid fragmentation. In addition, the trail stack contains pointers to bound variables, which may appear either on the stack or on the heap, but WebAssembly does not allow pointers to stack-allocated objects (Section \ref{sec:wasm-memory-model}). Therefore, the stack must also be placed in the linear memory, further complicating memory management.
 
 In a merged heap/stack architecture, all terms are allocated in one contiguous region of memory. This avoids the problem of fragmentation, as the heap grows with allocations and shrinks with instant reclaiming and garbage collection (Section \ref{sec:gc-impl}). If the heap grows too large for the linear memory, it suffices to execute the \texttt{memory.grow} WebAssembly instruction, with minimal additional work from the WebAssembly module required.
 
-A key advantage of this architecture is the heap is stored in chronological order, with older terms at lower addresses. This facilitates the implementation of several garbage collection optimisations, such as variable shunting (Section \ref{sec:variable-shunting}) and segmented garbage collection (Section \ref{sec:implementation-generational-gc}).
+A key advantage of this architecture is that the heap is stored in chronological order, with older terms at lower addresses. This facilitates the implementation of several garbage collection optimisations, such as variable shunting (Section \ref{sec:variable-shunting}) and segmented garbage collection (Section \ref{sec:implementation-generational-gc}).
 
 Of course, other areas of memory are needed, also within the linear memory:
 
@@ -55,7 +55,7 @@ Of course, other areas of memory are needed, also within the linear memory:
 
 \paragraph{Goal Stack} The goal stack contains the remaining goals to prove. When backtracking, goals that have previously been popped might be needed again, so while I refer to it as a stack, the goal stack is actually a graph, with goals represented as pairs $(\texttt{pred}, \texttt{goal})$ and the goal stack additionally storing a pointer to the current goal (the ``top of the stack'').
 
-Figure \ref{fig:goals} illustrates this idea. Before resolving \mintinline{prolog}{a(X)} with \mintinline{prolog}{a(1)} (c), a choice point is created, containing a pointer to the current goal. After the resolution step, \mintinline{prolog}{a(X)} is ``popped from the goal stack'' by setting the current goal pointer to its predecessor (d). Importantly, it remains in the graph, as upon backtracking when \mintinline{prolog}{b(1)} fails, the current goal pointer is restored to that stored in the choice point. In order to prevent the goal stack growing indefinitely, each choice point also contains the number of goals in the stack when it was created, and the goal stack is truncated to this size upon backtracking.
+Figure \ref{fig:goals} illustrates this idea. Before resolving \mintinline{prolog}{a(X)} with \mintinline{prolog}{a(1)} (c), a choice point is created, containing a pointer to the current goal. After the resolution step, \mintinline{prolog}{a(X)} is ``popped from the goal stack'' by setting the current goal pointer to its predecessor (d). Importantly, however, it remains in the graph, as upon backtracking when \mintinline{prolog}{b(1)} fails, the current goal pointer is restored to that stored in the choice point. In order to prevent the goal stack growing indefinitely, each choice point also contains the number of goals in the stack when it was created, and the goal stack is truncated to this size upon backtracking.
 
 \begin{figure}[H]
 \centering
@@ -192,7 +192,7 @@ Rust discourages the use of raw pointers, instead preferring its memory-safe \em
 
 Terms are stored on the heap as fixed-size blocks of 16 bytes. These are represented as an enum (Figure \ref{fig:rust-term-representation}), Rust's sum type.
 
-Atoms are typed, being strings, integers, or floats. Variables include a pointer to their bound object if they are bound, or to themselves otherwise, as in the WAM, but additionally a flag to indicate whether they are \emph{shunted} (Section \ref{sec:variable-shunting}), which is used in garbage collection, and possibly a pointer to a \emph{suspended goal} (Section \ref{sec:attributed-variables}). Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments (Figure \ref{fig:compound}). This allows their variable-sized arguments to be found in constant time, while keeping their layout contiguous. There is also a heap representation of cut since goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within Prolog (Section \ref{sec:js-ffi}), are represented by an index into the \emph{lambda table}, along with their arguments like a compound term.
+Atoms are typed, being strings, integers, or floats. Variables include a pointer to their bound object if they are bound, or to themselves otherwise, as in the WAM, but additionally a flag to indicate whether they are \emph{shunted} (Section \ref{sec:variable-shunting}), which is used in garbage collection, and possibly a pointer to a \emph{suspended goal} (Section \ref{sec:attributed-variables}). Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments (Figure \ref{fig:compound}). This allows their variable-sized arguments to be found in constant time, while keeping their layout contiguous. There is also a heap representation of cut, as goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within Prolog (Section \ref{sec:js-ffi}), are represented by an index into the \emph{lambda table}, along with their arguments like a compound term.
 
 \begin{figure}[H]
 \centering
@@ -324,7 +324,7 @@ macro_rules! impl_type_check {
 }
 
 impl_type_check!(IsAtomBuiltin, HeapTerm::Atom(_));
-impl_type_check!(IsVarBuiltin, HeapTerm::Var(_, _));
+impl_type_check!(IsVarBuiltin, HeapTerm::Var(_, _, _, _));
 \end{minted}
 %TC:endignore
 \caption{Macro for type-testing predicates}
@@ -343,7 +343,7 @@ When a clause is copied onto the heap, a linear scan updates its variables by th
 
 Like many Prolog implementations, WebPL includes some features from constraint logic programming. \emph{Attributed variables}, or \emph{suspensions}, allow a term to be attached to a variable, which is executed when the variable is bound \cite{holzbaurMetastructuresvsattributed1992}. This allows constraints to be attached to variables and checked later when more information is available. Two common uses of attributed variables are in the \texttt{freeze/2} and \texttt{dif/2} predicates, the former delaying the execution of a goal until a variable is bound to a non-variable term, and the latter ensuring that two variables, when bound, cannot be unified.
 
-I implemented a basic form of attributed variables, where attributes are limited to goals, as described by Carlsson \cite{carlssonimplementationdiffreeze1986}. A \texttt{delay/2} built-in predicate is used as the basis for this implementation, which takes a term and a goal as arguments. If the term is not yet bound, the goal becomes the term's \emph{suspended goal} in its heap representation, otherwise it is immediately pushed to the goal stack. The predicate succeeds in either case (Figure \ref{fig:delay-impl}). When an attributed variable is bound, its suspended goal is pushed to the goal stack and removed from its heap representation.
+I implemented a basic form of attributed variables, where attributes are limited to goals, as described by Carlsson \cite{carlssonimplementationdiffreeze1986}. A \texttt{delay/2} built-in predicate is used as the basis for this implementation, which takes a term and a goal as arguments. If the term is not yet bound, the goal becomes the term's \emph{suspended goal} in its heap representation, otherwise it is immediately pushed to the goal stack (Figure \ref{fig:delay-impl}). The predicate succeeds in either case. When an attributed variable is bound, its suspended goal is pushed to the goal stack and removed from its heap representation.
 
 \begin{figure}[H]
 \centering
@@ -434,11 +434,13 @@ match lookup_string(functor) {
 \label{fig:fixed-string-indices}
 \end{figure}
 
+\newpage
+
 \section{Garbage Collection}
 
 \label{sec:gc-impl}
 
-Garbage collection is a crucial part of a merged heap/stack architecture \cite{liEfficientMemoryManagement2000}. This section describes the implementation of the garbage collector in WebPL, first discussing its foundation in the mark-and-sweep algorithm (Section \ref{sec:mark-and-sweep}), then defining its goal of being ``precise'' (Section \ref{sec:precise-gc}). The optimisations made to achieve this goal are described in Sections \ref{sec:variable-shunting} and \ref{sec:early-reset}, with Section \ref{sec:gc-testing} explaining how I verified that the implementation is indeed precise. Finally, Section \ref{sec:implementation-generational-gc} describes how the garbage collector was adapted to use generational garbage collection to reduce its overhead.
+Garbage collection is a crucial aspect of the merged heap/stack architecture \cite{liEfficientMemoryManagement2000}. This section describes the implementation of the garbage collector in WebPL, first discussing its foundation in the mark-and-sweep algorithm (Section \ref{sec:mark-and-sweep}), then defining its goal of being ``precise'' (Section \ref{sec:precise-gc}). The optimisations made to achieve this goal are described in Sections \ref{sec:variable-shunting} and \ref{sec:early-reset}, with Section \ref{sec:gc-testing} explaining how I verified that the implementation is indeed precise. Finally, Section \ref{sec:implementation-generational-gc} describes how the garbage collector was adapted to use generational garbage collection to reduce its overhead.
 
 \subsection{Mark and Sweep}
 
@@ -522,7 +524,7 @@ dummy(Xs, Xs).
 
 \emph{Variable shunting} replaces variables that are only seen in their bound state with their binding values \cite{sahlinVariableShuntingWAM1991}. Such variables were created and then bound without the creation of any choice points in between. I implemented variable shunting using the ``timestamping'' algorithm described by Bekkers et al. \cite{bekkersDynamicMemoryManagement1992}.
 
-Figure \ref{fig:shunt-program} demonstrates the need for variable shunting: Y can be shunted to prevent the heap from growing indefinitely.
+Figure \ref{fig:shunt-program} demonstrates the need for variable shunting: \texttt{Y} can be shunted to prevent the heap from growing indefinitely.
 
 \begin{figure}[H]
 \centering
@@ -591,11 +593,11 @@ The following compaction phase considers all terms that were already mapped by t
 
 \emph{Early reset} is concerned with collecting terms that are only accessible from a choice point \cite{applebyGarbargecollectionProlog1988}.
 
-Recall the program in Figure \ref{fig:or-control} (or-control). The first clause of \texttt{run/1} creates a choice point to try the second clause if the first fails, then iterates through an infinite list. As is, the garbage collector is prevented from reclaiming items already iterated over because they are still reachable from the choice point: in the goal \texttt{run(X)}, \texttt{X} is bound to the infinitely-growing list by the execution of the first clause. The key insight behind early reset is that \texttt{X} will be unbound upon backtracking, before the second clause is reached, so it is safe to \emph{reset} (unbind) it ``early'' if it is only reachable from the choice point.
+Recall the program in Figure \ref{fig:or-control} (or-control). The first clause of \texttt{run/1} creates a choice point to try the second clause if the first fails, then iterates through an infinite list. As is, the garbage collector is prevented from reclaiming items already iterated over because they are still reachable from the choice point: in the goal \texttt{run(X)}, \texttt{X} is bound to the infinitely-growing list by the execution of the first clause. The key insight behind early reset is that \texttt{X} will be unbound upon backtracking, before the second clause is executed, so it is safe to \emph{reset} (unbind) it ``early'' if it is only reachable from the choice point.
 
-This is implemented during the mark phase. The root set is ordered such that marking from the choice-point stack is done last, so that terms only reachable from the choice-point stack can be identified. When marking each choice point, any variables that will be reset when backtracking to it that are currently unmarked (i.e. only reachable from the choice-point stack, if at all) are reset.
+This is implemented during the mark phase. The root set is ordered such that marking from the choice-point stack is done last, so that terms only reachable from the choice-point stack can be identified. When marking each choice point, any currently unmarked variables that will be reset when backtracking to it (i.e. those that are only reachable from the choice-point stack, if at all) are reset.
 
-This introduces a new problem: the entries on the trail stack that have been early reset are now garbage themselves. This is resolved by extending the garbage collection algorithm to include a \emph{trail stack compaction} phase, which works analogously to the heap compaction phase.
+This introduces a new problem: the entries on the trail stack that have been reset are now garbage themselves. This is resolved by extending the garbage collection algorithm to include a \emph{trail stack compaction} phase, which works analogously to the heap compaction phase.
 
 \subsection{Testing for Precise Garbage Collection}
 
@@ -607,8 +609,8 @@ Variable shunting and early reset prove sufficient to meet the criteria for prec
 \item Run the program for a fixed number of iterations to reach a steady state.
 \item Perform a garbage collection, then measure the size of the heap.
 \item Run the program for a further fixed number of iterations.
-\item Perform a garbage collection and measure the size of the heap, passing the test it not more than that in step 2.
-\item Make one resolution step, then go back to step 4. Repeat this a fixed number of times to get to the same point in the execution as the first measurement, at which point the test passes.
+\item Perform a garbage collection and measure the size of the heap, passing the test if it is not more than that in step 2.
+\item Make one resolution step, then go back to step 4. Repeat this a fixed number of times to get to the same point in the execution as the first measurement, when the test passes.
 \end{enumerate}
 
 \subsection{Generational Garbage Collection}
@@ -742,7 +744,7 @@ The user interface (Figure \ref{fig:webpl}) was implemented using the React Java
 
 \label{sec:prolog-interface}
 
-A key goal of the web-based development environment is to support several Prolog implementations to facilitate comparison. Flach et al. highlight the need for a ``standard embedding interface to enable designing interactive web pages using multiple Prolog backends'' \cite{flachSimplyLogicalFirst2023}, which I aim to provide. The TypeScript-defined interface is defined in Figure \ref{fig:prolog-interface}.
+A key goal of the web-based development environment is to support several Prolog implementations to facilitate comparison. Flach et al. highlight the need for a ``standard embedding interface to enable designing interactive web pages using multiple Prolog backends'' \cite{flachSimplyLogicalFirst2023}, which I aim to provide. The TypeScript interface is defined in Figure \ref{fig:prolog-interface}.
 
 \begin{figure}[H]
 \centering
@@ -766,7 +768,7 @@ This is an example of the \emph{adapter pattern} \cite{gammaDesignPatternsElemen
 
 \subsection{Web Workers}
 
-The programming model in the browser is \emph{asynchronous}, as JavaScript is single-threaded and must not block the main thread to maintain a responsive UI. Long-running computations, like solving a Prolog query, do not fit well into this model, as they block for potentially long periods of time.
+The programming model in the browser is inherently \emph{asynchronous}, as JavaScript is single-threaded and must not block the main thread to maintain a responsive UI. Long-running computations, like solving a Prolog query, do not fit well into this model, as they block for potentially long periods of time.
 
 Modern browsers provide \emph{Web Workers}, which allow JavaScript to run in a separate thread, communicating with the main thread using an asynchronous message-passing API. Recent Prolog implementations for the browser exploit this feature to prevent Prolog computations from blocking the main thread \cite{garcia-pradalessCASPInBrowserPlayground2022, riazaTauPrologProlog2024}.
 

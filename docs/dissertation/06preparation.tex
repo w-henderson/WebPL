@@ -89,13 +89,13 @@ The execution of this program explores the search tree shown in Figure \ref{fig:
 \begin{center}
   \begin{tikzpicture}
       \node (A) at (0,3) {\mintinline{prolog}{country(C), king(C, K).}};
-      \node (B1) at (-5,1.5) {\mintinline{prolog}{king(england, K)}};
+      \node (B1) at (-5,1.5) {\mintinline{prolog}{king(united_kingdom, K)}};
       \node (B2) at (0,1) {\mintinline{prolog}{king(france, K)}};
       \node (B3) at (5,1.5) {\mintinline{prolog}{king(denmark, K)}};
       \node (C1) at (-5,0) {\{\}};
       \node (C2) at (5,0) {\{\}};
 
-      \draw (A) -- (B1) node [midway, xshift=-40, yshift=6] {\footnotesize \texttt{C = england}};
+      \draw (A) -- (B1) node [midway, xshift=-50, yshift=6] {\footnotesize \texttt{C = united\_kingdom}};
       \draw (A) -- (B2) node [midway, xshift=35, yshift=-2] {\footnotesize \texttt{C = france}};
       \draw (A) -- (B3) node [midway, xshift=40, yshift=6] {\footnotesize \texttt{C = denmark}};
       \draw (B1) -- (C1) node [midway, xshift=40] {\footnotesize \texttt{K = charles}};
@@ -195,7 +195,7 @@ In a \emph{structure-copying} implementation, whenever a clause in the program i
 
 Certain Prolog implementations combine some areas. For example, the WAM does not use a separate control stack, preferring to store choice points on the local stack. Tarau's ``hitchhiker'' virtual machine stores code on the heap rather than in a separate code area, as its encoding of instructions is the same as that of terms \cite{tarauHitchhikersGuideReinventing2018}. Li's Logic Virtual Machine (LVM) combines the stack and the heap into a single area to improve locality, which is managed by a garbage collector \cite{liEfficientMemoryManagement2000}.
 
-\paragraph{Last-Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller, and not create a choice point, if the clause is \emph{determinate}. That is, if the failure of the last predicate in the body implies the failure of the entire clause. Last-call optimisation enables programs like in Figure \ref{fig:lco} to run in constant stack space.
+\paragraph{Last-Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller, and not create a choice point, if the clause is \emph{determinate}, that is, if the failure of the last predicate in the body implies the failure of the entire clause. Last-call optimisation enables programs like in Figure \ref{fig:lco} to run in constant stack space.
 
 \begin{figure}[H]
 \begin{center}
@@ -240,7 +240,7 @@ To ensure programs like this do not run out of memory, many Prolog implementatio
 
 \label{sec:prep-mark-and-sweep}
 
-\emph{Mark-and-sweep} garbage collection operates in two phases. The \emph{root set} contains pointers to objects that are live, which are recursively followed to mark all reachable objects. Then, the heap is traversed again, and unmarked objects are deallocated, often by \emph{compacting} the heap to remove gaps left by deallocated objects.
+\emph{Mark-and-sweep} garbage collection operates in two phases. The \emph{root set} contains pointers to objects that are live, which are recursively followed to mark all reachable objects. Then, the heap is traversed, and unmarked objects are deallocated, often by \emph{compacting} the heap to remove gaps left by deallocated objects.
 
 Warren applied this algorithm to Prolog, using the local stack as the root set \cite{warrenImplementingPrologCompiling1977}. He emphasised, however, that due to the high cost of running the algorithm, it should only be run when necessary (i.e. when the heap is full), and that compile-time classification of variables into locals and globals (to minimise heap usage) is crucial for performance.
 
@@ -260,7 +260,7 @@ Pointers from the old generation to the young generation complicate this approac
 
 For many years, the platform on which applications would run was the operating system (OS), executing native code but delegating to the OS for privileged functionality such as I/O. I call these applications \emph{native}. However, this requires applications to be built separately for different OSes and architectures, manually installed, and trusted.
 
-For these reasons, more and more modern applications are delivered through the browser. I call these applications \emph{browser-based} or \emph{web applications}. Initially only for accessing information, the browser is now the platform on which word processors like Google Docs, videoconferencing applications like Teams, and even editors like VSCode are built. These applications executed by the browser's JavaScript engine, with the browser providing built-in functions to access lower-level functionality like I/O. In this model, the browser is the only application that needs to be installed and trusted by the user.
+For these reasons, more and more modern applications are delivered through the browser. I call these applications \emph{browser-based} or \emph{web applications}. The browser, initially only for accessing information, is now the platform on which word processors like Google Docs, videoconferencing applications like Teams, and even editors like VSCode are built. These applications are executed by the browser's JavaScript engine, with the browser providing built-in functions to access lower-level functionality like I/O. In this model, the browser is the only application that needs to be installed and trusted by the user.
 
 Figure \ref{fig:web-platform} highlights the difference between native and web applications.
 
