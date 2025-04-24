@@ -6,11 +6,13 @@ Furthermore, the extension goals of building a browser-based development environ
 
 Benchmarking showed that WebPL outperforms SWI-Prolog, Trealla Prolog, and Tau Prolog in most cases, even when WebAssembly exception handling is enabled in SWI-Prolog to mitigate its performance issues (Section~\ref{sec:swi-prolog-optimisation}). In addition, its memory usage and binary size are both significantly lower than those of other systems, making it suitable for use in resource-constrained environments such as mobile devices.
 
+I have made the project publicly available on GitHub under the MIT licence, and I hope that it may be useful to others in the future.
+
 \section{Reflections}
 
 I learnt a huge amount during this project, especially regarding Prolog, garbage collection, and writing a dissertation. Aspects of the project I anticipated to be straightforward turned out to be challenging, in particular correctly implementing the core Prolog interpreter and the garbage collector, which gave rise to several obscure bugs requiring deep understanding of the nuances of Prolog to remedy.
 
-I particularly enjoyed taking the initial prototype of WebPL and iteratively optimising and redesigning it, guided by benchmarking and profiling, to achieve a final result that was 1000x faster than my first working prototype. I am proud to have built a genuinely usable Prolog system that is fast and lightweight, and I hope that it may be useful to others in the future. To this end, I have made the project publicly available on GitHub under the MIT licence.
+I particularly enjoyed taking the initial prototype of WebPL and iteratively optimising and redesigning it, guided by benchmarking and profiling, to achieve a final result that was 1000x faster than my first working prototype. I am proud to have built a genuinely usable Prolog system that is fast and lightweight.
 
 Were I to do this project again, I would spend more time on the design of the Prolog interpreter to make it more modular and extensible. I found it very challenging to evaluate alternative design decisions after having made the initial choices, and the ability to configure the system at runtime would have made it easier to experiment with different implementations and allow the user to choose the most appropriate one for their use case.
 
