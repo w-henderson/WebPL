@@ -30,7 +30,7 @@ Table~\ref{tab:chrome-time} shows the median execution time of each benchmark fo
 \begin{table}[H]
 \centering
 \setstretch{1}
-\begin{tabular}{llllll}
+\begin{tabular}{lrrrrr}
 \addlinespace\hline\addlinespace
 Benchmark & WebPL & WebPL+GC & SWI & Trealla & Tau \\
 \addlinespace\hline\addlinespace
@@ -43,11 +43,11 @@ log10        &   \green{0.27}  &   \green{0.27}  &   1.08  &   0.41  &    13.40 
 mu           &   \green{0.34}  &   0.36  &   1.32  &   0.62  &    15.03  \\
 nreverse     &   \green{0.29}  &   0.38  &   0.65  &   0.40  &    17.28  \\
 ops8         &   0.28  &   \green{0.27}  &   1.10  &   0.46  &    13.18  \\
-poly\_10      &   \green{5.48}  &  16.98$^*$  &  19.31  &   6.45  &  3481.89  \\
+poly\_10      &   \green{5.48}  &  16.98$^*$\hspace{-0.4em}  &  19.31  &   6.45  &  3481.89  \\
 qsort        &   \green{0.32}  &   0.38  &   0.84  &   0.55  &    18.12  \\
 queens\_8     &   \green{6.49}  &   7.30  &  17.87  &   8.38  &   267.43  \\
 query        &  \green{0.77}  &   0.82  &   2.68  &   1.26  &    20.31  \\
-tak          &  \green{15.33}  &  38.56$^*$  &  28.20  &  27.96  & 26691.83  \\
+tak          &  \green{15.33}  &  38.56$^*$\hspace{-0.4em}  &  28.20  &  27.96  & 26691.83  \\
 times10      &   \green{0.27}  &   \green{0.27}  &   1.14  &   0.57  &    12.88  \\
 zebra        &   3.16  &   \green{3.13}  &   7.82  &   9.76  &   901.52  \\
 \addlinespace\hline\addlinespace
@@ -92,7 +92,7 @@ To evaluate the memory usage of each Prolog implementation for each benchmark, a
 \begin{table}[H]
 \centering
 \setstretch{1}
-\begin{tabular}{llllll}
+\begin{tabular}{lrrrrr}
 \addlinespace\hline\addlinespace
 Benchmark & WebPL & WebPL+GC & SWI & Trealla & Tau \\
 \addlinespace\hline\addlinespace
