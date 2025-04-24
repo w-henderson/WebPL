@@ -2,5 +2,10 @@
   "name": "webpl",
   "type": "module",
   "version": "0.1.0",
+  "description": "A Prolog interpreter for the browser",
+  "homepage": "https://github.com/w-henderson/WebPL",
+  "author": "William Henderson <william-henderson@outlook.com>",
+  "license": "MIT",
+  "readme": "../README.md",
   "main": "lib.js"
 }
