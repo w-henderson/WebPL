@@ -7,5 +7,6 @@
   "author": "William Henderson <william-henderson@outlook.com>",
   "license": "MIT",
   "readme": "../README.md",
-  "main": "lib.js"
+  "main": "lib.js",
+  "types": "lib.d.ts"
 }
