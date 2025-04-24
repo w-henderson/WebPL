@@ -1,3 +1,4 @@
 #!/bin/bash
 wasm-pack build --target web ./core --out-dir ../lib/wasm
+touch ./lib/wasm/.npmignore
 (cd ./bench && npm run build)
