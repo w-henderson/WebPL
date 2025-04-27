@@ -133,9 +133,9 @@ WebPL, like SWI-Prolog, provides a built-in \texttt{statistics/2} predicate to a
 \label{fig:heap-usage}
 \end{figure}
 
-For some benchmarks, WebPL uses much less memory than SWI-Prolog. This is because SWI-Prolog pre-allocates a fixed amount of memory for the heap to avoid the overhead of doing so during execution, while WebPL does not pre-allocate any memory, instead doubling the size of the heap each time it gets full. As a result, WebPL never allocates more than twice the memory it needs.
+For some benchmarks, WebPL uses much less memory than SWI-Prolog. This is because SWI-Prolog pre-allocates a fixed amount of memory for the heap to avoid the overhead of doing so during execution, while WebPL does not, instead doubling the size of the heap each time it gets full. As a result, WebPL never allocates more than twice the memory it needs.
 
-For other benchmarks, WebPL uses slightly less memory than SWI-Prolog. Only in the case of the \texttt{tak} benchmark does WebPL use more. These are the more memory-intensive benchmarks, possibly indicating that, in the limit, SWI-Prolog is more memory efficient. The use of the Rust programming language for WebPL limits the memory usage optimisations that can be made (Section~\ref{sec:rust-evaluation}).
+For other benchmarks, WebPL uses slightly less memory than SWI-Prolog. Only in the case of the \texttt{tak} benchmark does WebPL use more. These are the more memory-intensive benchmarks, possibly indicating that, in the limit, SWI-Prolog is more memory-efficient. The use of the Rust programming language for WebPL limits the memory usage optimisations that can be made (Section~\ref{sec:rust-evaluation}).
 
 \section{Binary Size}
 
@@ -198,7 +198,7 @@ function invoke_iii(A, g, I) {
 \end{minted}
 \end{center}
 
-WebAssembly does not have a built-in exception mechanism, so Emscripten uses JavaScript exceptions instead. The \texttt{invoke\_iii} function is used to invoke a WebAssembly function that might raise an exception, and perform the necessary stack manipulation to jump back to the WebAssembly code that handles the exception if one is raised. This comes at the performance cost of crossing the JavaScript-WebAssembly boundary not only when raising an exception, but also when calling any function that might do so.
+WebAssembly does not have a built-in exception mechanism, so Emscripten uses JavaScript exceptions instead. \texttt{invoke\_iii} is used to invoke a WebAssembly function that might raise an exception, and perform the necessary stack manipulation to jump back to the WebAssembly code that handles the exception if one is raised. This comes at the performance cost of crossing the JavaScript-WebAssembly boundary not only when raising an exception, but also when calling any function that might do so.
 
 SWI-Prolog is written in C, so it does not itself use exceptions. However, it supports Prolog exceptions (extra-logical predicates that can be used to implement more complex control flow), and these are implemented using C \texttt{setjmp} and \texttt{longjmp} functions. Emscripten uses the same \texttt{invoke\_iii} mechanism, with its associated cost, to implement these functions.
 
