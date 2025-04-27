@@ -2,11 +2,11 @@
 
 The project was a success: I built a web-native Prolog implementation using WebAssembly, WebPL, with performance surpassing that of existing Prolog systems, while maintaining tight integration with the browser, thus meeting the success criteria. This demonstrated my original hypothesis (Section~\ref{sec:motivation}) that such a system could be built.
 
-Furthermore, the extension goals of building a browser-based development environment, implementing a precise garbage collector, and developing a JavaScript foreign function interface were also successfully completed, making WebPL a practical and usable Prolog system for the Web.
+Furthermore, the extension goals of building a browser-based development environment, implementing a precise garbage collector, and developing a JavaScript foreign function interface were also successfully completed, alongside extending the implementation with extra-logical predicates and CLP features, making WebPL a practical and usable Prolog system for the Web.
 
 Benchmarking showed that WebPL outperforms SWI-Prolog, Trealla Prolog, and Tau Prolog in most cases, even when WebAssembly exception handling is enabled in SWI-Prolog to mitigate its performance issues (Section~\ref{sec:swi-prolog-optimisation}). In addition, its memory usage and binary size are both significantly lower than those of other systems, making it suitable for use in resource-constrained environments such as mobile devices.
 
-I have made the project publicly available on GitHub under the MIT licence, and I hope that it may be useful to others in the future.
+I have publicly released the project on GitHub under the MIT licence, and I hope that it may be useful to others in the future.
 
 \section{Reflections}
 
@@ -18,10 +18,10 @@ Were I to do this project again, I would spend more time on the design of the Pr
 
 \section{Future Work}
 
-There are several areas I would have liked to explore further, but did not have time to do so. These include:
+There are several areas I would have explored further, but lacked time to do so. These include:
 
 \begin{itemize}
-\item \emph{JIT compilation}: The current implementation of WebPL is an interpreter, with limited pre-execution static analysis to optimise the execution of Prolog code. A just-in-time (JIT) compiler could be implemented to compile Prolog code either to the instruction set of a virtual machine, such as the WAM, or directly to WebAssembly. There are several key questions that such an implementation would need to address, including how to maintain WebPL's tight integration with the browser and with JavaScript from compiled code.
+\item \emph{JIT compilation}: The current implementation of WebPL is an interpreter, with limited pre-execution static analysis to optimise the execution of Prolog code. A just-in-time (JIT) compiler could be implemented to compile Prolog code either to the instruction set of a virtual machine, such as the WAM, or directly to WebAssembly. There are several key questions for such an implementation to address, including how to maintain WebPL's tight integration with the browser and with JavaScript from compiled code.
 \item \emph{ISO compliance}: Compliance with the ISO Prolog standard \cite{isoInformationtechnologyProgramming1995} is a goal of many Prolog implementations, and one that cements an implementation's credibility. WebPL is not yet fully compliant with the ISO standard, instead implementing a subset of the standard that is sufficient for this dissertation, but full ISO compliance would be a worthy goal for future work.
-\item \emph{C++ implementation}: Many of the limitations of WebPL arise from the use of the Rust programming language (Section~\ref{sec:rust-evaluation}). Reimplementing the project in C++ may provide more opportunities for optimisation, and more flexibility and control over the exact behaviour of the system. While C++ does not make the strong memory safety guarantees of Rust, WebAssembly prevents memory safety bugs from causing security vulnerabilities.
+\item \emph{C++ implementation}: Many limitations of WebPL arise from the Rust programming language (Section~\ref{sec:rust-evaluation}). Reimplementing the project in C++ may provide more opportunities for optimisation, and more flexibility and control over the exact behaviour of the system. While C++ does not make the strong memory safety guarantees of Rust, WebAssembly prevents memory safety bugs from causing security vulnerabilities.
 \end{itemize}

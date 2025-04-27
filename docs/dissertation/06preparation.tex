@@ -3,7 +3,7 @@
 
 \chapter{Preparation}
 
-This chapter introduces Prolog (Section~\ref{sec:prolog}) and how garbage collection techniques can be applied to it (Section~\ref{sec:prolog-gc}). It also discusses web development with WebAssembly (Section~\ref{sec:webdev}), before describing the tools (Section~\ref{sec:tools}) and development methodology (Section~\ref{sec:dev-methodology}) used in the implementation of the Prolog interpreter. Finally, a requirements analysis is performed (Section~\ref{sec:requirements}) and the starting point of the project stated (Section~\ref{sec:starting-point}).
+This chapter introduces Prolog and its execution model (Section~\ref{sec:prolog}), and how garbage collection techniques can be applied to it (Section~\ref{sec:prolog-gc}). It also discusses web development with WebAssembly (Section~\ref{sec:webdev}), before describing the tools (Section~\ref{sec:tools}) and development methodology (Section~\ref{sec:dev-methodology}) used in the implementation of the Prolog interpreter. Finally, a requirements analysis is performed (Section~\ref{sec:requirements}) and the starting point of the project stated (Section~\ref{sec:starting-point}).
 
 \section{Prolog}
 
@@ -15,7 +15,7 @@ Prolog is rooted in the fundamental idea that logic can be used as a programming
 
 Prolog is based on \emph{first-order logic}, specifically \emph{Horn clauses}, which are of the form
 $$
-B \leftarrow A_1 \land \cdots \land A_n
+B \leftarrow A_1 \land \cdots \land A_n \qquad (n \geq 0)
 $$
 where $B$ is a positive literal (the \emph{head}) and $A_1, \ldots, A_n$ are negative literals (the \emph{body}). The key insight of Kowalski's \emph{logic programming} paradigm is that we can interpret Horn clauses as procedures of a simple programming language, written in Prolog syntax as
 $$
@@ -32,7 +32,7 @@ Prolog clauses are built up from \emph{terms}, which may be
 \item \emph{compound terms}, consisting of a \emph{functor} (atom) and a list of \emph{arguments}, themselves terms (e.g.\ \texttt{is\_even(X)}, \texttt{city(cambridge, united\_kingdom)}).
 \end{itemize}
 
-A Prolog program comprises a set of clauses and a \emph{query}, a goal clause. The aim of the Prolog execution is to find a \emph{substitution} (an assignment of terms to variables) that makes the query true with respect to the program.
+A Prolog program comprises a set of clauses $P$ and a \emph{query} $Q$, a goal clause. The aim of the Prolog execution is to find a \emph{substitution} (an assignment of terms to variables) that makes $Q$ true with respect to $P$.
 
 \subsection{Most General Unification}
 
@@ -40,7 +40,7 @@ A Prolog program comprises a set of clauses and a \emph{query}, a goal clause. T
 
 \paragraph{Martelli-Montanari Algorithm}
 
-The \emph{Martelli-Montanari algorithm} is an algorithm for computing the MGU of two terms $t_1$ and $t_2$ \cite{martelliEfficientUnificationAlgorithm1982}. It iteratively applies rules to a set of equations, starting with $\{t_1 = t_2\}$, until no more rules can be applied, at which point the remaining set of equations is the unifier.
+The \emph{Martelli-Montanari algorithm} is an algorithm for computing the MGU, if it exists, of two terms $t_1$ and $t_2$ \cite{martelliEfficientUnificationAlgorithm1982}. It iteratively applies rules to a set of equations, starting with $\{t_1 = t_2\}$, until no more rules can be applied, at which point the remaining set of equations is the unifier.
 
 The rules are shown in Figure~\ref{fig:martelli-montanari}. $s$ and $t$ are terms, $X$ and $Y$ are variables, $f$ and $g$ are function symbols, and $S$ is a set of equations. $\text{vars}(t)$ denotes the set of variables occurring in $t$.
 
@@ -60,11 +60,12 @@ The condition $X \notin \text{vars}(t)$ is called the \emph{occurs check}, and i
 
 \subsection{Resolution}
 
-\emph{Resolution} enables the inference of new clauses from existing clauses. In particular, the more restrictive \emph{SLD resolution} is the basis of Prolog's execution model.
+\emph{Resolution} enables the inference of new clauses from existing clauses. In particular, the more restrictive \emph{SLD resolution} suffices for Horn clauses and is the basis of Prolog's execution model.
 
 Given a goal clause \texttt{?- A$_1$, $\ldots$, A$_n$}, and a definite clause \texttt{C :- B$_1$, $\ldots$, B$_m$}, such that $C$ and some $A_i$ unify with MGU $\theta$, a new goal clause can be derived by applying the SLD resolution rule:
 $$
-\frac{\texttt{C :- B$_1$, $\ldots$, B$_m$} \qquad \texttt{?- A$_1$, $\ldots$, A$_n$}}{(\texttt{?- A$_1$, $\ldots$, A$_{i-1}$, A$_{i+1}$, $\ldots$, A$_n$, B$_1$, $\ldots$, B$_m$})\theta}
+\frac{\texttt{C :- B$_1$, $\ldots$, B$_m$} \qquad \texttt{?- A$_1$, $\ldots$, A$_n$}}
+{\texttt{?- } (\texttt{A$_1$, $\ldots$, A$_{i-1}$, B$_1$, $\ldots$, B$_m$, A$_{i+1}$, $\ldots$, A$_n$})\theta}
 $$
 
 \subsection{Execution Model}
@@ -195,9 +196,8 @@ In a \emph{structure-copying} implementation, whenever a clause in the program i
 
 Certain Prolog implementations combine some areas. For example, the WAM does not use a separate control stack, preferring to store choice points on the local stack. Tarau's ``hitchhiker'' virtual machine stores code on the heap rather than in a separate code area, as its encoding of instructions is the same as that of terms \cite{tarauHitchhikersGuideReinventing2018}. Li's Logic Virtual Machine (LVM) combines the stack and the heap into a single area to improve locality, which is managed by a garbage collector \cite{liEfficientMemoryManagement2000}.
 
-\paragraph{Last-Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller, and not create a choice point, if the clause is \emph{determinate}, that is, if the failure of the last predicate in the body implies the failure of the entire clause. Last-call optimisation enables programs like in Figure~\ref{fig:lco} to run in constant stack space.
+\paragraph{Last-Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller, and not create a choice point, if the clause is \emph{determinate}, that is, if the failure of the last predicate in the body implies the failure of the entire clause. Last-call optimisation enables programs like the following to run in constant stack space.
 
-\begin{figure}[H]
 \begin{center}
 \begin{minted}{prolog}
 len(L, N) :- len_acc(L, 0, N).
@@ -205,9 +205,6 @@ len_acc([], N, N).
 len_acc([_|T], A, N) :- A1 is A + 1, len_acc(T, A1, N).
 \end{minted}
 \end{center}
-\caption{Computing the length of a list in constant stack space}
-\label{fig:lco}
-\end{figure}
 
 \section{Prolog Garbage Collection}
 
@@ -215,9 +212,8 @@ len_acc([_|T], A, N) :- A1 is A + 1, len_acc(T, A1, N).
 
 When backtracking to a choice point, any terms that were created since that choice point can be deallocated. This can be achieved by storing pointers to the top of the stack and heap at each choice point, and truncating the stack and heap to these pointers when backtracking. This is known as \emph{instant reclaiming} \cite{bekkersDynamicMemoryManagement1992}.
 
-However, instant reclaiming is insufficient for \emph{iterative} Prolog programs, that is, those which never backtrack. Consider the (contrived) program shown in Figure~\ref{fig:iterative}, which sums the first $N$ natural numbers in constant stack space with LCO.
+However, instant reclaiming is insufficient for \emph{iterative} Prolog programs, that is, those which never backtrack. Consider the (contrived) program below, which sums the first $N$ natural numbers in constant stack space with LCO.
 
-\begin{figure}[H]
 \begin{center}
 \begin{minted}{prolog}
 sum(N, S) :- sum_acc(N, acc(0), S).
@@ -228,9 +224,6 @@ sum_acc(N, acc(A), S) :-
   sum_acc(N1, acc(A1), S).
 \end{minted}
 \end{center}
-\caption{A Prolog program that uses constant stack space but linear heap space}
-\label{fig:iterative}
-\end{figure}
 
 By wrapping the accumulator in a functor \texttt{acc}, we force the implementation to allocate it, at each iteration, on the heap instead of the stack. Since heap memory is only reclaimed when backtracking, and this program never backtracks, the heap grows linearly with $N$.
 
@@ -268,7 +261,7 @@ Figure~\ref{fig:web-platform} highlights the difference between native and web a
 \centering
 \begin{subfigure}{0.5\textwidth}
   \centering
-  \begin{tikzpicture}[yscale=0.8]
+  \begin{tikzpicture}
     \fill[thick, black!5] (0,2) rectangle (5,3);
     \draw[thick] (0,0) rectangle (5,1);
     \draw[thick] (0,1) rectangle (5,2);
@@ -281,7 +274,7 @@ Figure~\ref{fig:web-platform} highlights the difference between native and web a
 \end{subfigure}%
 \begin{subfigure}{0.5\textwidth}
   \centering
-  \begin{tikzpicture}[yscale=0.8]
+  \begin{tikzpicture}
     \fill[thick, black!5] (0.25,3) rectangle (4.75,3.75);
     \draw[thick] (0,0) rectangle (5,1);
     \draw[thick] (0,1) rectangle (5,2);
@@ -309,6 +302,8 @@ For these reasons, supporting other programming languages on the Web has been a 
 
 WebAssembly was introduced in 2017 as a solution to the problem of running safe, fast, portable, low-level code on the Web \cite{haasBringingwebspeed2017}. It is a binary instruction format for a stack-based virtual machine that is designed to be a compilation target for high-level languages, and able to run in the browser at near-native speed.
 
+\newpage
+
 \subsection{Memory Model}
 
 \label{sec:wasm-memory-model}
@@ -335,7 +330,7 @@ int main() {
 
 \paragraph{Linear Memory}
 
-The main storage of a WebAssembly program is the \emph{linear memory}, or \emph{memory}, a contiguous array of bytes addressed by 32-bit pointers, indices into the array. The memory is disjoint from the rest of the WebAssembly program. WebAssembly provides a \texttt{memory.grow} instruction to request that the host environment increases the size of the contiguous memory area (an operation like \texttt{realloc}), however, there is no way to free memory.
+The main storage of a WebAssembly program is the \emph{linear memory}, or \emph{memory}, a contiguous array of bytes addressed by 32-bit \emph{pointers} (indices into the array). The memory is disjoint from the rest of the WebAssembly program. WebAssembly provides a \texttt{memory.grow} instruction to request that the host environment increases the size of the contiguous memory area (an operation like \texttt{realloc}), however, there is no way to free memory.
 
 \subsection{Interface with JavaScript}
 
@@ -406,7 +401,7 @@ Git was used for version control, with the repository hosted on GitHub. Each pha
 
 \label{sec:dev-methodology}
 
-The project was developed using a \emph{spiral} methodology \cite{boehmspiralmodelsoftware1986}, with development proceeding in a number of phases, each of which comprising requirements analysis, design, implementation, and testing. Evaluation in each phase involved quantitative comparison to existing Prolog implementations as described in Chapter 4, alongside qualitative comparison regarding feature completeness, which was then used to inform focus areas for the next phase.
+The project was developed using a \emph{spiral} methodology \cite{boehmspiralmodelsoftware1986}, with development proceeding in a number of phases, each of which comprising requirements analysis, design, implementation, and testing. Evaluation in each phase involved quantitative comparison to existing Prolog implementations, as described in Chapter 4, alongside qualitative comparison regarding feature completeness, which was then used to inform focus areas for the next phase.
 
 The development phases were guided by the project proposal (Appendix~\ref{appendix:proposal}), beginning with the implementation of a pure Prolog AST interpreter.
 
@@ -416,7 +411,7 @@ The project was tested using unit tests, integration tests, and manual testing. 
 
 \label{sec:requirements}
 
-The core requirements are stated in the project proposal (Appendix~\ref{appendix:proposal}) and are as follows:
+The core requirements as stated in the project proposal (Appendix~\ref{appendix:proposal}) were:
 
 \vspace*{-1em}
 

@@ -16,8 +16,8 @@ This chapter gives an overview of the implementation of the project, discussing 
 \texttt{core/} & Implementation of the core interpreter in Rust, including the parser, garbage collector, and the JavaScript FFI. & 2664 (Rust) \\
 \texttt{core/src/wasm} & WebAssembly interface for the core interpreter and JavaScript FFI. & \\
 \texttt{core/src/tests} & Unit tests for the core interpreter. & \\
-\texttt{lib/} & Higher-level JavaScript library for the interpreter. & 81 (JS) \\
-\texttt{web/} & Web-based development environment to demonstrate and benchmark the interpreter. & 836 (TS) \\
+\texttt{lib/} & Higher-level JavaScript library for the interpreter. & 81 (JavaScript) \\
+\texttt{web/} & Web-based development environment to demonstrate and benchmark the interpreter. & 836 (TypeScript) \\
 \texttt{web/src/prolog} & TypeScript Prolog interface and wrappers for various Prolog interpreters. & \\
 \texttt{bench/} & Web-based benchmarking tools. & 165 (JS \& Python) \\
 \texttt{docs/} & Documentation for the project. & N/A \\
@@ -25,7 +25,7 @@ This chapter gives an overview of the implementation of the project, discussing 
 & \hfill \textbf{Total} & \textbf{3746} \\
 \hline
 \end{tabular}
-\caption{An overview of key directories in the repository}
+\caption{The key directories in the repository}
 \label{tab:repository-overview}
 \end{table}
 
@@ -135,7 +135,7 @@ To avoid the need to garbage collect the goal stack, goals are removed from the 
 
 \paragraph{Code Area} There is no separate code area, as the clauses of the program are stored on the heap using the same representation as ordinary terms, an idea proposed by Tarau for his ``hitchhiker'' Prolog implementation \cite{tarauHitchhikersGuideReinventing2018}. Initially, my implementation used a distinct code area, but profiling revealed that up to 40\% of the execution time was spent copying terms onto the heap. Benchmarking confirmed that Tarau's approach reduced mean execution time by around 25\%.
 
-Following this approach, copying a clause onto the heap when a goal unifies with its head consists of a single \texttt{memcpy} followed by a linear scan of the copied clause terms to add the appropriate offset to any pointers. To efficiently identify the byte boundaries between terms in the body of the clause, each clause additionally includes a header containing $n$ variables, bound to the $n$ terms in its body (Figure~\ref{fig:clause-layout}).
+Following this approach, copying a clause (\texttt{Head :- Body}) onto the heap when a goal unifies with its head consists of a single \texttt{memcpy} followed by a linear scan of the copied clause terms to add the appropriate offset to any pointers. To efficiently identify the byte boundaries between terms in the body of the clause, each clause additionally includes a header containing $n$ variables, bound to the $n$ terms in its body (Figure~\ref{fig:clause-layout}).
 
 \begin{figure}[H]
 \centering
@@ -184,7 +184,7 @@ Following this approach, copying a clause onto the heap when a goal unifies with
 
 A common theme in my implementation, taken from WebAssembly, is that of preferring indexing over pointers. The contiguous nature of the heap allows terms to be referred to by their index, and the same is true for the goal and choice-point stacks.
 
-Rust discourages the use of raw pointers, instead preferring its memory-safe \emph{references}. Every object in Rust has exactly one \emph{owner}, with multiple immutable references or a single mutable reference allowed, enforced at compile time by the \emph{borrow checker}. The Prolog heap does not fit nicely into this model: multiple variables may be bound to the same term, all requiring mutable access to it (e.g.\ to update the term when unifying). One way to work around this is to use reference counting and \texttt{RefCell}, which facilitates runtime borrow checking, but this is very slow. Instead, terms are referred to by their index in the heap (although this may be informally referred to as a ``pointer''). The merged heap/stack architecture makes this straightforward to implement.
+Rust discourages the use of raw pointers, instead preferring its memory-safe \emph{references}. Every object in Rust has exactly one \emph{owner}, with multiple immutable references or a single mutable reference allowed, enforced at compile time by the \emph{borrow checker}. The Prolog heap does not fit nicely into this model: multiple variables may be bound to the same term, all requiring mutable access to it (e.g.\ to update the term when unifying). One way to work around this is to use reference counting and \texttt{RefCell}, which facilitates runtime borrow checking, but this is very slow. Instead, terms are referred to by their index in the Prolog heap (although this may be informally referred to as a ``pointer''). The merged heap/stack architecture makes this straightforward to implement.
 
 \subsection{Term Representation}
 
@@ -192,7 +192,7 @@ Rust discourages the use of raw pointers, instead preferring its memory-safe \em
 
 Terms are stored on the heap as fixed-size blocks of 16 bytes. These are represented as an enum (Figure~\ref{fig:rust-term-representation}), Rust's sum type.
 
-Atoms are typed, being strings, integers, or floats. Variables include a pointer to their bound object if they are bound, or to themselves otherwise, as in the WAM, but additionally a flag to indicate whether they are \emph{shunted} (Section~\ref{sec:variable-shunting}), which is used in garbage collection, and possibly a pointer to a \emph{suspended goal} (Section~\ref{sec:attributed-variables}). Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments (Figure~\ref{fig:compound}). This allows their variable-sized arguments to be found in constant time, while keeping their layout contiguous. There is also a heap representation of cut, as goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within Prolog (Section~\ref{sec:js-ffi}), are represented by an index into the \emph{lambda table}, along with their arguments like a compound term.
+Atoms are typed, being strings, integers, or floats. Variables include a pointer to their bound object if they are bound, or to themselves otherwise, as in the WAM, but additionally a flag to indicate whether they are \emph{shunted} (Section~\ref{sec:variable-shunting}), which is used in garbage collection, and possibly a pointer to a \emph{suspended goal} (Section~\ref{sec:attributed-variables}). This representation enables mutation-based unification. Compound terms, represented by their functor and arity $n$, are followed in the heap by $n$ variables pointing to each of their arguments (Figure~\ref{fig:compound}). This allows their variable-sized arguments to be found in constant time, while keeping their layout contiguous. There is also a heap representation of cut, as goals are stored on the heap. Finally, \emph{lambda terms}, used to call JavaScript code from within Prolog (Section~\ref{sec:js-ffi}), are represented by an index into the \emph{lambda table}, along with their arguments like a compound term.
 
 \begin{figure}[H]
 \centering
@@ -337,11 +337,11 @@ The cut operator, \texttt{!/0}, is an extra-logical predicate that commits to th
 
 When a clause is copied onto the heap, a linear scan updates its variables by the appropriate offset (Section~\ref{sec:memory-layout}). This also updates any instances of the cut operator to include the index of the current choice point, that is, the one before this clause was selected. When the cut operator becomes the current goal and is executed, the choice-point stack is truncated to the choice point referred to by the cut.
 
-\subsection{Attributed Variables}
+\subsection{Constraint Logic Programming}
 
 \label{sec:attributed-variables}
 
-Like many Prolog implementations, WebPL includes some features from constraint logic programming. \emph{Attributed variables}, or \emph{suspensions}, allow a term to be attached to a variable, which is executed when the variable is bound \cite{holzbaurMetastructuresvsattributed1992}. This allows constraints to be attached to variables and checked later when more information is available. Two common uses of attributed variables are in the \texttt{freeze/2} and \texttt{dif/2} predicates, the former delaying the execution of a goal until a variable is bound to a non-variable term, and the latter ensuring that two variables, when bound, cannot be unified.
+Like many Prolog implementations, WebPL includes some features from \emph{constraint logic programming} (CLP). \emph{Attributed variables}, or \emph{suspensions}, allow a term to be attached to a variable, which is executed when the variable is bound \cite{holzbaurMetastructuresvsattributed1992}. This allows constraints to be attached to variables and checked later when more information is available. Two common uses of attributed variables are in the \texttt{freeze/2} and \texttt{dif/2} predicates, the former delaying the execution of a goal until a variable is bound to a non-variable term, and the latter ensuring that two variables, when bound, cannot be unified.
 
 I implemented a basic form of attributed variables, where attributes are limited to goals, as described by Carlsson \cite{carlssonimplementationdiffreeze1986}. A \texttt{delay/2} built-in predicate is used as the basis for this implementation, which takes a term and a goal as arguments. If the term is not yet bound, the goal becomes the term's \emph{suspended goal} in its heap representation, otherwise it is immediately pushed to the goal stack (Figure~\ref{fig:delay-impl}). The predicate succeeds in either case. When an attributed variable is bound, its suspended goal is pushed to the goal stack and removed from its heap representation.
 
@@ -440,7 +440,7 @@ match lookup_string(functor) {
 
 \label{sec:gc-impl}
 
-Garbage collection is a crucial aspect of the merged heap/stack architecture \cite{liEfficientMemoryManagement2000}. This section describes the implementation of the garbage collector in WebPL, first discussing its foundation in the mark-and-sweep algorithm (Section~\ref{sec:mark-and-sweep}), then defining its goal of being ``precise'' (Section~\ref{sec:precise-gc}). The optimisations made to achieve this goal are described in Sections~\ref{sec:variable-shunting} and~\ref{sec:early-reset}, with Section~\ref{sec:gc-testing} explaining how I verified that the implementation is indeed precise. Finally, Section~\ref{sec:implementation-generational-gc} describes how the garbage collector was adapted to use generational garbage collection to reduce its overhead.
+Garbage collection is a crucial aspect of the merged heap/stack architecture \cite{liEfficientMemoryManagement2000}. This section describes the implementation of the garbage collector in WebPL, first discussing its foundation in the mark-and-sweep algorithm (Section~\ref{sec:mark-and-sweep}), then defining its goal of being ``precise'' (Section~\ref{sec:precise-gc}). The optimisations made to achieve this goal are described in Sections~\ref{sec:variable-shunting} and~\ref{sec:early-reset}, with Section~\ref{sec:gc-testing} explaining how I verified that the implementation is indeed precise. Finally, Section~\ref{sec:implementation-generational-gc} describes how generational garbage collection reduced its overhead.
 
 \subsection{Mark and Sweep}
 
@@ -524,17 +524,14 @@ dummy(Xs, Xs).
 
 \emph{Variable shunting} replaces variables that are only seen in their bound state with their binding values \cite{sahlinVariableShuntingWAM1991}. Such variables were created and then bound without the creation of any choice points in between. I implemented variable shunting using the ``timestamping'' algorithm described by Bekkers et al.\ \cite{bekkersDynamicMemoryManagement1992}.
 
-Figure~\ref{fig:shunt-program} demonstrates the need for variable shunting: \texttt{Y} can be shunted to prevent the heap from growing indefinitely.
+The following program demonstrates the need for variable shunting: \texttt{Y} can be shunted to prevent the heap from growing indefinitely.
 
-\begin{figure}[H]
-\centering
+\begin{center}
 \begin{minted}{prolog}
 f(X) :- Y = X, f(Y).
 ?- f(3).
 \end{minted}
-\caption{A program that demonstrates the need for variable shunting}
-\label{fig:shunt-program}
-\end{figure}
+\end{center}
 
 Bekkers et al.\ define the \emph{age} of a variable to be the serial number of the choice point created just after that variable, i.e.\ the number of choice points on the stack when the variable was created. In the merged heap/stack architecture, due to the chronological layout of the heap, it is equivalent, and simplifies the implementation, to consider the age of a variable to be its index in the heap. The age of a choice point is defined to be the size of the heap upon its creation.
 

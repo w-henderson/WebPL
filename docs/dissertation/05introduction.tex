@@ -14,18 +14,18 @@ Traditional Prolog web applications typically use a client-server architecture. 
 
 There are several Prolog implementations that run in the browser, which fall into two categories: general-purpose native implementations that have been ported to WebAssembly, which I call \emph{web-ported} implementations, and implementations that have been designed from the ground up specifically for the Web, which I call \emph{web-native} implementations. The former category includes SWI-Prolog \cite{wielemakerSWIProlog2012} and Trealla Prolog \cite{davisonTreallaProloghttps2020}, while a notable example of the latter is Tau Prolog \cite{riazaTauPrologProlog2024}, written in JavaScript. At the time of writing, there are no web-native implementations that use WebAssembly.
 
-Web-ported implementations enjoy WebAssembly's near-native performance but suffer from poor integration with the browser environment and large binary sizes. The resource requirements of applications in the browser differ greatly from those of native applications, particularly in terms of memory, and web-ported implementations are typically heavyweight, not taking this into account.
+Existing web-ported implementations enjoy WebAssembly's near-native performance but suffer from poor integration with the browser environment and large binary sizes. The resource requirements of applications in the browser differ greatly from those of native applications, particularly in terms of memory, and web-ported implementations are typically heavyweight, not taking this into account.
 
 Web-native implementations, on the other hand, are more tightly integrated with the browser environment, but do not yet have the performance benefits of WebAssembly. Furthermore, JavaScript's memory management is entirely independent of the Prolog engine, so information about the state of the Prolog engine cannot be used to optimise memory allocation and deallocation.
 
-I hypothesise that \textbf{a web-native Prolog implementation using WebAssembly, with design guided by the constraints of the browser environment, may be able to achieve superior performance compared to existing implementations, while preserving tight integration with the browser}. The project explores this hypothesis by building such a Prolog implementation.
+I hypothesise that \textbf{a web-native Prolog implementation using WebAssembly, with design guided by the constraints of the browser environment, may be able to achieve superior performance compared to existing implementations, while preserving tight integration with the browser}. The project confirms this hypothesis by building such a Prolog implementation.
 
 \section{Project Aims and Outcomes}
 
-The aims of the project were as follows:
+The aims of the project, all of which were achieved, were as follows:
 
 \begin{itemize}
-\item to \textbf{build a web-native pure Prolog\footnote{A subset of Prolog that does not use cut, negation, or extra-logical predicates.} implementation} that uses WebAssembly, with a particular focus on performance and browser integration, including
+\item to \textbf{build a web-native pure Prolog implementation} that uses WebAssembly, with a particular focus on performance and browser integration, including
 \begin{itemize}
 \item a \textbf{lexer} and \textbf{parser}, and
 \item an \textbf{interpreter} for the resulting abstract syntax tree,
@@ -37,7 +37,7 @@ The aims of the project were as follows:
 The following extensions were implemented:
 
 \begin{itemize}
-\item to \textbf{extend the implementation} to support more advanced Prolog features, such as extra-logical predicates, cut, and negation,
+\item to \textbf{extend the implementation} to support more advanced Prolog and CLP features, such as extra-logical predicates, cut, and suspended goals,
 \item to \textbf{build a browser-based development environment} for the Prolog implementation, like SWISH, which supports \textbf{plugins} for other Prolog implementations to facilitate comparison,
 \item to \textbf{implement a garbage collector} to make better use of memory, and
 \item to \textbf{develop a foreign function interface}, extending Prolog syntax to support \textbf{inline JavaScript code}, to better integrate with the browser environment.
