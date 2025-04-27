@@ -41,13 +41,13 @@ This section describes the implementation of the core Prolog interpreter, WebPL,
 
 WebPL uses the merged heap/stack architecture proposed by Li \cite{liEfficientMemoryManagement2000} and described in Section~\ref{sec:preparation-implementation}. Alongside the advantages identified by Li, notably improved cache performance, this architecture is uniquely suited to the linear memory model of WebAssembly.
 
-In a traditional heap/stack architecture, the heap and stack are separate regions of memory, often with few constraints imposed on the heap layout. Indeed, SWI-Prolog uses \texttt{malloc} to allocate memory for terms on the heap\footnote{\url{https://www.swi-prolog.org/pldoc/man?section=memlimit}}, imposing no constraints on its layout. Running natively, this is not a problem, as virtual memory is plentiful. However, WebAssembly's linear memory is contiguous, so the heap must be carefully managed by the WebAssembly code itself to avoid fragmentation. In addition, the trail stack contains pointers to bound variables, which may appear either on the stack or on the heap, but WebAssembly does not allow pointers to stack-allocated objects (Section~\ref{sec:wasm-memory-model}). Therefore, the stack must also be placed in the linear memory, further complicating memory management.
+In a traditional heap/stack architecture, the heap and stack are separate regions of memory. Running natively, virtual memory allows both areas to effectively be unbounded. However, WebAssembly's linear memory is contiguous and must be carefully managed by the WebAssembly code itself to avoid wasting space. Since the trail stack contains pointers to bound variables, which may appear either on the stack or on the heap, and WebAssembly does not allow pointers to stack-allocated objects (Section~\ref{sec:wasm-memory-model}), the stack must also be placed in the linear memory. This means that heap/stack implementations must manage two simultaneously-growing stacks in the one contiguous linear memory, which is difficult to do efficiently.
 
-In a merged heap/stack architecture, all terms are allocated in one contiguous region of memory. This avoids the problem of fragmentation, as the heap grows with allocations and shrinks with instant reclaiming and garbage collection (Section~\ref{sec:gc-impl}). If the heap grows too large for the linear memory, it suffices to execute the \texttt{memory.grow} WebAssembly instruction, with minimal additional work from the WebAssembly module required.
+In a merged heap/stack architecture, all terms are allocated in one contiguous region of memory, avoiding the above dilemma. If the heap grows too large for the linear memory, it suffices to execute the \texttt{memory.grow} WebAssembly instruction, with minimal additional work from the WebAssembly module required.
 
-A key advantage of this architecture is that the heap is stored in chronological order, with older terms at lower addresses. This facilitates the implementation of several garbage collection optimisations, such as variable shunting (Section~\ref{sec:variable-shunting}) and segmented garbage collection (Section~\ref{sec:implementation-generational-gc}).
+Another key advantage of this architecture is that the heap is stored in chronological order, with older terms at lower addresses. This facilitates the implementation of several garbage collection optimisations, such as variable shunting (Section~\ref{sec:variable-shunting}) and segmented garbage collection (Section~\ref{sec:implementation-generational-gc}).
 
-Of course, other areas of memory are needed, also within the linear memory:
+Of course, other smaller areas of memory are needed, also within the linear memory:
 
 \paragraph{Trail Stack} The trail stack is a stack of pointers to variables that have been bound, used for backtracking.
 
@@ -290,7 +290,7 @@ Figure~\ref{fig:grammar} shows the definition of \texttt{Clause} and \texttt{Com
 
 To perform useful computation, the interpreter must support some built-in predicates, such as arithmetic evaluation. The full set of built-in predicates is given in Appendix~\ref{appendix:predicates}.
 
-Each predicate implements a Rust \emph{trait}, similar to an interface in C++, called \texttt{Builtin} (Figure~\ref{fig:builtin-trait}). This trait has an associated constant, \texttt{ARITY}, the number of arguments the predicate takes. The \texttt{eval} function takes a pointer to the first argument and evaluates the predicate, potentially modifying the interpreter state through the mutable \texttt{Solver} reference, returning a boolean if the predicate succeeded or failed with no errors, or returning an error of type \texttt{BuiltinError}, for example if an argument was insufficiently instantiated.
+Each predicate implements a Rust \emph{trait}, similar to a C++ interface, called \texttt{Builtin} (Figure~\ref{fig:builtin-trait}). This trait has an associated constant, \texttt{ARITY}, the number of arguments the predicate takes. The \texttt{eval} function takes a pointer to the first argument and evaluates the predicate, potentially modifying interpreter state through the mutable \texttt{Solver} reference, returning a Boolean if the predicate succeeded or failed with no errors, or an error of type \texttt{BuiltinError} (e.g.\ if an argument was insufficiently instantiated).
 
 \begin{figure}[H]
 \centering
@@ -396,7 +396,7 @@ impl Goal {
 
 \subsection{String Interning}
 
-Strings are expensive to copy because they must be dynamically allocated in the linear memory. Comparing two strings of length $n$ for equality is also far more expensive than an arithmetic comparison, requiring both loads and $O(n)$ comparisons, as opposed to a single WebAssembly instruction for arithmetic comparison.
+Strings are expensive to copy because they must be dynamically allocated in the linear memory. Comparing two strings of length $n$ for equality is also far more expensive than an arithmetic comparison, requiring loads and $O(n)$ comparisons, as opposed to a single instruction for arithmetic comparison.
 
 For this reason, WebPL avoids using \texttt{String} objects wherever possible by using \emph{string interning}. Strings are allocated in a specific area of memory, and references to each string are replaced with its index in that area. A hash table, mapping strings to their indices, prevents duplicates.
 
@@ -440,7 +440,7 @@ match lookup_string(functor) {
 
 \label{sec:gc-impl}
 
-Garbage collection is a crucial aspect of the merged heap/stack architecture \cite{liEfficientMemoryManagement2000}. This section describes the implementation of the garbage collector in WebPL, first discussing its foundation in the mark-and-sweep algorithm (Section~\ref{sec:mark-and-sweep}), then defining its goal of being ``precise'' (Section~\ref{sec:precise-gc}). The optimisations made to achieve this goal are described in Sections~\ref{sec:variable-shunting} and~\ref{sec:early-reset}, with Section~\ref{sec:gc-testing} explaining how I verified that the implementation is indeed precise. Finally, Section~\ref{sec:implementation-generational-gc} describes how generational garbage collection reduced its overhead.
+Garbage collection is a crucial aspect of the merged heap/stack architecture \cite{liEfficientMemoryManagement2000}. This section describes the implementation of the garbage collector in WebPL, first discussing its foundation in the mark-and-sweep algorithm (Section~\ref{sec:mark-and-sweep}), then defining its goal of being ``precise'' (Section~\ref{sec:precise-gc}). The optimisations made to achieve this goal are described in Sections~\ref{sec:variable-shunting} and~\ref{sec:early-reset}, with Section~\ref{sec:gc-testing} explaining how the implementation was verified to be precise. Finally, Section~\ref{sec:implementation-generational-gc} describes how generational garbage collection reduced its overhead.
 
 \subsection{Mark and Sweep}
 
@@ -464,7 +464,7 @@ A key aim of this part of the project was to implement a \emph{precise} garbage 
 ``We define a `precise' garbage collector as a garbage collector that reclaims all data that can no longer be reached considering all possible execution paths from the current state without considering semantics.''
 \end{quote}
 
-They define five programs that must run indefinitely in bounded memory with a precise garbage collector. The final of these concerns if/then/else constructs, which are not implemented as part of this project, but the remaining four are shown in Figure~\ref{fig:gc-programs}.
+They define five programs that must run indefinitely in bounded memory with a precise garbage collector. The final of these concerns if/then/else constructs, which are not implemented in this project, but the remaining four are shown in Figure~\ref{fig:gc-programs}.
 
 In order to meet these criteria, a number of Prolog-specific garbage-collection optimisations were made. These are described in the following sections.
 
