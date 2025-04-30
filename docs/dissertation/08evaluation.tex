@@ -250,7 +250,7 @@ Figure~\ref{fig:binary-size} shows the size of each configuration, and compares 
 
 Another approach explored to reduce binary size was the \texttt{wasm-opt} tool, part of the Binaryen project \cite{zakaiBinaryenhttpsgithubcom2015}, configured to optimise aggressively for size using the \texttt{-Oz} flag. However, this only reduced the size of the SWI-Prolog binary by 0.38\%, and WebPL by 0.62\%. This is likely because the compiler is already running code size optimisations by default; indeed, compiling WebPL without optimisations gives a binary size of 14.16 MB, more than 16 times larger than the optimised version.
 
-While WebPL was built from scratch, conscious of the size of the binary, SWI-Prolog's WebAssembly port was not, and even intentionally avoided some optimisations that would have reduced its binary size in favour of keeping the port closer to the native version\footnote{\url{https://swi-prolog.discourse.group/t/wiki-discussion-swi-prolog-in-the-browser-using-wasm/5651/109}}.
+While WebPL was built from scratch, conscious of its binary size, SWI-Prolog's WebAssembly port was not, and even intentionally avoided some optimisations that would have reduced its binary size in favour of keeping the port closer to the native version\footnote{\url{https://swi-prolog.discourse.group/t/wiki-discussion-swi-prolog-in-the-browser-using-wasm/5651/109}}.
 
 \section{Rust Evaluation}
 
