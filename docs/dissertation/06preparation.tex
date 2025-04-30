@@ -340,7 +340,7 @@ A key design goal of WebAssembly is to be \emph{language-independent}, thus the 
 
 \paragraph{Import and Export} WebAssembly modules can import and export functions to and from the host environment, allowing JavaScript code to call WebAssembly functions, and vice versa. However, only integers and floats can be passed between the two environments in this way.
 
-\paragraph{Shared Memory} To enable more complex data structures to be shared, the browser exposes the WebAssembly module's linear memory to JavaScript as an array of bytes. This allows JavaScript code to serialise complex data structures into the linear memory, passing a pointer to the WebAssembly module, which can then access the data. WebAssembly functions can return complex data structures in the same way, illustrated in more detail in Appendix~\ref{appendix:shared-memory}.
+\paragraph{Shared Memory} To enable more complex data structures to be shared, the browser exposes the WebAssembly module's linear memory to JavaScript as a byte array. This allows JavaScript code to serialise complex data structures into the linear memory, passing a pointer to the WebAssembly module, which can then access the data. WebAssembly functions can return complex data structures in the same way, illustrated in more detail in Appendix~\ref{appendix:shared-memory}.
 
 \section{Tools}
 

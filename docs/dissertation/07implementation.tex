@@ -11,14 +11,14 @@ This chapter gives an overview of the implementation of the project, discussing 
 \centering
 \begin{tabular}{lp{9cm}l}
 \hline
-\textbf{Directory} & \textbf{Description} & \textbf{LOC} \\
+\textbf{Directory} & \textbf{Description} & \textbf{Lines of Code} \\
 \hline
 \texttt{core/} & Implementation of the core interpreter in Rust, including the parser, garbage collector, and the JavaScript FFI. & 2664 (Rust) \\
-\texttt{core/src/wasm} & WebAssembly interface for the core interpreter and JavaScript FFI. & \\
-\texttt{core/src/tests} & Unit tests for the core interpreter. & \\
+\texttt{core/src/wasm/} & WebAssembly interface for the core interpreter and JavaScript FFI. & \\
+\texttt{core/src/tests/} & Unit tests for the core interpreter. & \\
 \texttt{lib/} & Higher-level JavaScript library for the interpreter. & 81 (JavaScript) \\
 \texttt{web/} & Web-based development environment to demonstrate and benchmark the interpreter. & 836 (TypeScript) \\
-\texttt{web/src/prolog} & TypeScript Prolog interface and wrappers for various Prolog interpreters. & \\
+\texttt{web/src/prolog/} & TypeScript Prolog interface and wrappers for various Prolog interpreters. & \\
 \texttt{bench/} & Web-based benchmarking tools. & 165 (JS \& Python) \\
 \texttt{docs/} & Documentation for the project. & N/A \\
 \hline

@@ -281,13 +281,13 @@ For this reason, alongside that Rust discourages the use of unsafe code, unsafe 
 
 \subsection{Memory Layout}
 
-Using a Rust \texttt{enum} to represent terms leaves their layout in memory up to the compiler, which may use more memory than necessary to represent the term. The exact memory layout in WebAssembly can be inspected using experimental Rust compiler flags:
+Using a Rust \texttt{enum} to represent terms leaves their layout in memory up to the compiler, which may use more memory than necessary to represent them. The exact memory layout in WebAssembly can be inspected using experimental Rust compiler flags:
 
 \begin{verbatim}
 $ cargo +nightly rustc --target wasm32-unknown-unknown -- -Zprint-type-sizes
 \end{verbatim}
 
-Figure~\ref{fig:memory-layout-wasm} shows the memory layout of an integer atom term and a variable term in WebAssembly. This reveals a lot of wasted space: flags \texttt{shunted} and \texttt{attributed} use a byte each, and the tag indicating the type of the term uses 4 bytes, even though one would suffice.
+Figure~\ref{fig:memory-layout-wasm} shows the memory layout of an integer atom term and a variable term in WebAssembly. This reveals significant wasted space: flags \texttt{shunted} and \texttt{attributed} use a byte each, and the tag indicating the term type uses 4 bytes, even though one would suffice.
 
 \begin{figure}[H]
 \centering
