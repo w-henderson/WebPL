@@ -231,9 +231,9 @@ This shows that enabling experimental WebAssembly exception support in SWI-Prolo
 
 \label{sec:binary-size-opt}
 
-The size of the SWI-Prolog WebAssembly binary is almost ten times larger than that of WebPL (Section~\ref{sec:binary-size}). It has three distinct parts: the WebAssembly code itself (1.99 MB), various libraries (5.80 MB), and JavaScript glue code (0.16 MB). Many of the libraries are not needed in most applications, so I explored ways to build a ``minimal'' version of SWI-Prolog as a fairer comparison.
+The size of SWI-Prolog's WebAssembly binary is almost ten times larger than that of WebPL (Section~\ref{sec:binary-size}). It has three distinct parts: the WebAssembly code itself (1.99 MB), libraries (5.80 MB), and JavaScript glue code (0.16 MB). Many of the libraries are not needed in most applications, so I built a ``minimal'' version of SWI-Prolog as a fairer comparison.
 
-The SWI-Prolog build process provides a \texttt{-DSWIPL-PACKAGES=OFF} flag which disables the inclusion of all libraries except the standard library, reducing the size of the libraries by nearly half to 2.99 MB and the WebAssembly code to 1.23 MB. However, the WebAssembly build depends on the \texttt{clib} library to load Prolog code from a URL. Building with just this library enabled results in WebAssembly code of 1.44 MB and libraries of 3.27 MB.
+The SWI-Prolog build process provides a \texttt{-DSWIPL-PACKAGES=OFF} flag which excludes all libraries except the standard library, reducing the size of the libraries by nearly half to 2.99 MB and the WebAssembly code to 1.23 MB. However, the WebAssembly build depends on the \texttt{clib} library to load Prolog code from a URL. Building with just this library enabled results in WebAssembly code of 1.44 MB and libraries of 3.27 MB.
 
 This is still 0.49 MB more than building without \texttt{clib}. To avoid this 0.49 MB dependency, I rewrote part of the \texttt{wasm.pl} library in the SWI-Prolog source code to use SWI-Prolog's built-in pure-Prolog \texttt{url} library instead of \texttt{clib}, which is partially written in C.
 
