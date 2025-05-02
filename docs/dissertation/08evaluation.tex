@@ -58,7 +58,7 @@ zebra        &   3.16  &   \green{3.13}  &   7.82  &   9.76  &   901.52  \\
 
 \vspace*{-1.5em}
 
-Unexpectedly, but pleasingly, the results show that WebPL is faster than all other Prolog implementations tested in every benchmark without garbage collection, and all but two when garbage collection is enabled (marked with a *). Section~\ref{sec:swi-prolog-optimisation} explores why this is the case, and how some modifications to the build process for SWI-Prolog can make its execution time more competitive.
+Unexpectedly, but pleasingly, the results show that WebPL is faster than all other Prolog implementations tested in every benchmark without garbage collection, and all but two when garbage collection is enabled (marked with a *). Section~\ref{sec:swi-prolog-optimisation} explores why this is, and how some modifications to the SWI-Prolog build process can make its execution time more competitive.
 
 \begin{figure}[H]
 \centering
@@ -69,9 +69,9 @@ Unexpectedly, but pleasingly, the results show that WebPL is faster than all oth
 
 Figure~\ref{fig:relative-performance} shows the execution time of WebPL, relative to SWI-Prolog, based on the same data as Table~\ref{tab:chrome-time}, with error bars representing quartiles.
 
-This reveals that for three benchmarks, \texttt{fib}, \texttt{poly\_10}, and \texttt{tak}, garbage collection has a significant impact on performance, increasing execution time by 53\%, 210\%, and 152\% respectively. These benchmarks are the most memory-intensive, so garbage collection runs more frequently, leading to decreased performance.
+This reveals that for three benchmarks, \texttt{fib}, \texttt{poly\_10}, and \texttt{tak}, garbage collection has a significant impact on performance, increasing execution time by 53\%, 210\%, and 152\% respectively. These benchmarks are the most memory-intensive, so garbage collection runs more frequently, decreasing performance.
 
-The WebPL garbage collection scheduler invokes the garbage collector whenever heap utilisation exceeds a certain threshold (by default, 90\%). If this does not reduce heap utilisation below the threshold, garbage collection is not invoked again until the threshold is met again after the heap has been resized, which occurs when it is completely full. Furthermore, after a garbage collection, there is a timeout before another can begin, to avoid invoking the garbage collector too frequently.
+The WebPL garbage collection scheduler invokes the garbage collector whenever heap utilisation exceeds a certain threshold (by default, 90\%). If this does not reduce heap utilisation below the threshold, garbage collection is not invoked again until the threshold is met again after the heap has been resized, which occurs when it is completely full. Furthermore, after a garbage collection, there is a timeout before another can begin, to avoid invoking garbage collection too frequently.
 
 This is a more aggressive strategy than that of SWI-Prolog, which does not consider the allocated size of the heap when deciding when to invoke the garbage collector, instead considering the used size of the heap at the last garbage collection\footnote{\url{https://www.swi-prolog.org/pldoc/man?section=gc}}. Therefore, SWI-Prolog is less conservative of memory (Section~\ref{sec:memory-usage}), and may resize the heap unnecessarily, but avoids the performance penalty of frequent garbage collections.
 
@@ -81,13 +81,13 @@ This is a more aggressive strategy than that of SWI-Prolog, which does not consi
 
 A notable criticism of existing Prolog implementations for the Web is their high memory usage (Section~\ref{sec:motivation}).
 
-Two approaches were taken in evaluating memory usage. The browser's \texttt{performance.memory} API was used to measure the memory usage of a browser tab running the Prolog interpreter (Section~\ref{sec:web-page-memory-usage}). However, this also includes the size of the WebAssembly binary, located in the memory of the browser tab. Therefore, the Prolog implementation's own memory usage statistics were also used, but this is only available in WebPL and SWI-Prolog (Section~\ref{sec:prolog-heap-usage}).
+Two approaches were taken in evaluating memory usage. The browser's \texttt{performance.memory} API was used to measure the memory usage of a browser tab running the Prolog implementation (Section~\ref{sec:web-page-memory-usage}). However, this includes the size of the WebAssembly binary, located in the memory of the tab. Therefore, the implementation's own memory usage statistics were also used, but this is only available in WebPL and SWI-Prolog (Section~\ref{sec:prolog-heap-usage}).
 
 \subsection{Web-Page Memory Usage}
 
 \label{sec:web-page-memory-usage}
 
-To evaluate the memory usage of each Prolog implementation for each benchmark, a Python script using the Selenium browser automation library \cite{softwarefreedomconservancySeleniumhttpsgithubcom2025} was developed. For each implementation and each benchmark, the script starts a new browser instance, loads the implementation and benchmark, runs the benchmark once, and measures the memory usage of the tab using \texttt{performance.memory}. As memory used by WebAssembly cannot be freed, the resulting measurement is the peak memory usage during the execution of the benchmark, shown in Table~\ref{tab:chrome-memory}.
+To evaluate the memory usage of each Prolog implementation for each benchmark, a Python script using the Selenium browser automation library \cite{softwarefreedomconservancySeleniumhttpsgithubcom2025} was developed. For each implementation and each benchmark, the script starts a new browser instance, loads the implementation and benchmark, runs the benchmark once, and measures the memory usage of the tab using \texttt{performance.memory}. As memory used by WebAssembly cannot be freed, the resulting measurement is the peak memory usage during the execution of the benchmark (Table~\ref{tab:chrome-memory}).
 
 \begin{table}[H]
 \centering
@@ -118,7 +118,7 @@ zebra & \green{4.90} & \green{4.90} & 36.45 & 25.10 & 104.97 \\
 \label{tab:chrome-memory}
 \end{table}
 
-WebPL shows the lowest memory usage for all benchmarks with garbage collection enabled. However, the variance of memory usage across benchmarks is very small due to the often much larger binary size being included in the memory of the browser tab. To better evaluate the memory usage of the Prolog implementations themselves, another approach was taken.
+WebPL shows the lowest memory usage for all benchmarks with garbage collection enabled. However, the variance of memory usage across benchmarks is very small due to the often much larger binary size being included. To better evaluate the memory usage of the Prolog implementations themselves, another approach was taken.
 
 \subsection{Prolog Heap Usage}
 
@@ -133,9 +133,9 @@ WebPL, like SWI-Prolog, provides a built-in \texttt{statistics/2} predicate to a
 \label{fig:heap-usage}
 \end{figure}
 
-For some benchmarks, WebPL uses much less memory than SWI-Prolog. This is because SWI-Prolog pre-allocates a fixed amount of memory for the heap to avoid the overhead of doing so during execution, while WebPL does not, instead doubling the size of the heap each time it gets full. As a result, WebPL never allocates more than twice the memory it needs.
+For some benchmarks, WebPL uses much less memory than SWI-Prolog. This is because SWI-Prolog pre-allocates a fixed amount of heap memory to avoid the overhead of doing so during execution, while WebPL does not, instead doubling the size of the heap each time it gets full. As a result, WebPL never allocates more than twice the memory it needs.
 
-For other benchmarks, WebPL uses slightly less memory than SWI-Prolog. Only in the case of the \texttt{tak} benchmark does WebPL use more. These are the more memory-intensive benchmarks, possibly indicating that, in the limit, SWI-Prolog is more memory-efficient. The use of the Rust programming language for WebPL limits the memory usage optimisations that can be made (Section~\ref{sec:rust-evaluation}).
+For other benchmarks, WebPL uses slightly less memory than SWI-Prolog. Only in the case of \texttt{tak} does WebPL use more. These are the more memory-intensive benchmarks, possibly indicating that, in the limit, SWI-Prolog is more memory-efficient. The use of Rust for WebPL limits the memory usage optimisations that can be made (Section~\ref{sec:rust-evaluation}).
 
 \section{Binary Size}
 
@@ -161,7 +161,7 @@ Tau Prolog & \green{0.57 MB} \\
 \label{tab:binary-size}
 \end{table}
 
-While Tau Prolog, written in JavaScript, is the smallest, WebPL is the only WebAssembly implementation smaller than 1MB, and is only 48\% larger than Tau Prolog, a significant improvement over SWI-Prolog and Trealla Prolog. Section~\ref{sec:binary-size-opt} explores why SWI-Prolog is so large, and how its size can be reduced.
+While Tau Prolog, written in JavaScript, is the smallest, WebPL is the only WebAssembly implementation smaller than 1MB, and is only 48\% larger than Tau Prolog, significantly less than SWI-Prolog and Trealla Prolog. Section~\ref{sec:binary-size-opt} explores why SWI-Prolog is so large, and how its size can be reduced.
 
 \section{SWI-Prolog Optimisation}
 
@@ -171,7 +171,7 @@ Given the unexpectedly poor performance of industry-standard SWI-Prolog in both 
 
 \subsection{Profiling SWI-Prolog}
 
-As identified in Section~\ref{sec:prolog-comparison}, WebPL's execution time is significantly faster than that of SWI-Prolog. To explore why this is the case, I profiled the execution of the \texttt{queens\_8} benchmark in SWI-Prolog using Chrome DevTools. Figure~\ref{fig:swi-prolog-profile} shows a screenshot of the stack chart.
+As identified in Section~\ref{sec:prolog-comparison}, WebPL's execution time is significantly faster than that of SWI-Prolog. To explore why, I profiled the execution of the \texttt{queens\_8} benchmark in SWI-Prolog using Chrome DevTools. Figure~\ref{fig:swi-prolog-profile} shows the resulting stack chart.
 
 \begin{figure}[H]
 \centering
@@ -180,7 +180,7 @@ As identified in Section~\ref{sec:prolog-comparison}, WebPL's execution time is 
 \label{fig:swi-prolog-profile}
 \end{figure}
 
-This revealed that a great deal of time is spent crossing the boundary between WebAssembly and JavaScript code, in particular calling the \texttt{invoke\_iii} JavaScript function from WebAssembly, which promptly calls back into WebAssembly code. This function is generated by Emscripten, the compiler used to compile SWI-Prolog to WebAssembly, and is shown below.
+This revealed that a great deal of time is spent crossing the boundary between WebAssembly and JavaScript code, in particular calling the \texttt{invoke\_iii} JavaScript function from WebAssembly, which promptly calls back into WebAssembly. This function is generated by Emscripten, the compiler used to compile SWI-Prolog to WebAssembly, and is shown below.
 
 \begin{center}
 \begin{minted}{javascript}
@@ -198,15 +198,15 @@ function invoke_iii(A, g, I) {
 \end{minted}
 \end{center}
 
-WebAssembly does not have a built-in exception mechanism, so Emscripten uses JavaScript exceptions instead. \texttt{invoke\_iii} is used to invoke a WebAssembly function that might raise an exception, and perform the necessary stack manipulation to jump back to the WebAssembly code that handles the exception if one is raised. This comes at the performance cost of crossing the JavaScript-WebAssembly boundary not only when raising an exception, but also when calling any function that might do so.
+WebAssembly does not have a built-in exception mechanism, so Emscripten uses JavaScript exceptions instead. \texttt{invoke\_iii} is used to invoke a WebAssembly function that might raise an exception, and perform the necessary stack manipulation to jump back to WebAssembly code that handles the exception if one is raised. This comes at the performance cost of crossing the JavaScript-WebAssembly boundary not only when raising an exception, but also when calling any function that might do so.
 
-SWI-Prolog is written in C, so it does not itself use exceptions. However, it supports Prolog exceptions (extra-logical predicates that can be used to implement more complex control flow), and these are implemented using C \texttt{setjmp} and \texttt{longjmp} functions. Emscripten uses the same \texttt{invoke\_iii} mechanism, with its associated cost, to implement these functions.
+SWI-Prolog is written in C, so does not itself use exceptions. However, it supports Prolog exceptions (extra-logical predicates that can be used to implement more complex control flow), and these are implemented using C \texttt{setjmp} and \texttt{longjmp} functions. Emscripten uses the same \texttt{invoke\_iii} mechanism, with its associated cost, to implement these functions.
 
 \subsection{Experimental WebAssembly Exception Support}
 
 While exceptions are not currently supported in WebAssembly, there is a proposal\footnote{\url{https://github.com/WebAssembly/exception-handling/blob/main/proposals/exception-handling/Exceptions.md}} to do so. This has been experimentally implemented in Chrome's V8 JavaScript engine, and can be enabled with the \texttt{--enable-experimental-webassembly-features} flag.
 
-To evaluate the potential performance gains of this feature for SWI-Prolog, I modified the SWI-Prolog build process to enable experimental WebAssembly exception support in Emscripten and Node.js, which is used to run some SWI-Prolog tests. SWI-Prolog is built using the Docker container system, so I added the necessary flags in various places in the Dockerfile, as well as making further changes to have it build on the Arm architecture.
+To evaluate the potential performance gains of this feature for SWI-Prolog, I modified the SWI-Prolog build process to enable experimental WebAssembly exception support in Emscripten and Node.js, which is used for some SWI-Prolog tests. SWI-Prolog is built using the Docker container system, so I added the necessary flags in various places in the Dockerfile, as well as making further changes to have it build on the Arm architecture.
 
 \vspace*{-1em}
 
@@ -225,7 +225,7 @@ The benchmark suite was then re-run with the modified SWI-Prolog build in Chrome
 \label{fig:swi-prolog-exception}
 \end{figure}
 
-This shows that enabling experimental WebAssembly exception support in SWI-Prolog reduces execution time by an average of around 60\%, bringing it much closer to, and in some cases surpassing, WebPL.
+This shows that enabling experimental WebAssembly exception support in SWI-Prolog reduces execution time by around 60\%, bringing it much closer to, and in some cases surpassing, WebPL.
 
 \subsection{Binary Size}
 

@@ -391,11 +391,11 @@ Iconoir & MIT & Icons \\
 
 \paragraph{Version Control}
 
-Git was used for version control, with the repository hosted on GitHub. Each phase of development was carried out on a separate branch, with pull requests used to merge completed features into the \texttt{main} branch.
+Git was used for version control, with the repository hosted on GitHub. I used a trunk-based branching strategy, where each phase of development was carried out on a separate branch, with pull requests used to merge completed features into the \texttt{main} branch.
 
 \paragraph{Continuous Integration} GitHub Actions, a GitHub service to automatically run code on repository events, was used for continuous integration, compiling and running the test suite on each push to the repository. GitHub's ``branch protection'' feature was employed to ensure that commits to the \texttt{main} branch could only be made through pull requests, and that all checks must pass before merging.
 
-\paragraph{Deployment} The browser-based development environment was automatically built and deployed to Cloudflare Pages, a static website hosting service, on each push to the \texttt{main} branch, using GitHub Actions.
+\paragraph{Deployment} The browser-based development environment was automatically built and deployed to Cloudflare Pages, a free static website hosting service, on each push to the \texttt{main} branch, using GitHub Actions.
 
 \section{Development Methodology}
 
