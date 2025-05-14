@@ -58,7 +58,7 @@ zebra        &   3.16  &   \green{3.13}  &   7.82  &   9.76  &   901.52  \\
 
 \vspace*{-1.5em}
 
-Unexpectedly, but pleasingly, the results show that WebPL is faster than all other Prolog implementations tested in every benchmark without garbage collection, and all but two when garbage collection is enabled (marked with a *). Section~\ref{sec:swi-prolog-optimisation} explores why this is, and how some modifications to the SWI-Prolog build process can make its execution time more competitive.
+Unexpectedly, but pleasingly, the results show that WebPL is faster than all other Prolog implementations tested in every benchmark without garbage collection, and all but two when garbage collection is enabled (marked with a $\ast$). Section~\ref{sec:swi-prolog-optimisation} explores why this is, and how some modifications to the SWI-Prolog build process can make its execution time more competitive.
 
 \begin{figure}[H]
 \centering
@@ -69,7 +69,7 @@ Unexpectedly, but pleasingly, the results show that WebPL is faster than all oth
 
 Figure~\ref{fig:relative-performance} shows the execution time of WebPL, relative to SWI-Prolog, based on the same data as Table~\ref{tab:chrome-time}, with error bars representing quartiles.
 
-This reveals that for three benchmarks, \texttt{fib}, \texttt{poly\_10}, and \texttt{tak}, garbage collection has a significant impact on performance, increasing execution time by 53\%, 210\%, and 152\% respectively. These benchmarks are the most memory-intensive, so garbage collection runs more frequently, decreasing performance.
+This reveals that for three benchmarks, \texttt{fib}, \texttt{poly\_10}, and \texttt{tak}, garbage collection has a major impact on performance, increasing execution time by 53\%, 210\%, and 152\% respectively. These benchmarks are the most memory-intensive, so garbage collection runs more frequently, decreasing performance.
 
 The WebPL garbage collection scheduler invokes the garbage collector whenever heap utilisation exceeds a certain threshold (by default, 90\%). If this does not reduce heap utilisation below the threshold, garbage collection is not invoked again until the threshold is met again after the heap has been resized, which occurs when it is completely full. Furthermore, after a garbage collection, there is a timeout before another can begin, to avoid invoking garbage collection too frequently.
 
