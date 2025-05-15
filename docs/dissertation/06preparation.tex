@@ -196,7 +196,7 @@ In a \emph{structure-copying} implementation, whenever a clause in the program i
 
 Certain Prolog implementations combine some areas. For example, the WAM does not use a separate control stack, preferring to store choice points on the local stack. Tarau's ``hitchhiker'' virtual machine stores code on the heap rather than in a separate code area, as its encoding of instructions is the same as that of terms \cite{tarauHitchhikersGuideReinventing2018}. Li's Logic Virtual Machine (LVM) combines the stack and the heap into a single area to improve locality, which is managed by a garbage collector \cite{liEfficientMemoryManagement2000}.
 
-\paragraph{Last-Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller, and not create a choice point, if the clause is \emph{determinate}, that is, if the failure of the last predicate in the body implies the failure of the entire clause. Last-call optimisation enables programs like the following to run in constant stack space.
+\paragraph{Last-Call Optimisation (LCO)} The last predicate in the body of a clause can re-use the stack frame of its caller and avoid creating a choice point if the clause is \emph{determinate}, that is, if the failure of the last predicate in the body implies the failure of the entire clause. Last-call optimisation enables programs like the following to run in constant stack space.
 
 \begin{center}
 \begin{minted}{prolog}

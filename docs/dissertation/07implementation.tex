@@ -51,7 +51,7 @@ The repository is structured around four key modules, separated by language and 
 
 \label{sec:core-interpreter}
 
-This section describes the implementation of the core Prolog interpreter, WebPL, implemented in Rust.
+This section describes the implementation of the core Prolog interpreter, WebPL, in Rust.
 
 \subsection{Memory Layout}
 
@@ -204,7 +204,7 @@ Following this approach, copying a clause (\texttt{Head :- Body}) onto the heap 
 
 A common theme in my implementation, taken from WebAssembly, is that of preferring indexing over pointers. The contiguous nature of the heap allows terms to be referred to by their index, and the same is true for the goal and choice-point stacks.
 
-Rust discourages the use of raw pointers, instead preferring memory-safe \emph{references}. Every object in Rust has exactly one \emph{owner}, with multiple immutable references or a single mutable reference allowed, enforced at compile time by the \emph{borrow checker}. The Prolog heap does not fit nicely into this model: multiple variables may be bound to the same term, all requiring mutable access to it (e.g.\ to update the term when unifying). One way to work around this is to use reference counting and \texttt{RefCell}, which facilitates runtime borrow checking, but this is slow. Instead, terms are referred to by their index in the Prolog heap (although this may be informally referred to as a ``pointer''). The merged heap/stack architecture makes this straightforward to implement.
+Rust discourages the use of raw pointers, instead preferring memory-safe \emph{references}. Every object in Rust has exactly one \emph{owner}, with multiple immutable references or a single mutable reference, enforced at compile time by the \emph{borrow checker}. The Prolog heap does not fit nicely into this model: multiple variables may be bound to the same term, all requiring mutable access (e.g.\ to update the term when unifying). One way to work around this is to use reference counting and \texttt{RefCell}, which facilitates runtime borrow checking, but this is slow. Therefore, instead of using references, terms are referred to by their index in the Prolog heap (although this may be informally referred to as a ``pointer''). The merged heap/stack architecture makes this straightforward to implement.
 
 \subsection{Term Representation}
 
