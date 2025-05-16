@@ -11,7 +11,7 @@
 
 WebPL is a web-native Prolog implementation, written from scratch in Rust and compiled to WebAssembly. Alongside the core interpreter, it also includes a simple [web-based IDE](https://webpl.whenderson.dev) for writing and running Prolog code in the browser, a precise garbage collector, and a JavaScript FFI for calling JavaScript functions from Prolog.
 
-This project is the basis of my Cambridge Computer Science Tripos dissertation, written in the 2024-2025 academic year. Once I've submitted the dissertation I will make it available here!
+This project is the basis of my Cambridge Computer Science Tripos dissertation, written in the 2024-2025 academic year, and can be found [here](https://github.com/w-henderson/WebPL/blob/main/dissertation.pdf).
 
 ## Installation
 
