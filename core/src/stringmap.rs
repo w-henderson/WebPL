@@ -35,6 +35,7 @@ pub mod str {
     pub const CALL: usize = 28;
     pub const NONVAR: usize = 29;
     pub const FREEZE: usize = 30;
+    pub const EMPTY: usize = 31;
 }
 
 pub struct StringMap {
@@ -76,6 +77,7 @@ impl Default for StringMap {
             "call".to_string(),
             "nonvar".to_string(),
             "freeze".to_string(),
+            "".to_string(),
         ];
 
         let map = reverse
