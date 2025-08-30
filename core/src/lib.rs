@@ -295,7 +295,7 @@ impl Solver {
             | (
                 HeapTerm::Atom(atom::Atom::CharList(id, index)),
                 HeapTerm::Compound(stringmap::str::DOT, 2),
-            ) if *id != stringmap::str::EMPTY => {
+            ) => {
                 let trail_checkpoint = self.trail.checkpoint();
                 let heap_checkpoint = self.heap.checkpoint();
 
@@ -313,14 +313,11 @@ impl Solver {
                     .alloc(HeapTerm::Atom(atom::Atom::String(head_char)));
 
                 if self.unify(a_root + 1, head) {
-                    let tail = self.heap.alloc(HeapTerm::Atom(atom::Atom::CharList(
-                        if index + 1 == string_len {
-                            stringmap::str::EMPTY
-                        } else {
-                            id
-                        },
-                        index + 1,
-                    )));
+                    let tail = self.heap.alloc(HeapTerm::Atom(if index + 1 == string_len {
+                        atom::Atom::String(stringmap::str::NIL)
+                    } else {
+                        atom::Atom::CharList(id, index + 1)
+                    }));
 
                     if self.unify(a_root + 2, tail) {
                         return true;
