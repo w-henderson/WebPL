@@ -22,6 +22,7 @@ pub enum Term {
 #[derive(Debug)]
 pub enum Atom {
     String(String),
+    CharList(String),
     Integer(i64),
     Float(f64),
 }

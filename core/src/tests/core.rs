@@ -198,3 +198,23 @@ fn nullary_predicate() {
     assert_eq!(solver.step().unwrap(), Some(vec![]));
     assert_eq!(solver.step().unwrap(), None);
 }
+
+#[test]
+fn char_list() {
+    let mut solver_1 = Solver::new("", r#"[A,B] = "ab"."#).unwrap();
+    assert_eq!(
+        solver_1.step().unwrap(),
+        Some(vec![("A".into(), "a".into()), ("B".into(), "b".into())])
+    );
+    assert_eq!(solver_1.step().unwrap(), None);
+
+    let mut solver_2 = Solver::new("", r#"[A|B] = "abc"."#).unwrap();
+    assert_eq!(
+        solver_2.step().unwrap(),
+        Some(vec![("A".into(), "a".into()), ("B".into(), "bc".into())])
+    );
+    assert_eq!(solver_2.step().unwrap(), None);
+
+    let mut solver_3 = Solver::new("", r#"[A,B] = "abcd"."#).unwrap();
+    assert_eq!(solver_3.step().unwrap(), None);
+}

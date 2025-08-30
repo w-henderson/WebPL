@@ -64,7 +64,8 @@ BracketedTerm: Term = <Term>;
 
 Atom: Atom = {
     <s:AtomStr> => Atom::String(s),
-    <s:StringLiteral> => Atom::String(s),
+    "\"\"" => Atom::String("[]".to_string()),
+    <s:StringLiteral> => Atom::CharList(s[1..s.len()-1].to_string()),
     <i:Integer> => Atom::Integer(i),
     <f:Float>   => Atom::Float(f),
 }

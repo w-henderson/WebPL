@@ -274,17 +274,61 @@ impl Solver {
                     return false;
                 }
 
-                let checkpoint = self.trail.checkpoint();
+                let trail_checkpoint = self.trail.checkpoint();
+                let heap_checkpoint = self.heap.checkpoint();
 
                 for (a_arg, b_arg) in (1..=*a_arity).map(|i| (a_root + i, b_root + i)) {
                     if !self.unify(a_arg, b_arg) {
-                        self.trail.undo(checkpoint, &mut self.heap);
+                        self.trail.undo(trail_checkpoint, &mut self.heap);
+                        self.heap.undo(heap_checkpoint);
                         return false;
                     }
                 }
 
                 true
             }
+
+            (
+                HeapTerm::Compound(stringmap::str::DOT, 2),
+                HeapTerm::Atom(atom::Atom::CharList(id, index)),
+            )
+            | (
+                HeapTerm::Atom(atom::Atom::CharList(id, index)),
+                HeapTerm::Compound(stringmap::str::DOT, 2),
+            ) => {
+                let trail_checkpoint = self.trail.checkpoint();
+                let heap_checkpoint = self.heap.checkpoint();
+
+                let id = *id;
+                let index = *index;
+
+                let string = self.heap.string_map.get(id).unwrap();
+                let string_len = string.len();
+                let head_char = self
+                    .heap
+                    .string_map
+                    .alloc(&string.chars().nth(index).unwrap().to_string());
+                let head = self
+                    .heap
+                    .alloc(HeapTerm::Atom(atom::Atom::String(head_char)));
+
+                if self.unify(a_root + 1, head) {
+                    let tail = self.heap.alloc(HeapTerm::Atom(if index + 1 == string_len {
+                        atom::Atom::String(stringmap::str::NIL)
+                    } else {
+                        atom::Atom::CharList(id, index + 1)
+                    }));
+
+                    if self.unify(a_root + 2, tail) {
+                        return true;
+                    }
+                }
+
+                self.trail.undo(trail_checkpoint, &mut self.heap);
+                self.heap.undo(heap_checkpoint);
+                false
+            }
+
             _ => false,
         }
     }
