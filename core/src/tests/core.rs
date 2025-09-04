@@ -218,3 +218,17 @@ fn char_list() {
     let mut solver_3 = Solver::new("", r#"[A,B] = "abcd"."#).unwrap();
     assert_eq!(solver_3.step().unwrap(), None);
 }
+
+#[test]
+fn variable_list() {
+    let mut solver = Solver::new("", "X = [1,2,3], X = [A|B].").unwrap();
+    assert_eq!(
+        solver.step().unwrap(),
+        Some(vec![
+            ("X".into(), "[1,2,3]".into()),
+            ("A".into(), "1".into()),
+            ("B".into(), "[2,3]".into()),
+        ])
+    );
+    assert_eq!(solver.step().unwrap(), None);
+}

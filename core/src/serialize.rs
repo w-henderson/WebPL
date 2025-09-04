@@ -27,7 +27,7 @@ impl Heap {
     fn serialize_inner(
         &self,
         mut term: HeapTermPtr,
-        stack: Option<usize>,
+        mut stack: Option<usize>,
         stacks: &mut Vec<(String, Vec<HeapTermPtr>)>,
         mut continue_list: bool,
     ) -> Result<String, std::fmt::Error> {
@@ -91,6 +91,7 @@ impl Heap {
 
                     term += 2;
                     continue_list = true;
+                    stack = None;
                     continue;
                 }
                 HeapTerm::Compound(functor, arity) => {
